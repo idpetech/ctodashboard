@@ -1,0 +1,115 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "CTODashboardCostExplorerAccess",
+            "Effect": "Allow",
+            "Action": [
+                "ce:GetCostAndUsage",
+                "ce:GetUsageReport",
+                "ce:DescribeCostCategoryDefinition",
+                "ce:GetRightsizingRecommendation",
+                "ce:GetSavingsUtilizationDetails",
+                "ce:GetReservationCoverage",
+                "ce:GetReservationPurchaseRecommendation",
+                "ce:GetReservationUtilization",
+                "ce:GetSavingsPlansUtilizationDetails",
+                "ce:GetSavingsPlansPurchaseRecommendation",
+                "ce:GetUsageReport"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CTODashboardEC2ReadOnlyAccess",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeInstances",
+                "ec2:DescribeInstanceStatus",
+                "ec2:DescribeVolumes",
+                "ec2:DescribeSnapshots",
+                "ec2:DescribeImages",
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeVpcs",
+                "ec2:DescribeSubnets",
+                "ec2:DescribeAddresses",
+                "ec2:DescribeNetworkInterfaces",
+                "ec2:DescribeTags"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CTODashboardLightsailReadOnlyAccess",
+            "Effect": "Allow",
+            "Action": [
+                "lightsail:GetInstances",
+                "lightsail:GetBundles",
+                "lightsail:GetRegions",
+                "lightsail:GetInstanceState",
+                "lightsail:GetInstanceMetricData",
+                "lightsail:GetStaticIps"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CTODashboardRDSReadOnlyAccess",
+            "Effect": "Allow",
+            "Action": [
+                "rds:DescribeDBInstances",
+                "rds:DescribeDBClusters",
+                "rds:DescribeDBSnapshots",
+                "rds:DescribeDBSubnetGroups",
+                "rds:DescribeDBParameterGroups",
+                "rds:DescribeOptionGroups",
+                "rds:ListTagsForResource"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CTODashboardS3ReadOnlyAccess",
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListAllMyBuckets",
+                "s3:GetBucketLocation",
+                "s3:GetBucketTagging",
+                "s3:GetBucketVersioning",
+                "s3:GetBucketLogging",
+                "s3:GetBucketNotification"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CTODashboardRoute53ReadOnlyAccess",
+            "Effect": "Allow",
+            "Action": [
+                "route53:ListHostedZones",
+                "route53:GetHostedZone",
+                "route53:ListResourceRecordSets",
+                "route53:GetTrafficPolicy",
+                "route53:ListTrafficPolicies"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CTODashboardCloudWatchReadOnlyAccess",
+            "Effect": "Allow",
+            "Action": [
+                "cloudwatch:GetMetricStatistics",
+                "cloudwatch:ListMetrics",
+                "cloudwatch:GetMetricData",
+                "cloudwatch:DescribeAlarms"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CTODashboardLambdaReadOnlyAccess",
+            "Effect": "Allow",
+            "Action": [
+                "lambda:ListFunctions",
+                "lambda:GetFunction",
+                "lambda:GetFunctionConfiguration",
+                "lambda:ListTags"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

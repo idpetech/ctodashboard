@@ -1,0 +1,64 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    # Frontend tests
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.10.0'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install frontend dependencies
+      run: cd frontend && npm ci
+    
+    - name: Build frontend
+      run: cd frontend && npm run build
+      
+    - name: Test frontend
+      run: cd frontend && npm run test:run
+    
+    # Backend tests  
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11.6'
+    
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        python -m venv .venv
+        source .venv/bin/activate
+        pip install -r requirements.txt
+    
+    - name: Test backend
+      run: |
+        cd backend
+        source .venv/bin/activate
+        python -m pytest test_main.py -v
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-22.04
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Deploy Frontend to Vercel
+      run: echo "Frontend deployment - add Vercel token later"
+    
+    - name: Deploy Backend to Railway  
+      run: echo "Backend deployment - add Railway token later"
