@@ -1328,8 +1328,14 @@ def all_metrics_endpoint(assignment_id):
         }), 500
 
 if __name__ == "__main__":
+    # Use PORT from environment (for Render deployment) or default to 3001
+    port = int(os.getenv("PORT", 3001))
+    
     print("🚀 Starting Integrated CTO Dashboard...")
-    print("📍 Access at: http://localhost:3001")
+    print(f"📍 Access at: http://localhost:{port}")
     print("💡 This version has AWS functions embedded - no client-server dependency!")
     print("🔧 All AWS calls are direct function calls within the same process")
-    app.run(host="0.0.0.0", port=3001, debug=True)
+    
+    # Disable debug mode in production
+    debug_mode = os.getenv("FLASK_ENV") == "development"
+    app.run(host="0.0.0.0", port=port, debug=debug_mode)
