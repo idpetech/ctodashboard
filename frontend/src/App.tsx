@@ -1,6 +1,7 @@
 // Import React hooks we need
 import { useState, useEffect } from 'react'
 import CTOInsightsSection from './components/CTOInsightsSection'
+import LoadingSpinner from './components/LoadingSpinner'
 
 // Define what an Assignment looks like (now with rich configuration)
 interface Assignment {
@@ -44,6 +45,8 @@ function App() {
   const [metrics, setMetrics] = useState<{ [key: string]: AssignmentMetrics }>({})
   // Track if we're still loading data
   const [loading, setLoading] = useState(true)
+  // Track loading state for individual metrics
+  const [metricsLoading, setMetricsLoading] = useState<{ [key: string]: boolean }>({})
   // Store any error messages
   const [error, setError] = useState<string | null>(null)
   // Track expanded sections for each assignment and service
@@ -60,6 +63,13 @@ function App() {
         console.log('Assignments loaded:', assignmentsData)
         setAssignments(assignmentsData)
         
+        // Set initial loading states for metrics
+        const initialLoadingState: { [key: string]: boolean } = {}
+        assignmentsData.forEach((assignment: Assignment) => {
+          initialLoadingState[assignment.id] = true
+        })
+        setMetricsLoading(initialLoadingState)
+        
         // Load metrics for each assignment
         const metricsPromises = assignmentsData.map(async (assignment: Assignment) => {
           try {
@@ -67,9 +77,17 @@ function App() {
             const metricsResponse = await fetch(`${API_URL}/assignments/${assignment.id}/metrics`)
             const metricsData = await metricsResponse.json()
             console.log('Metrics loaded for', assignment.id, ':', metricsData)
+            
+            // Mark this assignment's metrics as loaded
+            setMetricsLoading(prev => ({ ...prev, [assignment.id]: false }))
+            
             return { [assignment.id]: metricsData }
           } catch (err) {
             console.warn(`Failed to load metrics for ${assignment.id}:`, err)
+            
+            // Mark this assignment's metrics as loaded (even with error)
+            setMetricsLoading(prev => ({ ...prev, [assignment.id]: false }))
+            
             return { [assignment.id]: { timestamp: new Date().toISOString(), assignment_id: assignment.id } }
           }
         })
@@ -98,7 +116,17 @@ function App() {
   }
 
   // Show loading message while waiting
-  if (loading) return <div className="p-4">Loading CTO Dashboard...</div>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingSpinner 
+          message="Loading CTO Dashboard..."
+          size="lg"
+          variant="hourglass"
+        />
+      </div>
+    )
+  }
   // Show error if something went wrong
   if (error) return <div className="p-4 text-red-500">Error: {error}</div>
   
@@ -208,11 +236,21 @@ function App() {
                 </div>
 
                 {/* Expandable Metrics Data */}
-                {assignmentMetrics && (
+                {(assignmentMetrics || metricsLoading[assignment.id]) && (
                   <div className="border-t border-gray-200 pt-4">
-                    <div className="text-sm text-gray-500 mb-4">
-                      Latest Metrics (Updated: {new Date(assignmentMetrics.timestamp).toLocaleString()})
-                    </div>
+                    {metricsLoading[assignment.id] ? (
+                      <div className="flex items-center justify-center py-8">
+                        <LoadingSpinner 
+                          message="Loading metrics..."
+                          size="md"
+                          variant="spinner"
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <div className="text-sm text-gray-500 mb-4">
+                          Latest Metrics (Updated: {new Date(assignmentMetrics.timestamp).toLocaleString()})
+                        </div>
                     
                     {/* GitHub Metrics - Expandable */}
                     {assignmentMetrics.github && (
@@ -280,7 +318,7 @@ function App() {
                       </div>
                     )}
                     
-                    {/* AWS Metrics - Expandable */}
+                    {/* AWS Metrics - Expandable (moved before Railway) */}
                     {assignmentMetrics.aws && (
                       <div className="mb-3">
                         <button
@@ -401,7 +439,12 @@ function App() {
                       </div>
                     )}
                     
-                    {/* Railway Metrics - Expandable */}
+                    {/* Detailed AWS CTO Insights - Expandable (moved to be right after AWS section) */}
+                    {assignmentMetrics.aws && expandedSections[`${assignment.id}_aws-detailed`] && (
+                      <CTOInsightsSection assignmentId={assignment.id} apiUrl={API_URL} />
+                    )}
+                    
+                    {/* Railway Metrics - Expandable (moved after AWS) */}
                     {assignmentMetrics.railway && (
                       <div className="mb-3">
                         <button
@@ -435,16 +478,14 @@ function App() {
                       </div>
                     )}
 
-                    {/* Detailed AWS CTO Insights - Expandable */}
-                    {assignmentMetrics.aws && expandedSections[`${assignment.id}_aws-detailed`] && (
-                      <CTOInsightsSection assignmentId={assignment.id} apiUrl={API_URL} />
-                    )}
                     
-                    {/* Show placeholder if no metrics configured */}
-                    {!assignmentMetrics.github && !assignmentMetrics.jira && !assignmentMetrics.aws && !assignmentMetrics.railway && (
-                      <div className="text-sm text-gray-500 italic">
-                        Configure API tokens in backend/.env to see live metrics
-                      </div>
+                        {/* Show placeholder if no metrics configured */}
+                        {!assignmentMetrics.github && !assignmentMetrics.jira && !assignmentMetrics.aws && !assignmentMetrics.railway && (
+                          <div className="text-sm text-gray-500 italic">
+                            Configure API tokens in backend/.env to see live metrics
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
