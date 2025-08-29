@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: cto-dashboard-api
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: "cd backend && pip install -r requirements.txt"
+    startCommand: "cd backend && gunicorn --bind 0.0.0.0:$PORT main:app"
+    envVars:
+      - key: FRONTEND_URL
+        value: "*"
+      - key: GITHUB_TOKEN
+        sync: false  # Set manually in Render dashboard
+      - key: GITHUB_ORG
+        value: "idpetech"
+      - key: GITHUB_API_URL
+        value: "https://api.github.com"
+      - key: JIRA_TOKEN
+        sync: false  # Set manually in Render dashboard
+      - key: JIRA_URL
+        sync: false  # Set manually in Render dashboard
+      - key: JIRA_EMAIL
+        sync: false  # Set manually in Render dashboard
+      - key: AWS_ACCESS_KEY_ID
+        sync: false  # Set manually in Render dashboard
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false  # Set manually in Render dashboard
+      - key: AWS_REGION
+        value: "us-east-1"
+      - key: RAILWAY_TOKEN
+        sync: false  # Set manually in Render dashboard
+      - key: RAILWAY_PROJECT_ID
+        sync: false  # Set manually in Render dashboard
+      - key: RAILWAY_API_URL
+        value: "https://backboard.railway.app/graphql"
+    healthCheckPath: "/health"
+    
+  - type: static
+    name: cto-dashboard-frontend
+    buildCommand: "cd frontend && npm ci && npm run build"
+    staticPublishPath: "./frontend/dist"
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: cto-dashboard-api
+          property: host
