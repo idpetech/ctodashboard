@@ -21,7 +21,12 @@
       "track_sprints": true,
       "track_bugs": true
     },
-   
+    "aws": {
+      "enabled": true
+    },
+    "railway": {
+      "enabled": false
+    }
   },
   
   "team": {
