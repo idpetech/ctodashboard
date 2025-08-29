@@ -38,7 +38,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
           {message}
         </p>
         
-        <style jsx>{`
+        <style dangerouslySetInnerHTML={{__html: `
           .hourglass-spinner {
             position: relative;
             width: 100%;
@@ -121,7 +121,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
             50% { transform: scaleY(1); opacity: 1; }
             100% { transform: scaleY(0.8); opacity: 0.9; }
           }
-        `}</style>
+        `}} />
       </div>
     )
   }
