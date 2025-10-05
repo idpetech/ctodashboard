@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "python integrated_dashboard.py",
+    "startCommand": "cd backend && python main.py",
     "healthcheckPath": "/",
     "healthcheckTimeout": 100
   }
