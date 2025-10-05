@@ -5,7 +5,7 @@
   },
   "deploy": {
     "startCommand": "python integrated_dashboard.py",
-    "healthcheckPath": "/health",
+    "healthcheckPath": "/api/assignments",
     "healthcheckTimeout": 300
   }
 }
