@@ -1,1 +1,1 @@
-web: python integrated_dashboard.py
+web: cd backend && python main.py
