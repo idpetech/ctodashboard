@@ -9,7 +9,7 @@ import json
 import boto3
 import requests
 from datetime import datetime, timedelta
-from flask import Flask, jsonify, render_template_string, request
+from flask import Flask, jsonify, render_template_string, request, send_from_directory
 from flask_cors import CORS
 from botocore.exceptions import ClientError
 from dotenv import load_dotenv
@@ -17,7 +17,9 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv(os.path.join('backend', '.env'))
 
-app = Flask(__name__)
+# Configure Flask to serve static files from React build
+static_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'frontend', 'dist')
+app = Flask(__name__, static_folder=static_folder, static_url_path='')
 
 # Enable CORS for all routes
 CORS(app, origins=["*"])
@@ -375,6 +377,84 @@ def index():
             </div>
         </div>
 
+        <!-- Chatbot Button -->
+        <div id="chatbot-button" class="fixed bottom-6 right-6 z-50">
+            <button onclick="toggleChatbot()" class="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Chatbot Modal -->
+        <div id="chatbot-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 hidden">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[80vh] flex flex-col">
+                <!-- Chatbot Header -->
+                <div class="bg-blue-600 text-white p-4 rounded-t-lg flex justify-between items-center">
+                    <h3 class="text-lg font-semibold">🤖 CTO Assistant</h3>
+                    <div class="flex space-x-2">
+                        <button onclick="clearChatbotHistory()" class="text-white hover:text-gray-200" title="Clear History">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                        </button>
+                        <button onclick="toggleChatbot()" class="text-white hover:text-gray-200">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Chatbot Messages -->
+                <div id="chatbot-messages" class="flex-1 overflow-y-auto p-4 space-y-4">
+                    <div class="text-center text-gray-500 py-8">
+                        <div class="text-4xl mb-4">🤖</div>
+                        <h3 class="text-lg font-medium mb-2">Welcome to CTO Dashboard Assistant!</h3>
+                        <p class="text-sm">I can help you with questions about:</p>
+                        <ul class="text-sm mt-2 space-y-1">
+                            <li>• Your assignments and projects</li>
+                            <li>• AWS costs and resource usage</li>
+                            <li>• GitHub metrics and activity</li>
+                            <li>• Jira project status</li>
+                            <li>• Team information and tech stacks</li>
+                            <li>• Service health and configuration</li>
+                        </ul>
+                        <p class="text-sm mt-4 text-gray-400">Try asking: "What is IdepTech status?" or "Show me IdepTech AWS costs"</p>
+                    </div>
+                </div>
+                
+                <!-- Chatbot Input -->
+                <div class="p-4 border-t">
+                    <div class="flex space-x-2">
+                        <input type="text" id="chatbot-input" placeholder="Ask me about IdepTech, assignments, costs, metrics..." class="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" onkeypress="handleChatbotKeyPress(event)">
+                        <button onclick="sendChatbotMessage()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                            Send
+                        </button>
+                    </div>
+                    
+                    <!-- Quick action buttons -->
+                    <div class="flex flex-wrap gap-2 mt-2">
+                        <button onclick="setChatbotInput('What is the status of IdepTech assignment?')" class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors">
+                            IdepTech Status
+                        </button>
+                        <button onclick="setChatbotInput('Show me IdepTech AWS costs')" class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors">
+                            IdepTech AWS Costs
+                        </button>
+                        <button onclick="setChatbotInput('What is IdepTech monthly burn rate?')" class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors">
+                            IdepTech Burn Rate
+                        </button>
+                        <button onclick="setChatbotInput('Show me IdepTech GitHub activity')" class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors">
+                            IdepTech GitHub
+                        </button>
+                        <button onclick="setChatbotInput('What is IdepTech team size?')" class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors">
+                            IdepTech Team
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <script>
             async function loadDashboard() {
                 try {
@@ -608,6 +688,9 @@ def index():
                     }
                     if (assignment.metrics_config.railway && assignment.metrics_config.railway.enabled) {
                         html += '<span class="px-2 py-1 bg-green-100 text-green-800 text-sm rounded">Railway</span>';
+                    }
+                    if (assignment.metrics_config.openai && assignment.metrics_config.openai.enabled) {
+                        html += '<span class="px-2 py-1 bg-purple-100 text-purple-800 text-sm rounded">🤖 OpenAI</span>';
                     }
                     
                     html += '</div>';
@@ -891,6 +974,68 @@ def index():
                     html += '</div>';
                 }
                 
+                // OpenAI Metrics
+                if (metrics.openai && !metrics.openai.error) {
+                    html += '<div class="bg-purple-50 border border-purple-200 rounded mb-4">';
+                    html += '<div class="cursor-pointer p-4 hover:bg-purple-100" onclick="toggleSection(' + "'openai-section'" + ')">';
+                    html += '<h4 class="text-lg font-semibold text-purple-800 flex items-center">';
+                    html += '<span id="openai-section-icon" class="mr-2">▶️</span>';
+                    html += '🤖 OpenAI API Usage';
+                    html += '</h4></div>';
+                    html += '<div id="openai-section" class="hidden p-4 pt-0">';
+                    
+                    // Usage Summary
+                    html += '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">';
+                    html += '<div class="bg-white p-3 rounded border">';
+                    html += '<div class="text-sm text-gray-600">Tokens Used</div>';
+                    html += '<div class="text-xl font-bold text-purple-600">' + (metrics.openai.usage_this_month?.tokens_used || 0).toLocaleString() + '</div>';
+                    html += '</div>';
+                    
+                    html += '<div class="bg-white p-3 rounded border">';
+                    html += '<div class="text-sm text-gray-600">Requests Made</div>';
+                    html += '<div class="text-xl font-bold text-blue-600">' + (metrics.openai.usage_this_month?.requests_made || 0) + '</div>';
+                    html += '</div>';
+                    
+                    html += '<div class="bg-white p-3 rounded border">';
+                    html += '<div class="text-sm text-gray-600">Estimated Cost</div>';
+                    html += '<div class="text-xl font-bold text-green-600">$' + (metrics.openai.usage_this_month?.estimated_cost || 0) + '</div>';
+                    html += '</div>';
+                    html += '</div>';
+                    
+                    // Models Used
+                    if (metrics.openai.models_used && metrics.openai.models_used.length > 0) {
+                        html += '<div class="bg-white p-3 rounded border mb-3">';
+                        html += '<h5 class="font-medium text-gray-800 mb-2">Models Used</h5>';
+                        html += '<div class="flex flex-wrap gap-2">';
+                        metrics.openai.models_used.forEach(model => {
+                            html += '<span class="px-2 py-1 bg-purple-100 text-purple-800 text-sm rounded">' + model + '</span>';
+                        });
+                        html += '</div></div>';
+                    }
+                    
+                    // Dashboard Links
+                    html += '<div class="bg-white p-3 rounded border mb-3">';
+                    html += '<h5 class="font-medium text-gray-800 mb-2">Dashboard Links</h5>';
+                    html += '<div class="space-y-2">';
+                    html += '<div><a href="' + metrics.openai.dashboard_url + '" target="_blank" class="text-blue-600 hover:underline text-sm">📊 OpenAI Usage Dashboard →</a></div>';
+                    html += '<div><a href="' + metrics.openai.billing_url + '" target="_blank" class="text-green-600 hover:underline text-sm">💰 Check Account Balance →</a></div>';
+                    html += '</div></div>';
+                    
+                    // Note about account balance
+                    if (metrics.openai.note) {
+                        html += '<div class="bg-orange-100 p-3 rounded">';
+                        html += '<div class="text-sm text-orange-700">ℹ️ ' + metrics.openai.note + '</div>';
+                        html += '</div>';
+                    }
+                    
+                    html += '</div>';
+                    html += '</div>';
+                } else if (metrics.openai && metrics.openai.error) {
+                    html += '<div class="bg-red-100 border border-red-300 text-red-700 p-3 rounded mb-4">';
+                    html += '🤖 OpenAI Error: ' + metrics.openai.error;
+                    html += '</div>';
+                }
+                
                 // Railway would go here when implemented
                 
                 // CTO Recommendations Section - Comprehensive for all services
@@ -1133,6 +1278,149 @@ def index():
                 }
             }
             
+            // Chatbot Functions
+            function toggleChatbot() {
+                const modal = document.getElementById('chatbot-modal');
+                modal.classList.toggle('hidden');
+                
+                // Load conversation history when opening
+                if (!modal.classList.contains('hidden')) {
+                    loadChatbotHistory();
+                }
+            }
+
+            async function loadChatbotHistory() {
+                const messages = document.getElementById('chatbot-messages');
+                
+                try {
+                    const response = await fetch('/api/chatbot/history?user_id=dashboard_user&limit=20');
+                    const data = await response.json();
+                    
+                    if (data.history && data.history.length > 0) {
+                        // Clear existing messages except welcome message
+                        messages.innerHTML = '';
+                        
+                        // Add conversation history
+                        data.history.forEach(msg => {
+                            const messageDiv = document.createElement('div');
+                            if (msg.user_id === 'dashboard_user') {
+                                messageDiv.className = 'flex justify-end';
+                                messageDiv.innerHTML = '<div class="max-w-[80%] rounded-lg px-4 py-2 bg-blue-500 text-white"><div class="whitespace-pre-wrap">' + msg.question + '</div></div>';
+                            } else {
+                                messageDiv.className = 'flex justify-start';
+                                messageDiv.innerHTML = '<div class="max-w-[80%] rounded-lg px-4 py-2 bg-gray-100 text-gray-900"><div class="whitespace-pre-wrap">' + msg.response + '</div></div>';
+                            }
+                            messages.appendChild(messageDiv);
+                        });
+                    }
+                    
+                    // Scroll to bottom
+                    messages.scrollTop = messages.scrollHeight;
+                    
+                } catch (error) {
+                    console.error('Error loading chat history:', error);
+                }
+            }
+
+            async function clearChatbotHistory() {
+                if (confirm('Are you sure you want to clear the conversation history?')) {
+                    try {
+                        const response = await fetch('/api/chatbot/clear', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                user_id: 'dashboard_user'
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            // Clear messages and show welcome message
+                            const messages = document.getElementById('chatbot-messages');
+                            messages.innerHTML = '<div class="text-center text-gray-500 py-8"><div class="text-4xl mb-4">🤖</div><h3 class="text-lg font-medium mb-2">Welcome to CTO Dashboard Assistant!</h3><p class="text-sm">I can help you with questions about:</p><ul class="text-sm mt-2 space-y-1"><li>• Your assignments and projects</li><li>• AWS costs and resource usage</li><li>• GitHub metrics and activity</li><li>• Jira project status</li><li>• Team information and tech stacks</li><li>• Service health and configuration</li></ul><p class="text-sm mt-4 text-gray-400">Try asking: "What is IdepTech status?" or "Show me IdepTech AWS costs"</p></div>';
+                        }
+                    } catch (error) {
+                        console.error('Error clearing chat history:', error);
+                    }
+                }
+            }
+
+            function handleChatbotKeyPress(event) {
+                if (event.key === 'Enter') {
+                    sendChatbotMessage();
+                }
+            }
+
+            function setChatbotInput(text) {
+                const input = document.getElementById('chatbot-input');
+                input.value = text;
+                input.focus();
+            }
+
+            async function sendChatbotMessage() {
+                const input = document.getElementById('chatbot-input');
+                const messages = document.getElementById('chatbot-messages');
+                const question = input.value.trim();
+                
+                if (!question) return;
+                
+                // Add user message
+                const userMessage = document.createElement('div');
+                userMessage.className = 'flex justify-end';
+                userMessage.innerHTML = '<div class="max-w-[80%] rounded-lg px-4 py-2 bg-blue-500 text-white"><div class="whitespace-pre-wrap">' + question + '</div></div>';
+                messages.appendChild(userMessage);
+                
+                // Clear input
+                input.value = '';
+                
+                // Add loading message
+                const loadingMessage = document.createElement('div');
+                loadingMessage.className = 'flex justify-start';
+                loadingMessage.innerHTML = '<div class="bg-gray-100 rounded-lg px-4 py-2"><div class="flex items-center space-x-2"><div class="flex space-x-1"><div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div></div><span class="text-sm text-gray-500">Thinking...</span></div></div>';
+                messages.appendChild(loadingMessage);
+                
+                // Scroll to bottom
+                messages.scrollTop = messages.scrollHeight;
+                
+                try {
+                    const response = await fetch('/api/chatbot/ask', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            question: question,
+                            user_id: 'dashboard_user'
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    // Remove loading message
+                    loadingMessage.remove();
+                    
+                    // Add bot response
+                    const botMessage = document.createElement('div');
+                    botMessage.className = 'flex justify-start';
+                    botMessage.innerHTML = '<div class="max-w-[80%] rounded-lg px-4 py-2 bg-gray-100 text-gray-900"><div class="whitespace-pre-wrap">' + data.response + '</div></div>';
+                    messages.appendChild(botMessage);
+                    
+                } catch (error) {
+                    // Remove loading message
+                    loadingMessage.remove();
+                    
+                    // Add error message
+                    const errorMessage = document.createElement('div');
+                    errorMessage.className = 'flex justify-start';
+                    errorMessage.innerHTML = '<div class="max-w-[80%] rounded-lg px-4 py-2 bg-red-100 text-red-800"><div class="whitespace-pre-wrap">Sorry, I encountered an error. Please try again.</div></div>';
+                    messages.appendChild(errorMessage);
+                }
+                
+                // Scroll to bottom
+                messages.scrollTop = messages.scrollHeight;
+            }
+
             // Load dashboard when page loads
             document.addEventListener('DOMContentLoaded', loadDashboard);
         </script>
@@ -1492,21 +1780,26 @@ def assignment_metrics(assignment_id):
 
 @app.route("/api/chatbot/ask", methods=["POST"])
 def chatbot_ask():
-    """Simple chatbot endpoint without LangChain dependencies"""
+    """Full AI chatbot endpoint with LangChain capabilities"""
     try:
         data = request.get_json()
         question = data.get("question", "")
         user_id = data.get("user_id", "default")
         
-        # Simple response without external dependencies
-        response = {
-            "response": f"I received your question: '{question}'. This is a simplified response. For full AI capabilities, please use the local development environment.",
-            "confidence": 0.8,
-            "question_type": "general",
-            "data_used": [],
-            "sources": ["Integrated Dashboard"],
-            "timestamp": datetime.now().isoformat()
-        }
+        # Import chatbot service for full AI capabilities
+        import sys
+        import os
+        sys.path.append(os.path.join(os.path.dirname(__file__), 'backend'))
+        from chatbot_service import chatbot_service
+        import asyncio
+        
+        # Process the question with full AI capabilities
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            response = loop.run_until_complete(chatbot_service.process_question(question, user_id))
+        finally:
+            loop.close()
         
         return jsonify(response)
         
@@ -1518,19 +1811,54 @@ def chatbot_ask():
 
 @app.route("/api/chatbot/history")
 def chatbot_history():
-    """Get chatbot history"""
+    """Get chatbot conversation history"""
     try:
         user_id = request.args.get("user_id", "default")
         limit = int(request.args.get("limit", 10))
         
-        # Return empty history for now
-        return jsonify({"history": []})
+        # Import chatbot service for full history capabilities
+        import sys
+        import os
+        sys.path.append(os.path.join(os.path.dirname(__file__), 'backend'))
+        from chatbot_service import chatbot_service
+        
+        # Get conversation history
+        history = chatbot_service.get_conversation_history(user_id, limit)
+        return jsonify({"history": history})
         
     except Exception as e:
         return jsonify({
             "error": f"Chatbot history error: {str(e)}",
             "timestamp": datetime.now().isoformat()
         }), 500
+
+@app.route("/api/chatbot/clear", methods=["POST"])
+def chatbot_clear():
+    """Clear chatbot conversation history"""
+    try:
+        data = request.get_json() or {}
+        user_id = data.get("user_id", "default")
+        
+        # Import chatbot service for full capabilities
+        import sys
+        import os
+        sys.path.append(os.path.join(os.path.dirname(__file__), 'backend'))
+        from chatbot_service import chatbot_service
+        
+        # Clear conversation history
+        chatbot_service.clear_conversation_history(user_id)
+        return jsonify({"message": "Conversation history cleared"})
+        
+    except Exception as e:
+        return jsonify({
+            "error": f"Error clearing history: {str(e)}",
+            "timestamp": datetime.now().isoformat()
+        }), 500
+
+@app.route("/static/<path:filename>")
+def static_files(filename):
+    """Serve static files"""
+    return send_from_directory('static', filename)
 
 if __name__ == "__main__":
     # Use PORT from environment (for Render deployment) or default to 3001
