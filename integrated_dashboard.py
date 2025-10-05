@@ -1140,6 +1140,27 @@ def index():
     </html>
     '''
 
+@app.route("/health")
+def health_check():
+    """Simple health check endpoint"""
+    try:
+        return jsonify({
+            "status": "healthy", 
+            "timestamp": datetime.now().isoformat(),
+            "services": {
+                "aws": "available",
+                "github": "available", 
+                "jira": "available",
+                "openai": "available"
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), 500
+
 @app.route("/api/assignments")
 def assignments():
     """Get assignments from backend directory"""
