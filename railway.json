@@ -5,7 +5,7 @@
   },
   "deploy": {
     "startCommand": "cd backend && python main.py",
-    "healthcheckPath": "/api/assignments",
+    "healthcheckPath": "/api/health",
     "healthcheckTimeout": 300
   }
 }
