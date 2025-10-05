@@ -32,6 +32,12 @@
       "project_id": "successful-prosperity",
       "track_deployments": true,
       "track_usage": true
+    },
+    "openai": {
+      "enabled": true,
+      "api_dashboard_url": "https://platform.openai.com/usage",
+      "track_usage": true,
+      "track_costs": true
     }
   },
   
