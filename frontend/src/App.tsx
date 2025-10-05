@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import CTOInsightsSection from './components/CTOInsightsSection'
 import LoadingSpinner from './components/LoadingSpinner'
+import ChatbotButton from './components/ChatbotButton'
 
 // Define what an Assignment looks like (now with rich configuration)
 interface Assignment {
@@ -36,8 +37,8 @@ interface AssignmentMetrics {
 }
 
 function App() {
-  // Get API URL from environment variable (never hardcode!)
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+  // Get API URL from environment variable - use relative paths for single app deployment
+  const API_URL = import.meta.env.VITE_API_URL || ''
   
   // Store list of assignments from API
   const [assignments, setAssignments] = useState<Assignment[]>([])
@@ -56,9 +57,9 @@ function App() {
   useEffect(() => {
     const loadAssignmentsAndMetrics = async () => {
       try {
-        console.log('Loading assignments from:', `${API_URL}/assignments`)
+        console.log('Loading assignments from:', `${API_URL}/api/assignments`)
         // Load assignments first
-        const assignmentsResponse = await fetch(`${API_URL}/assignments`)
+        const assignmentsResponse = await fetch(`${API_URL}/api/assignments`)
         const assignmentsData = await assignmentsResponse.json()
         console.log('Assignments loaded:', assignmentsData)
         setAssignments(assignmentsData)
@@ -74,7 +75,7 @@ function App() {
         const metricsPromises = assignmentsData.map(async (assignment: Assignment) => {
           try {
             console.log('Loading metrics for:', assignment.id)
-            const metricsResponse = await fetch(`${API_URL}/assignments/${assignment.id}/metrics`)
+            const metricsResponse = await fetch(`${API_URL}/api/assignments/${assignment.id}/metrics`)
             const metricsData = await metricsResponse.json()
             console.log('Metrics loaded for', assignment.id, ':', metricsData)
             
@@ -494,6 +495,9 @@ function App() {
           })}
         </div>
       </div>
+      
+      {/* Chatbot Button */}
+      <ChatbotButton apiUrl={API_URL} />
     </div>
   )
 }

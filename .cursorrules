@@ -1,0 +1,124 @@
+# Cursor Rules for CTO Dashboard Platform
+# This file enforces compliance with our architecture and prevents amnesia
+
+## MANDATORY PRE-SESSION PROTOCOL
+Before ANY work on this project, you MUST:
+
+1. Read QUICK-REFERENCE-CARD.md - Current state and patterns
+2. Read CONVERSATION-CONTEXT-SUMMARY.md - Session memory
+3. Read IMPLEMENTATION-CHECKLIST.md - Current phase and tasks
+4. Read DECISION-MATRIX.md - Decision criteria
+5. Read PRE-SESSION-COMPLIANCE-CHECKLIST.md - Compliance requirements
+6. Read SESSION-START-PROTOCOL.md - Session start sequence
+7. Read REAL-TIME-COMPLIANCE-MONITORING.md - Monitoring system
+8. Read USER-ENFORCEMENT-PROTOCOL.md - User enforcement mechanism
+
+## CORE PRINCIPLES (NEVER DEVIATE)
+- "Always Working" Principle - Current functionality MUST NEVER break
+- "Fake it while you make it" Philosophy - Incremental feature delivery
+- Single Service Architecture - ONE Flask app (integrated_dashboard.py)
+- Consistency Requirements - Same patterns across all features
+
+## CURRENT STATE (AS OF 2025-10-05)
+- Phase: Phase 1: Foundation
+- Task: Phase 1.1: Add feature flags to integrated_dashboard.py
+- Feature Flags: ALL DISABLED
+- Working: integrated_dashboard.py, all endpoints, chatbot, OpenAI, AWS, GitHub, Jira
+- Deployment: Railway working and stable
+
+## FORBIDDEN ACTIONS (NEVER DO)
+1. NEVER modify existing working code without feature flags
+2. NEVER create duplicate functionality - use existing patterns
+3. NEVER change UI patterns - follow established templates
+4. NEVER break backward compatibility - always maintain fallbacks
+5. NEVER deploy without feature flags - always start disabled
+6. NEVER create new files without updating documentation
+7. NEVER change deployment target - always use Railway
+8. NEVER use different styling - always use Tailwind CDN
+
+## MANDATORY ACTIONS (ALWAYS DO)
+1. ALWAYS check feature flags before implementing new features
+2. ALWAYS follow established patterns for UI and API
+3. ALWAYS maintain backward compatibility with existing code
+4. ALWAYS test thoroughly before enabling feature flags
+5. ALWAYS document changes in the documentation files
+6. ALWAYS use existing service patterns for new features
+7. ALWAYS follow the exact implementation order defined in phases
+
+## FEATURE FLAGS (EXACT DEFINITION)
+```python
+FEATURE_FLAGS = {
+    "multi_tenancy": os.getenv("ENABLE_MULTI_TENANCY", "false").lower() == "true",
+    "workstream_management": os.getenv("ENABLE_WORKSTREAM_MGMT", "false").lower() == "true",
+    "service_config_ui": os.getenv("ENABLE_SERVICE_CONFIG_UI", "false").lower() == "true",
+    "advanced_billing": os.getenv("ENABLE_BILLING", "false").lower() == "true",
+    "database_storage": os.getenv("ENABLE_DATABASE", "false").lower() == "true"
+}
+```
+
+## UI PATTERNS (MUST FOLLOW)
+- Card Pattern: White background, shadow, padding, header with title and action button
+- Modal Pattern: Fixed overlay, centered content, header with title and close button, footer with actions
+- Color Scheme: Blue for primary actions, green for success, red for errors, gray for secondary
+
+## API PATTERNS (MUST FOLLOW)
+- CRUD Endpoints: /api/{resource} for GET/POST, /api/{resource}/<id> for GET/PUT/DELETE
+- Feature Flag Checks: Always check feature flags before implementing new functionality
+- Error Handling: Consistent error responses with appropriate HTTP status codes
+- Response Format: JSON with consistent structure
+
+## DECISION VALIDATION (MANDATORY)
+Before ANY decision, check:
+- MAD Aligned: YES/NO
+- Backward Compatible: YES/NO
+- Pattern Consistent: YES/NO
+- Feature Flagged: YES/NO
+- Safe: YES/NO
+
+If ANY answer is NO, STOP and reconsider.
+
+## CODE CHANGE VALIDATION (MANDATORY)
+Before ANY code change, verify:
+- Follows UI Pattern: YES/NO
+- Follows API Pattern: YES/NO
+- Uses Feature Flags: YES/NO
+- Maintains Compatibility: YES/NO
+
+If ANY answer is NO, STOP and fix.
+
+## TESTING REQUIREMENTS (MANDATORY)
+After ANY change, test:
+- Existing functionality still works
+- New functionality is behind feature flags
+- All patterns are followed
+- Documentation is updated
+
+## FAILURE RESPONSE (MANDATORY)
+If you encounter:
+- Breaking existing functionality
+- Creating duplicate code
+- Changing established patterns
+- Deploying without feature flags
+- Going off-topic
+
+STOP IMMEDIATELY and:
+1. Read all documentation
+2. Check established patterns
+3. Return to current focus area
+4. Follow proper protocols
+
+## SUCCESS CRITERIA
+- Zero breaking changes to existing functionality
+- All new features behind feature flags
+- Consistent patterns across all features
+- Successful deployment to Railway
+- All phases completed on schedule
+
+## CRITICAL REMINDER
+THIS FILE IS YOUR ENFORCEMENT MECHANISM
+- Read this before every session
+- Follow the exact patterns defined here
+- Never deviate from the established approach
+- Always maintain consistency with existing code
+
+NO EXCEPTIONS. NO SHORTCUTS. NO TANGENTS.

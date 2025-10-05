@@ -68,6 +68,22 @@ RAILWAY_TOKEN=your_railway_token
 RAILWAY_PROJECT_ID=your_project_id_from_railway_dashboard
 ```
 
+### 5. OpenAI API Key (for LLM-powered Chatbot)
+
+**Steps:**
+1. Go to https://platform.openai.com/api-keys
+2. Click "Create new secret key"
+3. Give it a name like "CTO Dashboard Chatbot"
+4. Copy the key (starts with `sk-`)
+5. **Important**: Save it immediately - you won't be able to see it again!
+
+**Add to backend/.env:**
+```
+OPENAI_API_KEY=sk-your_actual_openai_key_here
+```
+
+**Note**: The chatbot will work without this key but will use fallback responses instead of AI-generated answers.
+
 ## 🧪 Test Your Configuration
 
 After adding tokens, restart the backend and test:
@@ -103,6 +119,7 @@ GITHUB_ORG=test-org
 JIRA_URL=https://test.atlassian.net
 JIRA_EMAIL=test@example.com
 JIRA_TOKEN=test_token
+OPENAI_API_KEY=test_key
 ```
 
-The dashboard will show error messages for invalid tokens, but you can see the UI working.
+The dashboard will show error messages for invalid tokens, but you can see the UI working. The chatbot will use fallback responses without a valid OpenAI key.

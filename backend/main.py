@@ -2,22 +2,25 @@ import os
 import asyncio
 from datetime import datetime
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory, send_file
 from flask_cors import CORS
 
 # Load environment variables from .env file
 load_dotenv()
 
-app = Flask(__name__)
+# Configure Flask to serve static files from React build
+static_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'frontend', 'dist')
+app = Flask(__name__, static_folder=static_folder, static_url_path='')
 
-# Enable CORS for all routes
-CORS(app, origins=["*"])  # Allow all origins for simplicity
+# Enable CORS for all routes (mainly for development)
+CORS(app, origins=["*"])
 
-@app.route("/")
-def read_root():
+# API Routes - all prefixed with /api
+@app.route("/api")
+def api_root():
     return jsonify({"message": "CTO Dashboard API", "status": "healthy"})
 
-@app.route("/health")
+@app.route("/api/health")
 def health_check():
     return jsonify({
         "status": "healthy", 
@@ -30,7 +33,7 @@ def health_check():
         }
     })
 
-@app.route("/assignments")
+@app.route("/api/assignments")
 def get_assignments():
     """Get all assignments from JSON configuration files"""
     from assignment_service import AssignmentService
@@ -41,7 +44,7 @@ def get_assignments():
     
     return jsonify(assignments)
 
-@app.route("/assignments/<assignment_id>")
+@app.route("/api/assignments/<assignment_id>")
 def get_assignment(assignment_id):
     """Get a specific assignment configuration"""
     from assignment_service import AssignmentService
@@ -54,7 +57,7 @@ def get_assignment(assignment_id):
     
     return jsonify(assignment)
 
-@app.route("/assignments/<assignment_id>/metrics")
+@app.route("/api/assignments/<assignment_id>/metrics")
 def get_assignment_metrics(assignment_id):
     """Get real-time metrics for a specific assignment"""
     from assignment_service import AssignmentService
@@ -73,7 +76,7 @@ def get_assignment_metrics(assignment_id):
     
     return jsonify(metrics)
 
-@app.route("/assignments/<assignment_id>/cto-insights")
+@app.route("/api/assignments/<assignment_id>/cto-insights")
 def get_cto_insights(assignment_id):
     """Get detailed CTO-level insights for a specific assignment"""
     from assignment_service import AssignmentService
@@ -104,5 +107,87 @@ def get_cto_insights(assignment_id):
     
     return jsonify(comprehensive_report)
 
+# Chatbot API Routes
+@app.route("/api/chatbot/ask", methods=["POST"])
+def chatbot_ask():
+    """Ask a question to the chatbot"""
+    from chatbot_service import chatbot_service
+    
+    try:
+        data = request.get_json()
+        if not data or "question" not in data:
+            return jsonify({"error": "Question is required"}), 400
+        
+        question = data["question"]
+        user_id = data.get("user_id", "default")
+        
+        # Process the question asynchronously
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            response = loop.run_until_complete(chatbot_service.process_question(question, user_id))
+        finally:
+            loop.close()
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        return jsonify({"error": f"Chatbot error: {str(e)}"}), 500
+
+@app.route("/api/chatbot/history")
+def chatbot_history():
+    """Get chatbot conversation history"""
+    from chatbot_service import chatbot_service
+    
+    try:
+        user_id = request.args.get("user_id", "default")
+        limit = int(request.args.get("limit", 10))
+        
+        history = chatbot_service.get_conversation_history(user_id, limit)
+        return jsonify({"history": history})
+        
+    except Exception as e:
+        return jsonify({"error": f"Error getting history: {str(e)}"}), 500
+
+@app.route("/api/chatbot/clear", methods=["POST"])
+def chatbot_clear():
+    """Clear chatbot conversation history"""
+    from chatbot_service import chatbot_service
+    
+    try:
+        data = request.get_json() or {}
+        user_id = data.get("user_id", "default")
+        
+        chatbot_service.clear_conversation_history(user_id)
+        return jsonify({"message": "Conversation history cleared"})
+        
+    except Exception as e:
+        return jsonify({"error": f"Error clearing history: {str(e)}"}), 500
+
+# Serve React static files
+@app.route('/assets/<path:path>')
+def serve_assets(path):
+    """Serve static assets from React build"""
+    return send_from_directory(os.path.join(app.static_folder, 'assets'), path)
+
+# Serve React app for all non-API routes (client-side routing)
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_react_app(path):
+    """Serve React app for frontend routes, API routes handled above"""
+    # Skip API routes - let them be handled by the API endpoints above
+    if path.startswith('api/') or path in ['health', 'assignments']:
+        # This should not happen as API routes are defined above, but just in case
+        return jsonify({"error": "API endpoint not found"}), 404
+    
+    # For any other route, serve the React app's index.html
+    index_path = os.path.join(app.static_folder, 'index.html')
+    if os.path.exists(index_path):
+        return send_file(index_path)
+    else:
+        return jsonify({"error": "Frontend build not found. Run 'npm run build' in the frontend directory."}), 404
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    port = int(os.getenv('PORT', 8000))
+    debug = os.getenv('FLASK_ENV') != 'production'
+    app.run(host="0.0.0.0", port=port, debug=debug)

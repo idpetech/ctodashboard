@@ -91,7 +91,7 @@ const CTOInsightsSection = ({ assignmentId, apiUrl }: CTOInsightsSectionProps) =
     const fetchCTOInsights = async () => {
       try {
         setLoading(true);
-        const url = `${apiUrl}/assignments/${assignmentId}/cto-insights`;
+        const url = `${apiUrl}/api/assignments/${assignmentId}/cto-insights`;
         console.log('Fetching CTO insights from:', url);
         
         const response = await fetch(url);

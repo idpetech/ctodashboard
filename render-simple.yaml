@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: ctodashboard-simple
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: "pip install flask python-dotenv"
+    startCommand: "python app.py"
+    envVars:
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: JIRA_EMAIL
+        sync: false
+      - key: JIRA_TOKEN
+        sync: false
+      - key: JIRA_SERVER_URL
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        value: "us-east-1"
+      - key: RAILWAY_TOKEN
+        sync: false
+    healthCheckPath: "/api/health"

@@ -1,0 +1,90 @@
+# Cursor Context for GitHub
+## This file provides immediate context for Cursor when working on GitHub
+
+## 🎯 CURRENT STATE
+- **Phase**: Phase 1: Foundation
+- **Task**: Phase 1.1: Add feature flags to integrated_dashboard.py
+- **Feature Flags**: ALL DISABLED
+- **Status**: Ready to begin work
+
+## 🏗️ ARCHITECTURE
+- **Type**: Single-service Flask app
+- **Frontend**: HTML-only with Tailwind CDN
+- **Deployment**: Railway
+- **Database**: JSON files with SQLite fallback
+- **Features**: Feature-flag controlled
+
+## 🔒 ENFORCEMENT STATUS
+- **Documentation**: READ
+- **Current state**: VALIDATED
+- **Session goals**: SET
+- **Compliance**: ACTIVE
+
+## 📋 NEXT STEPS
+1. Add feature flags to integrated_dashboard.py
+2. Create service layer structure
+3. Deploy with ALL flags disabled
+4. Verify existing functionality unchanged
+
+## 🚀 COMMANDS
+- `make help`: Show all commands
+- `make track`: Get AI back on track
+- `make enforce`: Enforce full compliance
+- `make start`: Start dashboard
+- `make status`: Show current status
+
+## 📚 DOCUMENTATION
+- **MASTER-ARCHITECTURE-DOCUMENT.md**: Single source of truth
+- **CONTEXT-PRESERVATION-SYSTEM.md**: Prevents amnesia
+- **DECISION-MATRIX.md**: Prevents tangents
+- **IMPLEMENTATION-CHECKLIST.md**: Tracks progress
+- **QUICK-REFERENCE-CARD.md**: Immediate access
+- **CONVERSATION-CONTEXT-SUMMARY.md**: Session memory
+
+## 🎨 PATTERNS
+- **UI**: Card and Modal patterns defined
+- **API**: CRUD endpoints with feature flags
+- **Colors**: Blue, green, red, gray scheme
+- **Styling**: Tailwind CDN
+
+## 🚫 FORBIDDEN ACTIONS
+1. NEVER modify existing working code without feature flags
+2. NEVER create duplicate functionality
+3. NEVER change UI patterns
+4. NEVER break backward compatibility
+5. NEVER deploy without feature flags
+
+## ✅ MANDATORY ACTIONS
+1. ALWAYS check feature flags before implementing
+2. ALWAYS follow established patterns
+3. ALWAYS maintain backward compatibility
+4. ALWAYS test thoroughly
+5. ALWAYS document changes
+
+## 🔧 FEATURE FLAGS
+```python
+FEATURE_FLAGS = {
+    "multi_tenancy": os.getenv("ENABLE_MULTI_TENANCY", "false").lower() == "true",
+    "workstream_management": os.getenv("ENABLE_WORKSTREAM_MGMT", "false").lower() == "true",
+    "service_config_ui": os.getenv("ENABLE_SERVICE_CONFIG_UI", "false").lower() == "true",
+    "advanced_billing": os.getenv("ENABLE_BILLING", "false").lower() == "true",
+    "database_storage": os.getenv("ENABLE_DATABASE", "false").lower() == "true"
+}
+```
+
+## 🎯 SUCCESS CRITERIA
+- Zero breaking changes to existing functionality
+- All new features behind feature flags
+- Consistent patterns across all features
+- Successful deployment to Railway
+- All phases completed on schedule
+
+## 🚨 CRITICAL REMINDER
+**THIS FILE IS YOUR CONTEXT FOR GITHUB WORK**
+
+- Read this before any work
+- Follow the exact patterns defined
+- Never deviate from the established approach
+- Always maintain consistency with existing code
+
+**NO EXCEPTIONS. NO SHORTCUTS. NO TANGENTS.**

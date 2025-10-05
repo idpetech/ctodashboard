@@ -1,0 +1,151 @@
+{
+  "name": "cto-dashboard-platform",
+  "version": "1.0.0",
+  "description": "SaaS-ready CTO Dashboard with enforced compliance",
+  "main": "integrated_dashboard.py",
+  "scripts": {
+    "cursor:start": "echo '🚀 Starting Cursor enforcement...' && python3 integrated_dashboard.py",
+    "cursor:dev": "echo '🔧 Starting development with Cursor enforcement...' && cd backend && source .venv/bin/activate && cd .. && python3 integrated_dashboard.py",
+    "cursor:compliance": "echo '📊 Checking Cursor compliance...' && python -c \"import os; print('Feature flags:', {k: os.getenv(k, 'false') for k in ['ENABLE_MULTI_TENANCY', 'ENABLE_WORKSTREAM_MGMT', 'ENABLE_SERVICE_CONFIG_UI', 'ENABLE_BILLING', 'ENABLE_DATABASE']})\"",
+    "cursor:read-docs": "echo '📚 Reading Cursor documentation...' && cat QUICK-REFERENCE-CARD.md CONVERSATION-CONTEXT-SUMMARY.md IMPLEMENTATION-CHECKLIST.md DECISION-MATRIX.md",
+    "cursor:validate": "echo '✅ Validating Cursor state...' && curl -s http://localhost:3001/health && curl -s http://localhost:3001/api/assignments",
+    "cursor:pre-session": "echo '🔒 Starting Cursor pre-session protocol...' && npm run cursor:read-docs && npm run cursor:validate && npm run cursor:compliance",
+    "cursor:test": "echo '🧪 Testing Cursor compliance...' && python -m pytest",
+    "cursor:deploy": "echo '🚀 Deploying with Cursor enforcement...' && git push origin master",
+    "cursor:monitor": "echo '📊 Monitoring Cursor compliance...' && while true; do npm run cursor:compliance; sleep 600; done",
+    "cursor:enforce": "echo '🔒 Enforcing Cursor compliance...' && npm run cursor:pre-session && npm run cursor:start"
+  },
+  "keywords": [
+    "cursor",
+    "enforcement",
+    "compliance",
+    "cto",
+    "dashboard",
+    "saas",
+    "metrics"
+  ],
+  "author": "CTO Dashboard Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/ctodashboard"
+  },
+  "engines": {
+    "python": ">=3.8",
+    "node": ">=16.0.0"
+  },
+  "dependencies": {
+    "flask": "==2.3.3",
+    "werkzeug": "==2.3.7",
+    "jinja2": "==3.1.2",
+    "flask-cors": "==4.0.0",
+    "boto3": "==1.35.0",
+    "botocore": "==1.35.0",
+    "requests": "==2.31.0",
+    "python-dotenv": "==1.0.0",
+    "langchain": "==0.3.27",
+    "langchain-openai": "==0.3.34",
+    "openai": "==2.1.0",
+    "fastapi": "==0.104.1",
+    "uvicorn": "==0.24.0",
+    "sqlalchemy": "==2.0.23",
+    "python-multipart": "==0.0.6",
+    "pydantic": ">=2.7.4",
+    "pytest": "==7.4.3",
+    "httpx": "==0.25.2",
+    "aiohttp": "==3.9.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0",
+    "tailwindcss": "^3.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0"
+  },
+  "cursor": {
+    "enforcement": {
+      "pre-session": "MANDATORY - Read all documentation files",
+      "decision-validation": "MANDATORY - Check Decision Matrix",
+      "code-change-validation": "MANDATORY - Verify pattern compliance",
+      "testing": "MANDATORY - Test existing functionality",
+      "documentation": "MANDATORY - Update documentation files"
+    },
+    "compliance": {
+      "session-start": "100% required",
+      "decision-validation": "100% required",
+      "pattern-compliance": "100% required",
+      "backward-compatibility": "100% required",
+      "feature-flag-usage": "100% required",
+      "testing": "100% required",
+      "documentation": "100% required"
+    },
+    "failure-response": {
+      "skip-documentation": "STOP and read all documentation",
+      "bad-decision": "STOP and re-evaluate with Decision Matrix",
+      "pattern-violation": "STOP and re-implement with patterns",
+      "compatibility-break": "STOP and fix compatibility",
+      "missing-feature-flag": "STOP and add feature flag",
+      "failed-test": "STOP and fix test failure"
+    }
+  },
+  "architecture": {
+    "type": "single-service",
+    "framework": "flask",
+    "frontend": "html-only",
+    "styling": "tailwind-cdn",
+    "deployment": "railway",
+    "database": "json-files-with-sqlite-fallback",
+    "features": "feature-flag-controlled"
+  },
+  "phases": {
+    "current": "Phase 1: Foundation",
+    "next": "Phase 2: Workstream Management",
+    "future": "Phase 3: Service Configuration, Phase 4: Multi-tenancy, Phase 5: Migration & Testing"
+  },
+  "feature-flags": {
+    "multi_tenancy": "ENABLE_MULTI_TENANCY",
+    "workstream_management": "ENABLE_WORKSTREAM_MGMT",
+    "service_config_ui": "ENABLE_SERVICE_CONFIG_UI",
+    "advanced_billing": "ENABLE_BILLING",
+    "database_storage": "ENABLE_DATABASE"
+  },
+  "patterns": {
+    "ui": {
+      "card": "White background, shadow, padding, header with title and action button",
+      "modal": "Fixed overlay, centered content, header with title and close button, footer with actions",
+      "colors": "Blue for primary actions, green for success, red for errors, gray for secondary"
+    },
+    "api": {
+      "crud": "/api/{resource} for GET/POST, /api/{resource}/<id> for GET/PUT/DELETE",
+      "feature-flags": "Always check feature flags before implementing new functionality",
+      "error-handling": "Consistent error responses with appropriate HTTP status codes",
+      "response-format": "JSON with consistent structure"
+    }
+  },
+  "testing": {
+    "local": "http://localhost:3001",
+    "production": "https://web-production-07894.up.railway.app/",
+    "endpoints": [
+      "/health",
+      "/api/assignments",
+      "/api/assignments/<id>/metrics",
+      "/api/chatbot/ask",
+      "/api/chatbot/history"
+    ]
+  },
+  "documentation": {
+    "architecture": "MASTER-ARCHITECTURE-DOCUMENT.md",
+    "context": "CONTEXT-PRESERVATION-SYSTEM.md",
+    "decisions": "DECISION-MATRIX.md",
+    "checklist": "IMPLEMENTATION-CHECKLIST.md",
+    "quick-ref": "QUICK-REFERENCE-CARD.md",
+    "conversation": "CONVERSATION-CONTEXT-SUMMARY.md",
+    "compliance": "PRE-SESSION-COMPLIANCE-CHECKLIST.md",
+    "protocol": "SESSION-START-PROTOCOL.md",
+    "monitoring": "REAL-TIME-COMPLIANCE-MONITORING.md",
+    "enforcement": "USER-ENFORCEMENT-PROTOCOL.md",
+    "cursor": "README-CURSOR.md"
+  }
+}

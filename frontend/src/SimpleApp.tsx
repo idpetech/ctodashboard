@@ -5,13 +5,13 @@ function SimpleApp() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+  const API_URL = import.meta.env.VITE_API_URL || ''
 
   useEffect(() => {
     const loadData = async () => {
       try {
         console.log('Loading from:', API_URL)
-        const response = await fetch(`${API_URL}/assignments`)
+        const response = await fetch(`${API_URL}/api/assignments`)
         console.log('Response status:', response.status)
         const assignments = await response.json()
         console.log('Data loaded:', assignments)

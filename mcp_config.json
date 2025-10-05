@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "cto-dashboard": {
+      "command": "python",
+      "args": ["mcp_server.py"],
+      "env": {
+        "PYTHONPATH": "."
+      }
+    }
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": false
+  },
+  "description": "CTO Dashboard MCP Server - Provides access to assignment management, metrics aggregation, and CTO insights",
+  "version": "1.0.0"
+}
+
