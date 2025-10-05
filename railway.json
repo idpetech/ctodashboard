@@ -4,8 +4,8 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "python integrated_dashboard.py",
-    "healthcheckPath": "/health",
+    "startCommand": "python3 integrated_dashboard.py",
+    "healthcheckPath": "/api/assignments",
     "healthcheckTimeout": 300
   }
 }
