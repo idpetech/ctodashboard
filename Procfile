@@ -1,1 +1,1 @@
-web: python integrated_dashboard.py
+web: python3 integrated_dashboard.py
