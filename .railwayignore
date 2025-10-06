@@ -1,0 +1,24 @@
+# Railway ignore file
+# Exclude Cursor enforcement files from Railway build
+package.json
+node_modules/
+.cursorrules
+.cursorignore
+cursor.config.json
+README-CURSOR.md
+README-GITHUB.md
+README-SIMPLE.md
+.github/
+Makefile
+*.md
+ewm_skippy/
+static/
+test_*.py
+*_test.py
+mcp_*.py
+mcp_*.json
+mcp_*.sh
+requirements-mcp.txt
+requirements-simple.txt
+render-*.yaml
+vercel.json
