@@ -34,6 +34,121 @@ FEATURE_FLAGS = {
     "database_storage": os.getenv("ENABLE_DATABASE", "false").lower() == "true"
 }
 
+# Service Layer - Phase 1.2: Foundation
+# Service classes for SaaS architecture (all disabled by default)
+
+class ServiceManager:
+    """Central service manager with feature flag integration"""
+    
+    def __init__(self):
+        self.feature_flags = FEATURE_FLAGS
+        self.services = {}
+        self._initialize_services()
+    
+    def _initialize_services(self):
+        """Initialize services based on feature flags"""
+        if self.feature_flags.get("workstream_management", False):
+            self.services["workstream"] = WorkstreamService()
+        
+        if self.feature_flags.get("service_config_ui", False):
+            self.services["config"] = ServiceConfigService()
+        
+        if self.feature_flags.get("multi_tenancy", False):
+            self.services["tenant"] = TenantService()
+    
+    def get_service(self, service_name: str):
+        """Get service instance if enabled"""
+        return self.services.get(service_name)
+    
+    def is_service_enabled(self, service_name: str) -> bool:
+        """Check if service is enabled via feature flag"""
+        return service_name in self.services
+
+class WorkstreamService:
+    """Workstream management service (disabled by default)"""
+    
+    def __init__(self):
+        self.workstreams = []
+        self.enabled = FEATURE_FLAGS.get("workstream_management", False)
+    
+    def create_workstream(self, name: str, config: dict) -> dict:
+        """Create new workstream (disabled by default)"""
+        if not self.enabled:
+            return {"error": "Workstream management disabled"}
+        
+        workstream = {
+            "id": f"ws_{len(self.workstreams) + 1}",
+            "name": name,
+            "config": config,
+            "created_at": datetime.now().isoformat(),
+            "status": "active"
+        }
+        self.workstreams.append(workstream)
+        return workstream
+    
+    def get_workstreams(self) -> list:
+        """Get all workstreams (disabled by default)"""
+        if not self.enabled:
+            return {"error": "Workstream management disabled"}
+        return self.workstreams
+
+class ServiceConfigService:
+    """Service configuration management (disabled by default)"""
+    
+    def __init__(self):
+        self.configs = {}
+        self.enabled = FEATURE_FLAGS.get("service_config_ui", False)
+    
+    def add_service_config(self, workstream_id: str, service_type: str, config: dict) -> dict:
+        """Add service configuration (disabled by default)"""
+        if not self.enabled:
+            return {"error": "Service configuration UI disabled"}
+        
+        config_id = f"{workstream_id}_{service_type}"
+        self.configs[config_id] = {
+            "workstream_id": workstream_id,
+            "service_type": service_type,
+            "config": config,
+            "created_at": datetime.now().isoformat(),
+            "status": "active"
+        }
+        return self.configs[config_id]
+    
+    def get_service_configs(self, workstream_id: str = None) -> dict:
+        """Get service configurations (disabled by default)"""
+        if not self.enabled:
+            return {"error": "Service configuration UI disabled"}
+        
+        if workstream_id:
+            return {k: v for k, v in self.configs.items() if v["workstream_id"] == workstream_id}
+        return self.configs
+
+class TenantService:
+    """Multi-tenancy service (disabled by default)"""
+    
+    def __init__(self):
+        self.tenants = {}
+        self.enabled = FEATURE_FLAGS.get("multi_tenancy", False)
+    
+    def create_tenant(self, name: str, config: dict) -> dict:
+        """Create new tenant (disabled by default)"""
+        if not self.enabled:
+            return {"error": "Multi-tenancy disabled"}
+        
+        tenant_id = f"tenant_{len(self.tenants) + 1}"
+        self.tenants[tenant_id] = {
+            "id": tenant_id,
+            "name": name,
+            "config": config,
+            "created_at": datetime.now().isoformat(),
+            "status": "active"
+        }
+        return self.tenants[tenant_id]
+
+# Initialize service manager
+service_manager = ServiceManager()
+
+
 class EmbeddedAWSMetrics:
     """AWS metrics embedded directly in the Flask app"""
     
@@ -1455,6 +1570,71 @@ def get_feature_flags():
             "ENABLE_DATABASE": os.getenv("ENABLE_DATABASE", "false")
         }
     })
+
+@app.route("/api/services/status")
+def get_services_status():
+    """Get status of all services"""
+    return jsonify({
+        "service_manager": {
+            "enabled_services": list(service_manager.services.keys()),
+            "total_services": len(service_manager.services)
+        },
+        "feature_flags": FEATURE_FLAGS,
+        "status": "read_only"
+    })
+
+@app.route("/api/workstreams", methods=["GET", "POST"])
+def workstreams_endpoint():
+    """Workstream management endpoint (disabled by default)"""
+    if request.method == "GET":
+        workstream_service = service_manager.get_service("workstream")
+        if not workstream_service:
+            return jsonify({"error": "Workstream management disabled", "enabled": False})
+        
+        return jsonify({
+            "workstreams": workstream_service.get_workstreams(),
+            "enabled": True
+        })
+    
+    elif request.method == "POST":
+        workstream_service = service_manager.get_service("workstream")
+        if not workstream_service:
+            return jsonify({"error": "Workstream management disabled", "enabled": False})
+        
+        data = request.get_json()
+        result = workstream_service.create_workstream(
+            data.get("name", ""),
+            data.get("config", {})
+        )
+        return jsonify(result)
+
+@app.route("/api/service-configs", methods=["GET", "POST"])
+def service_configs_endpoint():
+    """Service configuration endpoint (disabled by default)"""
+    if request.method == "GET":
+        config_service = service_manager.get_service("config")
+        if not config_service:
+            return jsonify({"error": "Service configuration UI disabled", "enabled": False})
+        
+        workstream_id = request.args.get("workstream_id")
+        return jsonify({
+            "configs": config_service.get_service_configs(workstream_id),
+            "enabled": True
+        })
+    
+    elif request.method == "POST":
+        config_service = service_manager.get_service("config")
+        if not config_service:
+            return jsonify({"error": "Service configuration UI disabled", "enabled": False})
+        
+        data = request.get_json()
+        result = config_service.add_service_config(
+            data.get("workstream_id", ""),
+            data.get("service_type", ""),
+            data.get("config", {})
+        )
+        return jsonify(result)
+
 def health_check():
 
     """Simple health check endpoint"""
