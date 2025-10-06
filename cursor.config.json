@@ -1,171 +1,204 @@
 {
-  "name": "CTO Dashboard Platform",
-  "version": "1.0.0",
-  "description": "SaaS-ready CTO Dashboard with enforced compliance",
-  "author": "CTO Dashboard Team",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/your-org/ctodashboard"
-  },
-  "keywords": [
-    "cto",
-    "dashboard",
-    "saas",
-    "metrics",
-    "aws",
-    "github",
-    "jira",
-    "openai",
-    "chatbot"
-  ],
-  "engines": {
-    "python": ">=3.8",
-    "node": ">=16.0.0"
-  },
-  "scripts": {
-    "start": "python3 integrated_dashboard.py",
-    "dev": "cd backend && source .venv/bin/activate && cd .. && python3 integrated_dashboard.py",
-    "test": "python -m pytest",
-    "deploy": "git push origin master",
-    "compliance-check": "echo 'Checking compliance...' && python -c \"import os; print('Feature flags:', {k: os.getenv(k, 'false') for k in ['ENABLE_MULTI_TENANCY', 'ENABLE_WORKSTREAM_MGMT', 'ENABLE_SERVICE_CONFIG_UI', 'ENABLE_BILLING', 'ENABLE_DATABASE']})\"",
-    "read-docs": "echo 'Reading documentation...' && cat QUICK-REFERENCE-CARD.md CONVERSATION-CONTEXT-SUMMARY.md IMPLEMENTATION-CHECKLIST.md DECISION-MATRIX.md",
-    "validate-state": "echo 'Validating current state...' && curl -s http://localhost:3001/health && curl -s http://localhost:3001/api/assignments"
-  },
-  "dependencies": {
-    "flask": "==2.3.3",
-    "werkzeug": "==2.3.7",
-    "jinja2": "==3.1.2",
-    "flask-cors": "==4.0.0",
-    "boto3": "==1.35.0",
-    "botocore": "==1.35.0",
-    "requests": "==2.31.0",
-    "python-dotenv": "==1.0.0",
-    "langchain": "==0.3.27",
-    "langchain-openai": "==0.3.34",
-    "openai": "==2.1.0",
-    "fastapi": "==0.104.1",
-    "uvicorn": "==0.24.0",
-    "sqlalchemy": "==2.0.23",
-    "python-multipart": "==0.0.6",
-    "pydantic": ">=2.7.4",
-    "pytest": "==7.4.3",
-    "httpx": "==0.25.2",
-    "aiohttp": "==3.9.1"
-  },
-  "devDependencies": {
-    "typescript": "^5.0.0",
-    "vite": "^5.0.0",
-    "tailwindcss": "^3.0.0",
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0",
-    "@types/react": "^18.0.0",
-    "@types/react-dom": "^18.0.0"
-  },
-  "cursor": {
-    "rules": [
-      "Read QUICK-REFERENCE-CARD.md before any work",
-      "Read CONVERSATION-CONTEXT-SUMMARY.md before any work",
-      "Read IMPLEMENTATION-CHECKLIST.md before any work",
-      "Read DECISION-MATRIX.md before any work",
-      "Read PRE-SESSION-COMPLIANCE-CHECKLIST.md before any work",
-      "Read SESSION-START-PROTOCOL.md before any work",
-      "Read REAL-TIME-COMPLIANCE-MONITORING.md before any work",
-      "Read USER-ENFORCEMENT-PROTOCOL.md before any work",
-      "Follow established patterns for UI and API",
-      "Use feature flags for all new functionality",
-      "Maintain backward compatibility with existing code",
-      "Test thoroughly before enabling feature flags",
-      "Document all changes in appropriate files",
-      "Never modify existing working code without feature flags",
-      "Never create duplicate functionality",
-      "Never change UI patterns",
-      "Never break backward compatibility",
-      "Never deploy without feature flags",
-      "Never create new files without updating documentation",
-      "Never change deployment target",
-      "Never use different styling"
+    "name": "CTO Dashboard Platform",
+    "version": "2.1.0",
+    "description": "SaaS-ready CTO Dashboard with Service Configuration Management",
+    "author": "CTO Dashboard Team",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/your-org/ctodashboard"
+    },
+    "keywords": [
+      "cto",
+      "dashboard",
+      "saas",
+      "metrics",
+      "aws",
+      "github",
+      "jira",
+      "openai",
+      "chatbot",
+      "service-configuration",
+      "service-types",
+      "kiss-principles",
+      "dry-principles",
+      "infrastructure-monitoring",
+      "development-tracking",
+      "project-management",
+      "ai-services"
     ],
-    "enforcement": {
-      "pre-session": "MANDATORY - Read all documentation files",
-      "decision-validation": "MANDATORY - Check Decision Matrix",
-      "code-change-validation": "MANDATORY - Verify pattern compliance",
-      "testing": "MANDATORY - Test existing functionality",
-      "documentation": "MANDATORY - Update documentation files"
+    "main": "integrated_dashboard.py",
+    "scripts": {
+      "start": "python integrated_dashboard.py",
+      "dev": "python integrated_dashboard.py",
+      "test": "python -m pytest",
+      "deploy": "git push origin master"
     },
-    "compliance": {
-      "session-start": "100% required",
-      "decision-validation": "100% required",
-      "pattern-compliance": "100% required",
-      "backward-compatibility": "100% required",
-      "feature-flag-usage": "100% required",
-      "testing": "100% required",
-      "documentation": "100% required"
+    "dependencies": {
+      "flask": "2.3.3",
+      "werkzeug": "2.3.7",
+      "jinja2": "3.1.2",
+      "flask-cors": "4.0.0",
+      "boto3": "1.35.0",
+      "botocore": "1.35.0",
+      "requests": "2.31.0",
+      "python-dotenv": "1.0.0",
+      "langchain": "0.3.27",
+      "langchain-openai": "0.3.34",
+      "openai": "2.1.0",
+      "fastapi": "0.104.1",
+      "uvicorn": "0.24.0",
+      "sqlalchemy": "2.0.23",
+      "python-multipart": "0.0.6",
+      "pydantic": ">=2.7.4",
+      "pytest": "7.4.3",
+      "httpx": "0.25.2",
+      "aiohttp": "3.9.1"
     },
-    "failure-response": {
-      "skip-documentation": "STOP and read all documentation",
-      "bad-decision": "STOP and re-evaluate with Decision Matrix",
-      "pattern-violation": "STOP and re-implement with patterns",
-      "compatibility-break": "STOP and fix compatibility",
-      "missing-feature-flag": "STOP and add feature flag",
-      "failed-test": "STOP and fix test failure"
+    "devDependencies": {},
+    "engines": {
+      "python": ">=3.8"
+    },
+    "os": [
+      "darwin",
+      "linux",
+      "win32"
+    ],
+    "cpu": [
+      "x64",
+      "arm64"
+    ],
+    "cursor": {
+      "rules": ".cursorrules",
+      "ignore": ".cursorignore",
+      "context": [
+        "README.md",
+        "SERVICE-CONFIGURATION-PLAN.md",
+        "Makefile",
+        "integrated_dashboard.py",
+        "backend/metrics_service.py",
+        "backend/chatbot_service.py"
+      ],
+      "patterns": {
+        "ui": "Card and Modal patterns with Tailwind CSS",
+        "api": "CRUD endpoints with feature flags",
+        "services": "BaseService inheritance with KISS principles",
+        "testing": "Simple connection testing only"
+      },
+      "phases": {
+        "current": "Phase 2.1: Service Configuration Foundation",
+        "next": "Phase 2.2: Service Implementation",
+        "priority": "GitHub → Jira → OpenAI → Railway → AWS"
+      },
+      "enforcement": {
+        "preSession": [
+          "Read SERVICE-CONFIGURATION-PLAN.md",
+          "Check current phase and priorities",
+          "Verify feature flags status",
+          "Review service patterns"
+        ],
+        "duringSession": [
+          "Follow KISS + DRY principles",
+          "Use existing metrics_service.py logic",
+          "Test each service thoroughly",
+          "Maintain backward compatibility"
+        ],
+        "postSession": [
+          "Update documentation",
+          "Test all functionality",
+          "Deploy with feature flags",
+          "Update phase progress"
+        ]
+      },
+      "serviceTypes": {
+        "immediate": [
+          "GitHub",
+          "Jira", 
+          "OpenAI",
+          "Railway",
+          "AWS"
+        ],
+        "shortTerm": [
+          "Claude",
+          "Google Gemini",
+          "Vercel",
+          "Datadog",
+          "Stripe"
+        ],
+        "mediumTerm": [
+          "Azure",
+          "Google Cloud",
+          "New Relic",
+          "Sentry",
+          "Slack"
+        ],
+        "longTerm": [
+          "GitLab",
+          "Linear",
+          "Asana",
+          "Microsoft Teams",
+          "PayPal"
+        ]
+      },
+      "architecture": {
+        "baseClass": "BaseService",
+        "categories": [
+          "InfrastructureService",
+          "DevelopmentService", 
+          "ProjectManagementService",
+          "AIService"
+        ],
+        "factory": "ServiceFactory",
+        "manager": "ServiceManager",
+        "testing": "Simple connection testing only"
+      },
+      "principles": {
+        "kiss": "Keep implementations simple and stable",
+        "dry": "Don't repeat existing functionality",
+        "backwardCompatible": "Never break existing functionality",
+        "featureFlagged": "All new features behind flags",
+        "incremental": "Build and test each service individually"
+      }
+    },
+    "config": {
+      "port": 3001,
+      "host": "0.0.0.0",
+      "debug": false,
+      "cors": true,
+      "featureFlags": {
+        "multi_tenancy": false,
+        "workstream_management": false,
+        "service_config_ui": true,
+        "advanced_billing": false,
+        "database_storage": false
+      }
+    },
+    "deployment": {
+      "target": "railway",
+      "healthCheck": "/health",
+      "startCommand": "python integrated_dashboard.py",
+      "environment": {
+        "ENABLE_SERVICE_CONFIG_UI": "true",
+        "ENABLE_MULTI_TENANCY": "false",
+        "ENABLE_WORKSTREAM_MGMT": "false",
+        "ENABLE_BILLING": "false",
+        "ENABLE_DATABASE": "false"
+      }
+    },
+    "monitoring": {
+      "enabled": false,
+      "note": "Deferred to future phases - keep simple for now"
+    },
+    "documentation": {
+      "main": "README.md",
+      "servicePlan": "SERVICE-CONFIGURATION-PLAN.md",
+      "architecture": "ARCHITECTURE-OVERVIEW.md",
+      "makefile": "Makefile",
+      "commands": [
+        "make help",
+        "make track", 
+        "make services",
+        "make status"
+      ]
     }
-  },
-  "architecture": {
-    "type": "single-service",
-    "framework": "flask",
-    "frontend": "html-only",
-    "styling": "tailwind-cdn",
-    "deployment": "railway",
-    "database": "json-files-with-sqlite-fallback",
-    "features": "feature-flag-controlled"
-  },
-  "phases": {
-    "current": "Phase 1: Foundation",
-    "next": "Phase 2: Workstream Management",
-    "future": "Phase 3: Service Configuration, Phase 4: Multi-tenancy, Phase 5: Migration & Testing"
-  },
-  "feature-flags": {
-    "multi_tenancy": "ENABLE_MULTI_TENANCY",
-    "workstream_management": "ENABLE_WORKSTREAM_MGMT",
-    "service_config_ui": "ENABLE_SERVICE_CONFIG_UI",
-    "advanced_billing": "ENABLE_BILLING",
-    "database_storage": "ENABLE_DATABASE"
-  },
-  "patterns": {
-    "ui": {
-      "card": "White background, shadow, padding, header with title and action button",
-      "modal": "Fixed overlay, centered content, header with title and close button, footer with actions",
-      "colors": "Blue for primary actions, green for success, red for errors, gray for secondary"
-    },
-    "api": {
-      "crud": "/api/{resource} for GET/POST, /api/{resource}/<id> for GET/PUT/DELETE",
-      "feature-flags": "Always check feature flags before implementing new functionality",
-      "error-handling": "Consistent error responses with appropriate HTTP status codes",
-      "response-format": "JSON with consistent structure"
-    }
-  },
-  "testing": {
-    "local": "http://localhost:3001",
-    "production": "https://web-production-07894.up.railway.app/",
-    "endpoints": [
-      "/health",
-      "/api/assignments",
-      "/api/assignments/<id>/metrics",
-      "/api/chatbot/ask",
-      "/api/chatbot/history"
-    ]
-  },
-  "documentation": {
-    "architecture": "MASTER-ARCHITECTURE-DOCUMENT.md",
-    "context": "CONTEXT-PRESERVATION-SYSTEM.md",
-    "decisions": "DECISION-MATRIX.md",
-    "checklist": "IMPLEMENTATION-CHECKLIST.md",
-    "quick-ref": "QUICK-REFERENCE-CARD.md",
-    "conversation": "CONVERSATION-CONTEXT-SUMMARY.md",
-    "compliance": "PRE-SESSION-COMPLIANCE-CHECKLIST.md",
-    "protocol": "SESSION-START-PROTOCOL.md",
-    "monitoring": "REAL-TIME-COMPLIANCE-MONITORING.md",
-    "enforcement": "USER-ENFORCEMENT-PROTOCOL.md"
   }
-}

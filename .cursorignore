@@ -1,53 +1,34 @@
 # Cursor Ignore File
-# This file prevents Cursor from suggesting changes to critical files
+# This file specifies which files and directories Cursor should ignore or protect
 
-# Documentation files - DO NOT MODIFY WITHOUT READING FIRST
-MASTER-ARCHITECTURE-DOCUMENT.md
-CONTEXT-PRESERVATION-SYSTEM.md
-DECISION-MATRIX.md
-IMPLEMENTATION-CHECKLIST.md
-QUICK-REFERENCE-CARD.md
-CONVERSATION-CONTEXT-SUMMARY.md
-PRE-SESSION-COMPLIANCE-CHECKLIST.md
-SESSION-START-PROTOCOL.md
-REAL-TIME-COMPLIANCE-MONITORING.md
-USER-ENFORCEMENT-PROTOCOL.md
-
-# Critical working files - DO NOT MODIFY WITHOUT FEATURE FLAGS
+## PROTECTED FILES (Never modify without explicit permission)
+# Core application files - protected during development
 integrated_dashboard.py
 backend/main.py
-backend/assignment_service.py
 backend/metrics_service.py
 backend/chatbot_service.py
+backend/assignment_service.py
 
-# Configuration files - DO NOT MODIFY WITHOUT DOCUMENTATION
+# Configuration files - protected
 railway.json
 Procfile
 requirements.txt
 .env
-backend/.env
+.env.example
 
-# Assignment files - DO NOT MODIFY WITHOUT VALIDATION
-backend/assignments/ideptech.json
-backend/assignments/il.json
-backend/assignments/README.md
+# Documentation files - protected
+README.md
+SERVICE-CONFIGURATION-PLAN.md
+ARCHITECTURE-OVERVIEW.md
+PROJECT_STATUS.md
 
-# Frontend files - DO NOT MODIFY (HTML-only approach)
-frontend/
-*.tsx
-*.ts
-*.jsx
-*.js
+# Enforcement files - protected
+.cursorrules
+cursor.config.json
+Makefile
 
-# Test files - DO NOT MODIFY WITHOUT TESTING
-test_*.py
-*_test.py
-
-# Log files - DO NOT MODIFY
-*.log
-logs/
-
-# Cache files - DO NOT MODIFY
+## IGNORED FILES (Cursor will not process these)
+# Python cache and build files
 __pycache__/
 *.pyc
 *.pyo
@@ -69,21 +50,22 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual environments - DO NOT MODIFY
+# Virtual environments
 venv/
 env/
 ENV/
 env.bak/
 venv.bak/
+.venv/
 
-# IDE files - DO NOT MODIFY
+# IDE and editor files
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS files - DO NOT MODIFY
+# OS generated files
 .DS_Store
 .DS_Store?
 ._*
@@ -92,22 +74,181 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-# Git files - DO NOT MODIFY
-.git/
-.gitignore
+# Logs and temporary files
+*.log
+logs/
+temp/
+tmp/
+*.tmp
 
-# Node modules - DO NOT MODIFY (HTML-only approach)
+# Node.js files (if any)
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Temporary files - DO NOT MODIFY
-*.tmp
-*.temp
+# Frontend build files
+frontend/dist/
+frontend/build/
+frontend/.next/
+frontend/out/
+
+# Test files
+test_*.py
+*_test.py
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
 *.bak
 *.backup
-*.orig
-*.rej
-*.patch
-*.diff
+*.old
+
+# Archive files
+*.zip
+*.tar.gz
+*.rar
+
+# Large data files
+*.csv
+*.json.bak
+data/
+datasets/
+
+# MCP Server files (separate component)
+mcp_server.py
+mcp_client_example.py
+mcp_config.json
+run_mcp_server.sh
+requirements-mcp.txt
+
+# EWM Skippy files (separate component)
+ewm_skippy/
+
+# Legacy files (can be removed)
+app.py
+dashboard_app.py
+final_dashboard.py
+minimal_app.py
+real_aws_dashboard.py
+simple_app.py
+working_app.py
+working_dashboard.py
+
+# Legacy configuration files
+render.yaml
+render-simple.yaml
+vercel.json
+
+# Legacy documentation
+CHATBOT-IMPLEMENTATION-GUIDE.md
+CTO-INSIGHTS-GUIDE.md
+LLM-CHATBOT-INTEGRATION.md
+MCP-INTEGRATION-GUIDE.md
+METRICS-EXAMPLE.md
+QUICK-PERMISSIONS-FIX.md
+SERVICE-STATUS.md
+SETUP-TOKENS.md
+
+# Legacy scripts
+test-integration.sh
+setup-railway-env.sh
+
+# Legacy requirements
+requirements-simple.txt
+
+# Static files (generated)
+static/
+
+# Package files (renamed to avoid Railway issues)
+package.json.cursor
+
+## SERVICE CONFIGURATION FILES (Phase 2.1+)
+# Service implementation files - protected during development
+backend/services/
+backend/service_types/
+backend/service_factory.py
+backend/service_manager.py
+
+# Service configuration files
+backend/service_configs/
+backend/service_templates/
+
+# Service testing files
+backend/service_tests/
+test_services.py
+
+## FEATURE FLAG FILES (Phase 1+)
+# Feature flag implementation - protected
+backend/feature_flags.py
+backend/feature_flag_manager.py
+
+## WORKSTREAM MANAGEMENT FILES (Phase 3+)
+# Workstream implementation - protected when implemented
+backend/workstreams/
+backend/workstream_manager.py
+backend/workstream_service.py
+
+## MULTI-TENANCY FILES (Phase 4+)
+# Multi-tenancy implementation - protected when implemented
+backend/tenants/
+backend/tenant_manager.py
+backend/tenant_service.py
+
+## MONITORING FILES (Future Phases)
+# Advanced monitoring - protected when implemented
+backend/monitoring/
+backend/alerting/
+backend/health_checks/
+
+## DEPLOYMENT FILES (Protected)
+# Deployment configuration - always protected
+.github/workflows/
+docker/
+Dockerfile
+docker-compose.yml
+docker-compose.prod.yml
+
+## SECURITY FILES (Protected)
+# Security configuration - always protected
+security/
+secrets/
+*.key
+*.pem
+*.crt
+*.p12
+
+## DOCUMENTATION FILES (Protected)
+# Core documentation - protected
+docs/
+*.md
+LICENSE
+CONTRIBUTING.md
+CHANGELOG.md
+
+## CURSOR ENFORCEMENT FILES (Protected)
+# Cursor enforcement system - always protected
+.cursor-context
+README-CURSOR.md
+README-GITHUB.md
+README-SIMPLE.md
+GITHUB-INTEGRATION-COMPLETE.md
+
+## NOTES
+# This file ensures Cursor:
+# 1. Protects critical files from accidental modification
+# 2. Ignores unnecessary files to improve performance
+# 3. Maintains focus on current development phase
+# 4. Prevents modification of working functionality
+# 5. Enforces service configuration priorities
+
+# Current Phase: Phase 2.1 - Service Configuration Foundation
+# Priority: GitHub → Jira → OpenAI → Railway → AWS
+# Principles: KISS + DRY throughout

@@ -19,12 +19,20 @@ Before ANY work on this project, you MUST:
 - Single Service Architecture - ONE Flask app (integrated_dashboard.py)
 - Consistency Requirements - Same patterns across all features
 
-## CURRENT STATE (AS OF 2025-10-05)
-- Phase: Phase 1: Foundation
-- Task: Phase 1.1: Add feature flags to integrated_dashboard.py
-- Feature Flags: ALL DISABLED
+## CURRENT STATE (AS OF 2025-10-06)
+- Phase: Phase 2.1: Service Configuration Foundation
+- Task: Service Types First - KISS + DRY approach
+- Priority: GitHub → Jira → OpenAI → Railway → AWS
+- Feature Flags: Service Config UI ENABLED
 - Working: integrated_dashboard.py, all endpoints, chatbot, OpenAI, AWS, GitHub, Jira
 - Deployment: Railway working and stable
+
+## SERVICE CONFIGURATION PRIORITIES
+- Service Types First (before workstream management)
+- KISS + DRY principles throughout
+- No overkill - defer complex features
+- Use existing code - leverage metrics_service.py
+- Implementation Order: GitHub → Jira → OpenAI → Railway → AWS
 
 ## FORBIDDEN ACTIONS (NEVER DO)
 1. NEVER modify existing working code without feature flags
@@ -67,6 +75,14 @@ FEATURE_FLAGS = {
 - Error Handling: Consistent error responses with appropriate HTTP status codes
 - Response Format: JSON with consistent structure
 
+## SERVICE CONFIGURATION PATTERNS (MUST FOLLOW)
+- Base Service Class: All services inherit from BaseService
+- Category-Specific: InfrastructureService, DevelopmentService, ProjectManagementService, AIService
+- Service Factory: Use ServiceFactory.create_service() for instantiation
+- Service Manager: Use ServiceManager for service lifecycle management
+- Simple Testing: Basic connection testing only, no complex monitoring
+- KISS Principle: Keep implementations simple and stable
+
 ## DECISION VALIDATION (MANDATORY)
 Before ANY decision, check:
 - MAD Aligned: YES/NO
@@ -83,6 +99,7 @@ Before ANY code change, verify:
 - Follows API Pattern: YES/NO
 - Uses Feature Flags: YES/NO
 - Maintains Compatibility: YES/NO
+- Follows Service Pattern: YES/NO
 
 If ANY answer is NO, STOP and fix.
 
@@ -92,6 +109,7 @@ After ANY change, test:
 - New functionality is behind feature flags
 - All patterns are followed
 - Documentation is updated
+- Service configuration follows KISS principles
 
 ## FAILURE RESPONSE (MANDATORY)
 If you encounter:
@@ -100,6 +118,7 @@ If you encounter:
 - Changing established patterns
 - Deploying without feature flags
 - Going off-topic
+- Implementing complex monitoring (defer to future phases)
 
 STOP IMMEDIATELY and:
 1. Read all documentation
@@ -113,6 +132,7 @@ STOP IMMEDIATELY and:
 - Consistent patterns across all features
 - Successful deployment to Railway
 - All phases completed on schedule
+- Service configuration follows KISS + DRY principles
 
 ## CRITICAL REMINDER
 THIS FILE IS YOUR ENFORCEMENT MECHANISM
@@ -120,5 +140,6 @@ THIS FILE IS YOUR ENFORCEMENT MECHANISM
 - Follow the exact patterns defined here
 - Never deviate from the established approach
 - Always maintain consistency with existing code
+- Always follow service configuration priorities
 
 NO EXCEPTIONS. NO SHORTCUTS. NO TANGENTS.
