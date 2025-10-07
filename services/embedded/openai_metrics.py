@@ -1,3 +1,7 @@
+import os
+import requests
+from datetime import datetime
+
 class OpenAIMetrics:
     """OpenAI API usage and cost tracking"""
 
@@ -78,5 +82,3 @@ class OpenAIMetrics:
 
 # Initialize OpenAI metrics
 openai_metrics = OpenAIMetrics()
-
-@app.route("/api/assignments/<assignment_id>/metrics")
