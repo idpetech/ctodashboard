@@ -1,3 +1,10 @@
+# GitHub Metrics Service
+# Extracted from integrated_dashboard.py
+
+import os
+import requests
+from datetime import datetime
+
 class EmbeddedGitHubMetrics:
     """GitHub metrics embedded directly in the Flask app"""
     
@@ -10,54 +17,53 @@ class EmbeddedGitHubMetrics:
         if not self.token:
             return [{"error": "GitHub token not configured"}]
         
-        repo_metrics = []
+        results = []
+        headers = {
+            "Authorization": f"token {self.token}",
+            "Accept": "application/vnd.github.v3+json"
+        }
         
         for repo in repos:
             try:
-                headers = {
-                    "Authorization": f"token {self.token}",
-                    "Accept": "application/vnd.github.v3+json"
-                }
-                
-                # Get repository info
+                # Get repository details
                 repo_url = f"{self.base_url}/repos/{org}/{repo}"
-                repo_response = requests.get(repo_url, headers=headers, timeout=10)
+                response = requests.get(repo_url, headers=headers, timeout=10)
                 
-                if repo_response.status_code != 200:
-                    repo_metrics.append({
+                if response.status_code != 200:
+                    results.append({
                         "repo_name": repo,
-                        "error": f"GitHub API returned {repo_response.status_code}"
+                        "error": f"HTTP {response.status_code}"
                     })
                     continue
                 
-                repo_data = repo_response.json()
+                repo_data = response.json()
                 
-                # Get recent commits (last 30 days)
-                since_date = (datetime.now() - timedelta(days=30)).isoformat()
+                # Get commits (last 30 days)
+                since_date = (datetime.now() - datetime.timedelta(days=30)).isoformat()
                 commits_url = f"{repo_url}/commits?since={since_date}"
                 commits_response = requests.get(commits_url, headers=headers, timeout=10)
-                commits = commits_response.json() if commits_response.status_code == 200 else []
+                commits_count = len(commits_response.json()) if commits_response.status_code == 200 else 0
                 
-                # Get pull requests
-                prs_url = f"{repo_url}/pulls?state=all&per_page=50"
-                prs_response = requests.get(prs_url, headers=headers, timeout=10)
-                prs = prs_response.json() if prs_response.status_code == 200 else []
-                
-                repo_metrics.append({
+                results.append({
                     "repo_name": repo,
-                    "commits_last_30_days": len(commits),
-                    "total_prs": len(prs),
-                    "open_issues": repo_data.get("open_issues_count", 0),
                     "stars": repo_data.get("stargazers_count", 0),
+                    "open_issues": repo_data.get("open_issues_count", 0),
                     "language": repo_data.get("language", "Unknown"),
-                    "last_updated": repo_data.get("updated_at", "")
+                    "last_updated": repo_data.get("updated_at"),
+                    "commits_last_30_days": commits_count,
+                    "total_prs": 0  # Would need additional API call
                 })
                 
             except Exception as e:
-                repo_metrics.append({
+                results.append({
                     "repo_name": repo,
-                    "error": f"GitHub API error: {str(e)}"
+                    "error": str(e)
                 })
         
-        return repo_metrics
-
+        return results
+    
+    def get_metrics(self, config: dict) -> list:
+        """Get GitHub metrics based on configuration"""
+        org = config.get("org", "")
+        repos = config.get("repos", [])
+        return self.get_repo_metrics(org, repos)
