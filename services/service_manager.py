@@ -1,7 +1,17 @@
 # Service Manager Classes
 # Extracted from integrated_dashboard.py for better organization
 
+import os
 from datetime import datetime
+
+# Feature Flags - must match those in integrated_dashboard.py
+FEATURE_FLAGS = {
+    "multi_tenancy": os.getenv("ENABLE_MULTI_TENANCY", "false").lower() == "true",
+    "workstream_management": os.getenv("ENABLE_WORKSTREAM_MGMT", "false").lower() == "true",
+    "service_config_ui": os.getenv("ENABLE_SERVICE_CONFIG_UI", "false").lower() == "true",
+    "advanced_billing": os.getenv("ENABLE_BILLING", "false").lower() == "true",
+    "database_storage": os.getenv("ENABLE_DATABASE", "false").lower() == "true"
+}
 
 class ServiceManager:
     """Central service manager with feature flag integration"""
