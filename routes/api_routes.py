@@ -258,30 +258,40 @@ def register_routes(app):
 
     @app.route("/api/chatbot/ask", methods=["POST"])
     def ask_chatbot():
-        """Ask chatbot a question"""
+        """Simple chatbot endpoint"""
         try:
             data = request.get_json()
-            question = data.get('question', '')
+            question = data.get("question", "")
+            user_id = data.get("user_id", "default")
             
-            if not question:
-                return jsonify({"error": "No question provided"}), 400
+            # Simple response
+            response = {
+                "response": f"I received your question: '{question}'. Full AI chatbot coming in Phase 2.1!",
+                "confidence": 0.8,
+                "question_type": "general",
+                "data_used": [],
+                "sources": ["Integrated Dashboard"],
+                "timestamp": datetime.now().isoformat()
+            }
             
-            # Simple response for now (can be enhanced with AI later)
-            response = f"I received your question: '{question}'. This is a placeholder response."
-            
-            return jsonify({"response": response})
+            return jsonify(response)
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/chatbot/history")
     def get_chatbot_history():
-        """Get chatbot conversation history"""
-        return jsonify({"history": []})
+        """Get chatbot history"""
+        try:
+            user_id = request.args.get("user_id", "default")
+            limit = int(request.args.get("limit", 10))
+            return jsonify({"history": []})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
     @app.route("/api/chatbot/clear", methods=["POST"])
     def clear_chatbot_history():
-        """Clear chatbot conversation history"""
-        return jsonify({"message": "History cleared"})
+        """Clear chatbot history"""
+        return jsonify({"message": "History cleared", "success": True})
 
     @app.route("/static/<path:filename>")
     def serve_static(filename):
