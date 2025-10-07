@@ -17,9 +17,11 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv(os.path.join('backend', '.env'))
 
-# Configure Flask to serve static files from React build
-static_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'frontend', 'dist')
-app = Flask(__name__, static_folder=static_folder, static_url_path='')
+# Configure Flask paths
+base_dir = os.path.dirname(os.path.abspath(__file__))
+static_folder = os.path.join(base_dir, 'frontend', 'dist')
+template_folder = os.path.join(base_dir, 'templates')
+app = Flask(__name__, static_folder=static_folder, static_url_path='', template_folder=template_folder)
 
 # Enable CORS for all routes
 CORS(app, origins=["*"])
