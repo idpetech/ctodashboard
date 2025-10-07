@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "python3 integrated_dashboard.py",
+    "startCommand": "gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 300 integrated_dashboard:app",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300
   }
