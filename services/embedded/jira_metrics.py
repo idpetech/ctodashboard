@@ -1,3 +1,7 @@
+import os
+import requests
+from datetime import datetime, timedelta
+
 class EmbeddedJiraMetrics:
     """Jira metrics embedded directly in the Flask app"""
     
@@ -51,9 +55,5 @@ class EmbeddedJiraMetrics:
         except Exception as e:
             return {"error": f"Jira API error: {str(e)}"}
 
-# Initialize all metrics services
-aws_metrics = EmbeddedAWSMetrics()
-github_metrics = EmbeddedGitHubMetrics()
-jira_metrics = EmbeddedJiraMetrics()
-
-@app.route("/")
+# Note: This is a service class, no Flask routes needed here
+# Routes are handled in the main integrated_dashboard.py file
