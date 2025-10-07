@@ -367,3 +367,20 @@ status:
 	@make patterns
 	@echo ""
 	@make test-status
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PRE-DEPLOYMENT VALIDATION
+# ═══════════════════════════════════════════════════════════════════════════
+
+.PHONY: validate deploy-check pre-deploy
+
+validate: ## Run comprehensive pre-deployment validation
+	@echo "Running pre-deployment validation..."
+	@./pre_deploy_check.sh
+
+deploy-check: validate ## Alias for validate
+
+pre-deploy: validate ## Alias for validate
+	@echo ""
+	@echo "✅ All checks passed! Safe to deploy with:"
+	@echo "   git push origin master"
