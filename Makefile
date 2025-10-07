@@ -384,3 +384,31 @@ pre-deploy: validate ## Alias for validate
 	@echo ""
 	@echo "✅ All checks passed! Safe to deploy with:"
 	@echo "   git push origin master"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# RAILWAY DEPLOYMENT
+# ═══════════════════════════════════════════════════════════════════════════
+
+.PHONY: test-deploy railway-deploy railway-logs railway-status
+
+test-deploy: ## Test before deploying to Railway
+	@echo "Testing before Railway deployment..."
+	@./scripts/test_before_deploy.sh
+
+railway-deploy: test-deploy ## Deploy to Railway (after tests pass)
+	@echo ""
+	@echo "🚀 Deploying to Railway..."
+	@git push origin master
+	@echo ""
+	@echo "✅ Pushed to GitHub - Railway will auto-deploy"
+	@echo "   Check status: make railway-status"
+	@echo "   View logs: make railway-logs"
+
+railway-logs: ## View Railway deployment logs
+	@echo "📋 Fetching Railway logs..."
+	@railway logs
+
+railway-status: ## Check Railway deployment status
+	@echo "📊 Checking Railway deployment..."
+	@curl -s https://web-production-07894.up.railway.app/health | jq '.'
+
