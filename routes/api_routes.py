@@ -12,6 +12,7 @@ from services.embedded.aws_metrics import EmbeddedAWSMetrics
 from services.embedded.github_metrics import EmbeddedGitHubMetrics
 from services.embedded.jira_metrics import EmbeddedJiraMetrics
 from services.embedded.openai_metrics import OpenAIMetrics
+from services.chatbot_service import process_question, process_question_stream, get_conversation_history, clear_conversation_history
 
 # Initialize services
 service_manager = ServiceManager()
@@ -256,42 +257,69 @@ def register_routes(app):
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-    @app.route("/api/chatbot/ask", methods=["POST"])
-    def ask_chatbot():
-        """Simple chatbot endpoint"""
+
+    @app.route("/api/chatbot/ask-stream", methods=["POST"])
+    def ask_chatbot_stream():
+        """AI-powered chatbot with streaming response"""
         try:
             data = request.get_json()
             question = data.get("question", "")
             user_id = data.get("user_id", "default")
             
-            # Simple response
-            response = {
-                "response": f"I received your question: '{question}'. Full AI chatbot coming in Phase 2.1!",
-                "confidence": 0.8,
-                "question_type": "general",
-                "data_used": [],
-                "sources": ["Integrated Dashboard"],
-                "timestamp": datetime.now().isoformat()
-            }
+            if not question:
+                return jsonify({"error": "No question provided"}), 400
             
-            return jsonify(response)
+            # Return streaming response
+            from flask import Response
+            return Response(
+                process_question_stream(question, user_id),
+                mimetype='text/event-stream',
+                headers={
+                    'Cache-Control': 'no-cache',
+                    'X-Accel-Buffering': 'no'
+                }
+            )
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/chatbot/ask", methods=["POST"])
+    def ask_chatbot():
+        """AI-powered chatbot endpoint"""
+        try:
+            data = request.get_json()
+            question = data.get("question", "")
+            user_id = data.get("user_id", "default")
+            
+            if not question:
+                return jsonify({"error": "No question provided"}), 400
+            
+            # Use AI chatbot service
+            result = process_question(question, user_id)
+            return jsonify(result)
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/chatbot/history")
     def get_chatbot_history():
-        """Get chatbot history"""
+        """Get chatbot conversation history"""
         try:
             user_id = request.args.get("user_id", "default")
-            limit = int(request.args.get("limit", 10))
-            return jsonify({"history": []})
+            limit = int(request.args.get("limit", 20))
+            history = get_conversation_history(user_id, limit)
+            return jsonify({"history": history})
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/chatbot/clear", methods=["POST"])
     def clear_chatbot_history():
-        """Clear chatbot history"""
-        return jsonify({"message": "History cleared", "success": True})
+        """Clear chatbot conversation history"""
+        try:
+            data = request.get_json() or {}
+            user_id = data.get("user_id", "default")
+            clear_conversation_history(user_id)
+            return jsonify({"message": "History cleared", "success": True})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
     @app.route("/static/<path:filename>")
     def serve_static(filename):

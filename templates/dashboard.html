@@ -134,8 +134,14 @@
         <script>
             async function loadDashboard() {
                 try {
+                    console.log('🔍 Loading assignments...');
                     const response = await fetch('/api/assignments');
+                    console.log('📡 Response status:', response.status);
+                    
                     const data = await response.json();
+                    console.log('📦 Data received:', data);
+                    console.log('📊 Data type:', typeof data);
+                    console.log('📋 Is array?:', Array.isArray(data));
                     
                     if (data.error) {
                         document.getElementById('dashboard-content').innerHTML = 
@@ -143,7 +149,11 @@
                         return;
                     }
                     
-                    displayAssignments(data.assignments);
+                    // Handle both array and object wrapper formats
+                    const assignments = Array.isArray(data) ? data : data.assignments;
+                    console.log('✅ Assignments to display:', assignments);
+                    
+                    displayAssignments(assignments);
                     
                 } catch (error) {
                     document.getElementById('dashboard-content').innerHTML = 
@@ -1035,11 +1045,16 @@
             }
 
             async function sendChatbotMessage() {
+                console.log('🤖 sendChatbotMessage called (STREAMING)');
                 const input = document.getElementById('chatbot-input');
                 const messages = document.getElementById('chatbot-messages');
                 const question = input.value.trim();
+                console.log('📝 Question:', question);
                 
-                if (!question) return;
+                if (!question) {
+                    console.log('⚠️ No question, returning');
+                    return;
+                }
                 
                 // Add user message
                 const userMessage = document.createElement('div');
@@ -1050,17 +1065,24 @@
                 // Clear input
                 input.value = '';
                 
-                // Add loading message
-                const loadingMessage = document.createElement('div');
-                loadingMessage.className = 'flex justify-start';
-                loadingMessage.innerHTML = '<div class="bg-gray-100 rounded-lg px-4 py-2"><div class="flex items-center space-x-2"><div class="flex space-x-1"><div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div></div><span class="text-sm text-gray-500">Thinking...</span></div></div>';
-                messages.appendChild(loadingMessage);
+                // Create bot message container for streaming
+                const botMessageContainer = document.createElement('div');
+                botMessageContainer.className = 'flex justify-start';
+                const botMessageContent = document.createElement('div');
+                botMessageContent.className = 'max-w-[80%] rounded-lg px-4 py-2 bg-gray-100 text-gray-900';
+                const botMessageText = document.createElement('div');
+                botMessageText.className = 'whitespace-pre-wrap';
+                botMessageText.innerHTML = '<span class="inline-block w-2 h-4 bg-gray-400 animate-pulse">▋</span>';
+                botMessageContent.appendChild(botMessageText);
+                botMessageContainer.appendChild(botMessageContent);
+                messages.appendChild(botMessageContainer);
                 
                 // Scroll to bottom
                 messages.scrollTop = messages.scrollHeight;
                 
                 try {
-                    const response = await fetch('/api/chatbot/ask', {
+                    console.log('📡 Sending to /api/chatbot/ask-stream (STREAMING)...');
+                    const response = await fetch('/api/chatbot/ask-stream', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -1071,18 +1093,66 @@
                         })
                     });
                     
-                    const data = await response.json();
+                    console.log('📊 Stream started, status:', response.status);
                     
-                    // Remove loading message
-                    loadingMessage.remove();
-                    
-                    // Add bot response
-                    const botMessage = document.createElement('div');
-                    botMessage.className = 'flex justify-start';
-                    botMessage.innerHTML = '<div class="max-w-[80%] rounded-lg px-4 py-2 bg-gray-100 text-gray-900"><div class="whitespace-pre-wrap">' + data.response + '</div></div>';
-                    messages.appendChild(botMessage);
+                    if (!response.ok) {
+                        throw new Error('Stream request failed');
+                    }
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let fullResponse = '';
+                    let receivedAny = false;
+                    while (true) {
+                        const {done, value} = await reader.read();
+                        if (done) break;
+                        const chunk = decoder.decode(value);
+                        const lines = chunk.split('\n');
+                        for (const line of lines) {
+                            if (!line.startsWith('data: ')) continue;
+                            try {
+                                const data = JSON.parse(line.substring(6));
+                                if (data.init) {
+                                    // clear placeholder if needed
+                                    botMessageText.textContent = '';
+                                    continue;
+                                }
+                                if (data.token) {
+                                    receivedAny = true;
+                                    fullResponse += data.token;
+                                    botMessageText.textContent = fullResponse + '▋';
+                                    messages.scrollTop = messages.scrollHeight;
+                                    continue;
+                                }
+                                if (data.done) {
+                                    botMessageText.textContent = data.full_response || fullResponse || '(no response)';
+                                    console.log('✅ Streaming complete');
+                                    continue;
+                                }
+                                if (data.error) {
+                                    throw new Error(data.error);
+                                }
+                            } catch (e) { /* ignore */ }
+                        }
+                    }
+                    if (!receivedAny) {
+                        // fallback: fetch non-streaming result if nothing streamed
+                        try {
+                            const fallback = await fetch('/api/chatbot/ask', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ question, user_id: 'dashboard_user' })
+                            });
+                            const json = await fallback.json();
+                            botMessageText.textContent = (json && json.response) ? json.response : '(no response)';
+                        } catch (e) {
+                            botMessageText.textContent = '(no response)';
+                        }
+                    }
                     
                 } catch (error) {
+                    console.error('❌ Chatbot error:', error);
+                    console.error('❌ Error details:', error.message, error.stack);
+                    
                     // Remove loading message
                     loadingMessage.remove();
                     
