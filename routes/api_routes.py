@@ -97,7 +97,7 @@ def register_routes(app):
     @app.route("/api/assignments")
     def get_assignments():
         """Get all assignments"""
-        assignments_dir = "backend/assignments"
+        assignments_dir = "config/assignments"
         assignments = []
         
         if os.path.exists(assignments_dir):
@@ -130,7 +130,7 @@ def register_routes(app):
         """Get GitHub metrics for specific assignment"""
         try:
             # Load assignment configuration
-            assignment_file = f"backend/assignments/{assignment_id}.json"
+            assignment_file = f"config/assignments/{assignment_id}.json"
             if not os.path.exists(assignment_file):
                 return jsonify({"error": "Assignment not found"}), 404
             
@@ -150,7 +150,7 @@ def register_routes(app):
         """Get Jira metrics for specific assignment"""
         try:
             # Load assignment configuration
-            assignment_file = f"backend/assignments/{assignment_id}.json"
+            assignment_file = f"config/assignments/{assignment_id}.json"
             if not os.path.exists(assignment_file):
                 return jsonify({"error": "Assignment not found"}), 404
             
@@ -170,7 +170,7 @@ def register_routes(app):
         """Get all metrics for specific assignment"""
         try:
             # Load assignment configuration
-            assignment_file = f"backend/assignments/{assignment_id}.json"
+            assignment_file = f"config/assignments/{assignment_id}.json"
             if not os.path.exists(assignment_file):
                 return jsonify({"error": "Assignment not found"}), 404
             
@@ -216,7 +216,7 @@ def register_routes(app):
         """Get metrics for specific assignment"""
         try:
             # Load assignment configuration
-            assignment_file = f"backend/assignments/{assignment_id}.json"
+            assignment_file = f"config/assignments/{assignment_id}.json"
             if not os.path.exists(assignment_file):
                 return jsonify({"error": "Assignment not found"}), 404
             

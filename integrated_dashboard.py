@@ -15,7 +15,7 @@ from botocore.exceptions import ClientError
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv(os.path.join('backend', '.env'))
+load_dotenv()
 
 # Configure Flask paths
 base_dir = os.path.dirname(os.path.abspath(__file__))

@@ -1,4 +1,4 @@
-""
+"""
 AI Chatbot Service - Integrated for Routes
 Provides intelligent responses using LangChain and OpenAI
 """
@@ -47,7 +47,7 @@ Provide concise, actionable insights. When asked about specific data, reference 
 
 def get_assignment_data() -> Dict[str, Any]:
     """Load assignment data with REAL metrics"""
-    assignments_dir = "backend/assignments"
+    assignments_dir = "config/assignments"
     assignments = []
     
     if os.path.exists(assignments_dir):
