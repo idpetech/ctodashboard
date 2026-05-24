@@ -13,9 +13,11 @@ from services.embedded.github_metrics import EmbeddedGitHubMetrics
 from services.embedded.jira_metrics import EmbeddedJiraMetrics
 from services.embedded.openai_metrics import OpenAIMetrics
 from services.chatbot_service import process_question, process_question_stream, get_conversation_history, clear_conversation_history
+from services.assignment_service import AssignmentService
 
 # Initialize services
 service_manager = ServiceManager()
+assignment_service = AssignmentService()
 aws_metrics = EmbeddedAWSMetrics()
 github_metrics = EmbeddedGitHubMetrics()
 jira_metrics = EmbeddedJiraMetrics()
