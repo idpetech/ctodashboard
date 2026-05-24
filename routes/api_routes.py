@@ -99,23 +99,7 @@ def register_routes(app):
     @app.route("/api/assignments")
     def get_assignments():
         """Get all assignments"""
-        assignments_dir = "config/assignments"
-        assignments = []
-        
-        if os.path.exists(assignments_dir):
-            for filename in os.listdir(assignments_dir):
-                if filename.endswith('.json'):
-                    assignment_id = filename[:-5]  # Remove .json extension
-                    filepath = os.path.join(assignments_dir, filename)
-                    
-                    try:
-                        with open(filepath, 'r') as f:
-                            assignment_data = json.load(f)
-                            assignment_data['id'] = assignment_id
-                            assignments.append(assignment_data)
-                    except Exception as e:
-                        print(f"Error loading assignment {assignment_id}: {e}")
-        
+        assignments = assignment_service.get_all_assignments()
         return jsonify(assignments)
 
     @app.route("/api/aws-metrics")
