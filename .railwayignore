@@ -22,3 +22,4 @@ requirements-mcp.txt
 requirements-simple.txt
 render-*.yaml
 vercel.json
+_attic/
