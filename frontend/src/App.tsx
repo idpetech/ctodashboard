@@ -494,6 +494,74 @@ function App() {
             )
           })}
         </div>
+
+        {/* CTO Strategic Recommendations Section */}
+        <div className="mt-8 bg-yellow-50 border border-yellow-200 p-6 rounded-lg">
+          <h2 className="text-xl font-semibold text-yellow-800 mb-4">💡 CTO Strategic Recommendations</h2>
+          
+          {/* Static Strategic Priorities */}
+          <div className="bg-white p-4 rounded border mb-4">
+            <h3 className="text-lg font-medium text-gray-800 mb-3">🎯 Strategic CTO Priorities</h3>
+            <ul className="space-y-2 text-sm text-gray-700">
+              <li>• 📈 <strong>Velocity:</strong> Align development speed with business objectives</li>
+              <li>• 💰 <strong>Cost Efficiency:</strong> Optimize infrastructure spend without compromising performance</li>
+              <li>• 🔄 <strong>Process:</strong> Streamline workflows to reduce cycle time and improve quality</li>
+              <li>• 📊 <strong>Metrics:</strong> Establish KPIs that tie technical performance to business outcomes</li>
+              <li>• 🛡️ <strong>Risk Management:</strong> Balance technical debt with feature delivery</li>
+            </ul>
+          </div>
+
+          {/* Dynamic Assignment-Specific Recommendations */}
+          <div className="bg-blue-50 p-4 rounded border">
+            <h3 className="text-lg font-medium text-blue-800 mb-3">⚡ Assignment-Specific Insights</h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              {assignments.map(assignment => (
+                <div key={assignment.id} className="bg-white p-3 rounded border">
+                  <h4 className="font-semibold text-gray-800 mb-2">{assignment.name}</h4>
+                  <div className="space-y-1 text-xs text-gray-600">
+                    {/* Team Size Analysis */}
+                    {assignment.team_size <= 2 && (
+                      <div className="text-orange-600">
+                        🔍 Small team ({assignment.team_size}) - consider documentation focus
+                      </div>
+                    )}
+                    {assignment.team_size >= 10 && (
+                      <div className="text-blue-600">
+                        👥 Large team ({assignment.team_size}) - emphasize communication tools
+                      </div>
+                    )}
+                    
+                    {/* Burn Rate Analysis */}
+                    {assignment.monthly_burn_rate < 500 && (
+                      <div className="text-green-600">
+                        💰 Low burn rate (${assignment.monthly_burn_rate}) - focus on growth
+                      </div>
+                    )}
+                    {assignment.monthly_burn_rate > 2000 && (
+                      <div className="text-red-600">
+                        ⚠️ High burn rate (${assignment.monthly_burn_rate}) - monitor costs closely
+                      </div>
+                    )}
+                    
+                    {/* Tech Stack Analysis */}
+                    {assignment.team.tech_stack.includes('AWS') && (
+                      <div className="text-purple-600">
+                        ☁️ AWS usage - implement cost monitoring
+                      </div>
+                    )}
+                    
+                    {/* Service Configuration Analysis */}
+                    {Object.values(assignment.metrics_config).filter((service: any) => service?.enabled === true).length >= 4 && (
+                      <div className="text-indigo-600">
+                        📊 Full observability stack - leverage data for decisions
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
       
       {/* Chatbot Button */}

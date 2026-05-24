@@ -1,0 +1,97 @@
+# Repository Generation Prompt
+
+You are to generate a **production-grade web application** for a Resume Checker platform with promotional bundles, credits, and extensibility in mind.
+
+---
+		
+## 🔑 Core Flow
+
+1. **Resume Upload** →  
+2. **Promo Code / Bundle Selection** →  
+3. **Feature Selection (with credits applied)** →  
+4. **Payment Gateway** (if discount < 100%) →  
+5. **Wait Window** →  
+6. **Results Dashboard** (download, recommendations, etc.).  
+
+---
+
+## 🏗️ Architectural Principles
+
+- **Separation of Concerns**: backend = FastAPI, frontend = HTML/JS (or React), DB = SQLite or Postgres.  
+- **API-Driven Pricing**:  
+  - ❌ No hardcoded pricing or credit values in HTML/JS.  
+  - ✅ All feature prices & credit values come from `/api/pricing`.  
+  - ✅ Frontend dynamically fetches pricing on load (`fetch('/api/pricing')`).  
+  - ✅ Discounts/promo codes are validated & applied server-side.  
+
+- **Extensibility Hooks**:  
+  - Add easily pluggable modules (e.g., future "Career Buddy Chat").  
+  - Feature toggles defined in config.  
+  - Leave TODO comments where natural extensions may occur.  
+
+- **Maintainability**:  
+  - Clear folder structure.  
+  - Inline docstrings for all services.  
+  - Adhere to PEP8 (Python) and ESLint (JS).  
+  - Write simple unit tests with `pytest`.  
+
+- **AI-Friendliness**:  
+  - Code should be **self-descriptive**, so a junior developer or AI assistant can extend it.  
+  - Keep prompts/comments around APIs, services, and data contracts.  
+
+- **SEO Ready**:  
+  - Meta tags, OG tags, structured schema.  
+  - `seo_utils.py` and `schema.py` prebuilt in `/seo/`.  
+
+---
+
+## 📂 Folder Structure
+
+```
+/app
+  /api
+    pricing.py         # Returns feature prices & credit values
+    resume.py          # Resume upload & processing
+    payment.py         # Payment integration
+    promo.py           # Promo/bundle validation
+  /services
+    pricing_service.py
+    promo_service.py
+    resume_service.py
+    payment_service.py
+  /data
+    pricing.json       # Feature price & credit values
+/frontend
+  index.html
+  js/config.js
+  js/api.js
+/tests
+  test_pricing.py
+  test_promo.py
+/seo
+  seo_utils.py
+  schema.py
+CONTRIBUTING.md
+EXTENDING.md
+```
+
+---
+
+## 🧪 Requirements
+
+- Python 3.11+  
+- FastAPI  
+- SQLite (default, switchable to Postgres)  
+- Stripe (or dummy) payment integration  
+- Frontend fetches API values dynamically  
+- Basic SEO foundation included  
+
+---
+
+## ✅ Output Expectations
+
+1. Generate **all source files** under the folder structure above.  
+2. Do **not** hardcode prices or credits in HTML/JS. Always fetch from API.  
+3. Leave **hooks** & TODOs for future features (e.g., "Career Buddy Chat").  
+4. Include `CONTRIBUTING.md` and `EXTENDING.md` for non-technical maintainers.  
+5. Ensure the repo can be run locally via `uvicorn app.main:app --reload`.  

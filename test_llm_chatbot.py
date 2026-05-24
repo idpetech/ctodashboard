@@ -139,3 +139,6 @@ if __name__ == "__main__":
     print("3. Open the dashboard and click the chatbot button")
     print("4. Or use the MCP server for AI assistant integration")
 
+
+
+

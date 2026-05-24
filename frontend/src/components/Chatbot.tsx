@@ -308,3 +308,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ apiUrl, isOpen, onClose }) => {
 
 export default Chatbot
 
+
+
+

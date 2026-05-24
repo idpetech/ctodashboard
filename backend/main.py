@@ -29,7 +29,8 @@ def health_check():
             "github": "configured" if os.getenv("GITHUB_TOKEN") else "not_configured",
             "jira": "configured" if os.getenv("JIRA_TOKEN") else "not_configured", 
             "aws": "configured" if os.getenv("AWS_ACCESS_KEY_ID") else "not_configured",
-            "railway": "configured" if os.getenv("RAILWAY_TOKEN") else "not_configured"
+            "railway": "configured" if os.getenv("RAILWAY_TOKEN") else "not_configured",
+            "openai": "configured" if os.getenv("OPENAI_API_KEY") else "not_configured"
         }
     })
 
