@@ -236,7 +236,7 @@ def get_assignments():
     """Get all assignments from JSON configuration files"""
     try:
         # Read assignments directly from JSON files
-        assignments_dir = '/Users/haseebtoor/projects/ctodashboard/backend/assignments'
+        assignments_dir = 'config/assignments'
         assignments = []
         
         for filename in os.listdir(assignments_dir):
