@@ -35,23 +35,16 @@ def register_routes(app):
 
     @app.route("/health")
     def health_check():
-        """Health check endpoint for Railway"""
+        """Health check endpoint showing service configuration status"""
         return jsonify({
-            "status": "read_only",
-            "note": "Feature flags are controlled via environment variables",
-            "feature_flags": {
-                "multi_tenancy": os.getenv("ENABLE_MULTI_TENANCY", "false").lower() == "true",
-                "workstream_management": os.getenv("ENABLE_WORKSTREAM_MGMT", "false").lower() == "true",
-                "service_config_ui": os.getenv("ENABLE_SERVICE_CONFIG_UI", "false").lower() == "true",
-                "advanced_billing": os.getenv("ENABLE_BILLING", "false").lower() == "true",
-                "database_storage": os.getenv("ENABLE_DATABASE", "false").lower() == "true"
-            },
-            "environment_variables": {
-                "ENABLE_MULTI_TENANCY": os.getenv("ENABLE_MULTI_TENANCY", "false"),
-                "ENABLE_WORKSTREAM_MGMT": os.getenv("ENABLE_WORKSTREAM_MGMT", "false"),
-                "ENABLE_SERVICE_CONFIG_UI": os.getenv("ENABLE_SERVICE_CONFIG_UI", "false"),
-                "ENABLE_BILLING": os.getenv("ENABLE_BILLING", "false"),
-                "ENABLE_DATABASE": os.getenv("ENABLE_DATABASE", "false")
+            "status": "healthy", 
+            "timestamp": datetime.now().isoformat(),
+            "services": {
+                "github": "configured" if os.getenv("GITHUB_TOKEN") else "not_configured",
+                "jira": "configured" if os.getenv("JIRA_TOKEN") else "not_configured", 
+                "aws": "configured" if os.getenv("AWS_ACCESS_KEY_ID") else "not_configured",
+                "railway": "configured" if os.getenv("RAILWAY_TOKEN") else "not_configured",
+                "openai": "configured" if os.getenv("OPENAI_API_KEY") else "not_configured"
             }
         })
 
@@ -104,6 +97,14 @@ def register_routes(app):
         assignments = assignment_service.get_all_assignments()
         return jsonify(assignments)
 
+    @app.route("/api/assignments/<assignment_id>")
+    def get_assignment(assignment_id):
+        """Get a specific assignment configuration"""
+        assignment = assignment_service.get_assignment(assignment_id)
+        if not assignment:
+            return jsonify({"error": f"Assignment {assignment_id} not found"}), 404
+        return jsonify(assignment)
+
     @app.route("/api/aws-metrics")
     def get_aws_metrics():
         """Get AWS metrics"""
@@ -122,13 +123,23 @@ def register_routes(app):
             if not assignment:
                 return jsonify({"error": "Assignment not found"}), 404
             
-            if not assignment.get('github', {}).get('enabled', False):
+            github_config = assignment.get('metrics_config', {}).get('github', {})
+            if not github_config.get('enabled', False):
                 return jsonify({"error": "GitHub not enabled for this assignment"}), 400
             
-            metrics = github_metrics.get_metrics(assignment['github'])
+            metrics = github_metrics.get_metrics(github_config)
             return jsonify(metrics)
         except Exception as e:
             return jsonify({"error": str(e)}), 500
+    
+    @app.route("/api/github-token-status")
+    def check_github_token_status():
+        """Check GitHub token validation status"""
+        try:
+            status = github_metrics.validate_token()
+            return jsonify(status)
+        except Exception as e:
+            return jsonify({"error": str(e), "valid": False}), 500
 
     @app.route("/api/jira-metrics/<assignment_id>")
     def get_jira_metrics(assignment_id):
@@ -139,10 +150,11 @@ def register_routes(app):
             if not assignment:
                 return jsonify({"error": "Assignment not found"}), 404
             
-            if not assignment.get('jira', {}).get('enabled', False):
+            jira_config = assignment.get('metrics_config', {}).get('jira', {})
+            if not jira_config.get('enabled', False):
                 return jsonify({"error": "Jira not enabled for this assignment"}), 400
             
-            metrics = jira_metrics.get_metrics(assignment['jira'])
+            metrics = jira_metrics.get_metrics(jira_config)
             return jsonify(metrics)
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -159,30 +171,34 @@ def register_routes(app):
             metrics = {}
             
             # AWS metrics
-            if assignment.get('aws', {}).get('enabled', False):
+            aws_config = assignment.get('metrics_config', {}).get('aws', {})
+            if aws_config.get('enabled', False):
                 try:
                     metrics['aws'] = aws_metrics.get_metrics()
                 except Exception as e:
                     metrics['aws'] = {"error": str(e)}
             
             # GitHub metrics
-            if assignment.get('github', {}).get('enabled', False):
+            github_config = assignment.get('metrics_config', {}).get('github', {})
+            if github_config.get('enabled', False):
                 try:
-                    metrics['github'] = github_metrics.get_metrics(assignment['github'])
+                    metrics['github'] = github_metrics.get_metrics(github_config)
                 except Exception as e:
                     metrics['github'] = {"error": str(e)}
             
             # Jira metrics
-            if assignment.get('jira', {}).get('enabled', False):
+            jira_config = assignment.get('metrics_config', {}).get('jira', {})
+            if jira_config.get('enabled', False):
                 try:
-                    metrics['jira'] = jira_metrics.get_metrics(assignment['jira'])
+                    metrics['jira'] = jira_metrics.get_metrics(jira_config)
                 except Exception as e:
                     metrics['jira'] = {"error": str(e)}
             
             # OpenAI metrics
-            if assignment.get('openai', {}).get('enabled', False):
+            openai_config = assignment.get('metrics_config', {}).get('openai', {})
+            if openai_config.get('enabled', False):
                 try:
-                    metrics['openai'] = openai_metrics.get_usage_metrics(assignment['openai'])
+                    metrics['openai'] = openai_metrics.get_usage_metrics(openai_config)
                 except Exception as e:
                     metrics['openai'] = {"error": str(e)}
             

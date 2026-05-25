@@ -11,11 +11,70 @@ class EmbeddedGitHubMetrics:
     def __init__(self):
         self.token = os.getenv("GITHUB_TOKEN")
         self.base_url = "https://api.github.com"
+    
+    def validate_token(self) -> dict:
+        """Validate GitHub token and return status information"""
+        if not self.token:
+            return {
+                "valid": False,
+                "error": "No GITHUB_TOKEN environment variable found",
+                "instructions": "Set GITHUB_TOKEN environment variable with a valid GitHub Personal Access Token"
+            }
+        
+        if self.token == "test_token":
+            return {
+                "valid": False, 
+                "error": "GITHUB_TOKEN is set to placeholder value 'test_token'",
+                "instructions": "Replace with a valid GitHub Personal Access Token from https://github.com/settings/tokens"
+            }
+        
+        if len(self.token) < 20:
+            return {
+                "valid": False,
+                "error": f"GITHUB_TOKEN appears to be too short ({len(self.token)} characters)",
+                "instructions": "GitHub Personal Access Tokens should be 40+ characters. Generate a new one at https://github.com/settings/tokens"
+            }
+        
+        # Test token with GitHub API
+        headers = {
+            "Authorization": f"token {self.token}",
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "CTO-Dashboard/1.0"
+        }
+        
+        try:
+            response = requests.get(f"{self.base_url}/user", headers=headers, timeout=10)
+            if response.status_code == 200:
+                user_data = response.json()
+                return {
+                    "valid": True,
+                    "authenticated_user": user_data.get("login"),
+                    "rate_limit_remaining": response.headers.get("X-RateLimit-Remaining"),
+                    "token_type": "Classic PAT" if self.token.startswith("ghp_") else "Fine-grained PAT" if self.token.startswith("github_pat_") else "Unknown"
+                }
+            elif response.status_code == 401:
+                return {
+                    "valid": False,
+                    "error": "GitHub API returned 401 - Invalid credentials",
+                    "instructions": "Generate a new GitHub Personal Access Token at https://github.com/settings/tokens with 'repo' scope"
+                }
+            else:
+                return {
+                    "valid": False,
+                    "error": f"GitHub API returned {response.status_code}: {response.text[:100]}",
+                    "instructions": "Check token permissions and GitHub API status"
+                }
+        except Exception as e:
+            return {
+                "valid": False,
+                "error": f"Connection error: {str(e)}",
+                "instructions": "Check internet connection and GitHub API availability"
+            }
         
     def get_repo_metrics(self, org: str, repos: list) -> list:
         """Get GitHub repository metrics for multiple repos"""
-        if not self.token:
-            return [{"error": "GitHub token not configured"}]
+        if not self.token or self.token == "test_token" or len(self.token) < 20:
+            return [{"error": "Valid GitHub token not configured"}]
         
         results = []
         headers = {
@@ -29,10 +88,16 @@ class EmbeddedGitHubMetrics:
                 repo_url = f"{self.base_url}/repos/{org}/{repo}"
                 response = requests.get(repo_url, headers=headers, timeout=10)
                 
-                if response.status_code != 200:
+                if response.status_code == 401:
                     results.append({
                         "repo_name": repo,
-                        "error": f"HTTP {response.status_code}"
+                        "error": "HTTP 401 - Invalid GitHub token. Please check your GITHUB_TOKEN environment variable."
+                    })
+                    continue
+                elif response.status_code != 200:
+                    results.append({
+                        "repo_name": repo,
+                        "error": f"HTTP {response.status_code}: {response.text[:100] if response.text else 'Unknown error'}"
                     })
                     continue
                 
@@ -71,4 +136,10 @@ class EmbeddedGitHubMetrics:
         """Get GitHub metrics based on configuration"""
         org = config.get("org", "")
         repos = config.get("repos", [])
+        
+        if not org:
+            return [{"error": "GitHub organization not configured"}]
+        if not repos:
+            return [{"error": "No repositories configured"}]
+            
         return self.get_repo_metrics(org, repos)
