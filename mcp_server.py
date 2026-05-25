@@ -79,69 +79,69 @@ class CTODashboardMCPServer:
                                     "type": "boolean",
                                     "description": "Include archived assignments",
                                     "default": False
-                                )
-                            )
-                        )
+                                }
+                            }
+                        }
                     ),
                     Tool(
                         name="get_assignment",
                         description="Get a specific assignment by ID",
                         inputSchema={
-                            type="object",
-                            properties={
+                            "type": "object",
+                            "properties": {
                                 "assignment_id": {
                                     "type": "string",
                                     "description": "Assignment ID to retrieve"
-                                )
-                            ),
-                            required=["assignment_id"]
-                        )
+                                }
+                            },
+                            "required": ["assignment_id"]
+                        }
                     ),
                     Tool(
                         name="create_assignment",
                         description="Create a new assignment",
                         inputSchema={
-                            type="object",
-                            properties={
+                            "type": "object",
+                            "properties": {
                                 "assignment_data": {
                                     "type": "object",
                                     "description": "Assignment configuration data"
-                                )
-                            ),
-                            required=["assignment_data"]
-                        )
+                                }
+                            },
+                            "required": ["assignment_data"]
+                        }
                     ),
                     Tool(
                         name="update_assignment",
                         description="Update an existing assignment",
                         inputSchema={
-                            type="object",
-                            properties={
+                            "type": "object",
+                            "properties": {
                                 "assignment_id": {
                                     "type": "string",
                                     "description": "Assignment ID to update"
-                                ),
+                                },
                                 "assignment_data": {
                                     "type": "object",
                                     "description": "Updated assignment data"
-                                )
-                            ),
-                            required=["assignment_id", "assignment_data"]
-                        )
+                                }
+                            },
+                            "required": ["assignment_id", "assignment_data"]
+                        }
                     ),
                     Tool(
                         name="archive_assignment",
                         description="Archive an assignment",
                         inputSchema={
-                            type="object",
-                            properties={
+                            "type": "object",
+                            "properties": {
                                 "assignment_id": {
                                     "type": "string",
                                     "description": "Assignment ID to archive"
-                                )
-                            ),
-                            required=["assignment_id"]
-                        )
+                                }
+                            },
+                            "required": ["assignment_id"]
+                        }
                     ),
                     
                     # Metrics Tools
@@ -149,62 +149,62 @@ class CTODashboardMCPServer:
                         name="get_assignment_metrics",
                         description="Get real-time metrics for a specific assignment",
                         inputSchema={
-                            type="object",
-                            properties={
+                            "type": "object",
+                            "properties": {
                                 "assignment_id": {
                                     "type": "string",
                                     "description": "Assignment ID to get metrics for"
-                                )
-                            ),
-                            required=["assignment_id"]
-                        )
+                                }
+                            },
+                            "required": ["assignment_id"]
+                        }
                     ),
                     Tool(
                         name="get_aws_insights",
                         description="Get comprehensive AWS cost and resource insights",
                         inputSchema={
-                            type="object",
-                            properties={}
-                        )
+                            "type": "object",
+                            "properties": {}
+                        }
                     ),
                     Tool(
                         name="get_github_metrics",
                         description="Get GitHub repository metrics",
                         inputSchema={
-                            type="object",
-                            properties={
+                            "type": "object",
+                            "properties": {
                                 "repo": {
                                     "type": "string",
                                     "description": "Repository name"
-                                ),
+                                },
                                 "org": {
                                     "type": "string",
                                     "description": "Organization name (optional)"
-                                )
-                            ),
-                            required=["repo"]
-                        )
+                                }
+                            },
+                            "required": ["repo"]
+                        }
                     ),
                     Tool(
                         name="get_jira_metrics",
                         description="Get Jira project metrics",
                         inputSchema={
-                            type="object",
-                            properties={
+                            "type": "object",
+                            "properties": {
                                 "project_key": {
                                     "type": "string",
                                     "description": "Jira project key (optional)"
-                                )
-                            )
-                        )
+                                }
+                            }
+                        }
                     ),
                     Tool(
                         name="get_railway_metrics",
                         description="Get Railway deployment metrics",
                         inputSchema={
-                            type="object",
-                            properties={}
-                        )
+                            "type": "object",
+                            "properties": {}
+                        }
                     ),
                     
                     # CTO Insights Tools
@@ -212,23 +212,23 @@ class CTODashboardMCPServer:
                         name="get_cto_insights",
                         description="Get detailed CTO-level insights for an assignment",
                         inputSchema={
-                            type="object",
-                            properties={
+                            "type": "object",
+                            "properties": {
                                 "assignment_id": {
                                     "type": "string",
                                     "description": "Assignment ID to get insights for"
-                                )
-                            ),
-                            required=["assignment_id"]
-                        )
+                                }
+                            },
+                            "required": ["assignment_id"]
+                        }
                     ),
                     Tool(
                         name="get_cost_optimization_recommendations",
                         description="Get AWS cost optimization recommendations",
                         inputSchema={
-                            type="object",
-                            properties={}
-                        )
+                            "type": "object",
+                            "properties": {}
+                        }
                     ),
                     
                     # Health and Status Tools
@@ -236,17 +236,17 @@ class CTODashboardMCPServer:
                         name="get_health_status",
                         description="Get health status of all configured services",
                         inputSchema={
-                            type="object",
-                            properties={}
-                        )
+                            "type": "object",
+                            "properties": {}
+                        }
                     ),
                     Tool(
                         name="get_service_configuration",
                         description="Get configuration status of all services",
                         inputSchema={
-                            type="object",
-                            properties={}
-                        )
+                            "type": "object",
+                            "properties": {}
+                        }
                     ),
                     
                     # Chatbot Tools
@@ -254,53 +254,53 @@ class CTODashboardMCPServer:
                         name="ask_chatbot",
                         description="Ask the AI chatbot a question about managed services, assignments, costs, or metrics",
                         inputSchema={
-                            type="object",
-                            properties={
+                            "type": "object",
+                            "properties": {
                                 "question": {
                                     "type": "string",
                                     "description": "The question to ask the chatbot"
-                                ),
+                                },
                                 "user_id": {
                                     "type": "string",
                                     "description": "User identifier for conversation tracking (optional)",
                                     "default": "default"
-                                )
-                            ),
-                            required=["question"]
-                        )
+                                }
+                            },
+                            "required": ["question"]
+                        }
                     ),
                     Tool(
                         name="get_chatbot_history",
                         description="Get chatbot conversation history for a user",
                         inputSchema={
-                            type="object",
-                            properties={
+                            "type": "object",
+                            "properties": {
                                 "user_id": {
                                     "type": "string",
                                     "description": "User identifier",
                                     "default": "default"
-                                ),
+                                },
                                 "limit": {
                                     "type": "integer",
                                     "description": "Number of conversations to retrieve",
                                     "default": 10
-                                )
-                            )
-                        )
+                                }
+                            }
+                        }
                     ),
                     Tool(
                         name="clear_chatbot_history",
                         description="Clear chatbot conversation history for a user",
                         inputSchema={
-                            type="object",
-                            properties={
+                            "type": "object",
+                            "properties": {
                                 "user_id": {
                                     "type": "string",
                                     "description": "User identifier",
                                     "default": "default"
-                                )
-                            )
-                        )
+                                }
+                            }
+                        }
                     )
                 ]
             )
@@ -478,7 +478,7 @@ class CTODashboardMCPServer:
                             "jira": "configured" if os.getenv("JIRA_TOKEN") else "not_configured",
                             "aws": "configured" if os.getenv("AWS_ACCESS_KEY_ID") else "not_configured",
                             "railway": "configured" if os.getenv("RAILWAY_TOKEN") else "not_configured"
-                        )
+                        }
                     }
                     return CallToolResult(
                         content=[TextContent(
@@ -493,23 +493,23 @@ class CTODashboardMCPServer:
                             "token_configured": bool(os.getenv("GITHUB_TOKEN")),
                             "org": os.getenv("GITHUB_ORG", ""),
                             "api_url": os.getenv("GITHUB_API_URL", "https://api.github.com")
-                        ),
+                        },
                         "jira": {
                             "url": os.getenv("JIRA_URL", ""),
                             "email": os.getenv("JIRA_EMAIL", ""),
                             "token_configured": bool(os.getenv("JIRA_TOKEN")),
                             "project_key": os.getenv("JIRA_PROJECT_KEY", "")
-                        ),
+                        },
                         "aws": {
                             "access_key_configured": bool(os.getenv("AWS_ACCESS_KEY_ID")),
                             "secret_key_configured": bool(os.getenv("AWS_SECRET_ACCESS_KEY")),
                             "region": os.getenv("AWS_REGION", "us-east-1")
-                        ),
+                        },
                         "railway": {
                             "token_configured": bool(os.getenv("RAILWAY_TOKEN")),
                             "project_id": os.getenv("RAILWAY_PROJECT_ID", ""),
                             "api_url": os.getenv("RAILWAY_API_URL", "https://backboard.railway.app/graphql")
-                        )
+                        }
                     }
                     return CallToolResult(
                         content=[TextContent(
@@ -647,23 +647,23 @@ class CTODashboardMCPServer:
                             "token_configured": bool(os.getenv("GITHUB_TOKEN")),
                             "org": os.getenv("GITHUB_ORG", ""),
                             "api_url": os.getenv("GITHUB_API_URL", "https://api.github.com")
-                        ),
+                        },
                         "jira": {
                             "url": os.getenv("JIRA_URL", ""),
                             "email": os.getenv("JIRA_EMAIL", ""),
                             "token_configured": bool(os.getenv("JIRA_TOKEN")),
                             "project_key": os.getenv("JIRA_PROJECT_KEY", "")
-                        ),
+                        },
                         "aws": {
                             "access_key_configured": bool(os.getenv("AWS_ACCESS_KEY_ID")),
                             "secret_key_configured": bool(os.getenv("AWS_SECRET_ACCESS_KEY")),
                             "region": os.getenv("AWS_REGION", "us-east-1")
-                        ),
+                        },
                         "railway": {
                             "token_configured": bool(os.getenv("RAILWAY_TOKEN")),
                             "project_id": os.getenv("RAILWAY_PROJECT_ID", ""),
                             "api_url": os.getenv("RAILWAY_API_URL", "https://backboard.railway.app/graphql")
-                        )
+                        }
                     }
                     return ReadResourceResult(
                         contents=[TextContent(
