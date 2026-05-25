@@ -236,6 +236,39 @@ def register_routes(app):
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
+    @app.route("/api/assignments/<assignment_id>/cto-insights")
+    def get_cto_insights(assignment_id):
+        """Get comprehensive CTO insights for specific assignment"""
+        try:
+            # Load assignment configuration
+            assignment = assignment_service.get_assignment(assignment_id)
+            if not assignment:
+                return jsonify({"error": "Assignment not found"}), 404
+            
+            # Check if AWS metrics are enabled
+            if not assignment.get('aws', {}).get('enabled', False):
+                return jsonify({"error": "AWS metrics not enabled for this assignment"}), 400
+            
+            # Get comprehensive AWS report
+            aws_report = aws_metrics_v2.get_comprehensive_aws_report()
+            
+            # Merge with assignment info
+            response = {
+                "assignment_info": {
+                    "id": assignment.get("id"),
+                    "name": assignment.get("name"),
+                    "monthly_burn_rate": assignment.get("monthly_burn_rate"),
+                    "team_size": assignment.get("team_size")
+                }
+            }
+            
+            # Add AWS comprehensive report data
+            response.update(aws_report)
+            
+            return jsonify(response)
+            
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
     @app.route("/api/chatbot/ask-stream", methods=["POST"])
     def ask_chatbot_stream():
