@@ -116,12 +116,9 @@ def register_routes(app):
         """Get GitHub metrics for specific assignment"""
         try:
             # Load assignment configuration
-            assignment_file = f"config/assignments/{assignment_id}.json"
-            if not os.path.exists(assignment_file):
+            assignment = assignment_service.get_assignment(assignment_id)
+            if not assignment:
                 return jsonify({"error": "Assignment not found"}), 404
-            
-            with open(assignment_file, 'r') as f:
-                assignment = json.load(f)
             
             if not assignment.get('github', {}).get('enabled', False):
                 return jsonify({"error": "GitHub not enabled for this assignment"}), 400
@@ -136,12 +133,9 @@ def register_routes(app):
         """Get Jira metrics for specific assignment"""
         try:
             # Load assignment configuration
-            assignment_file = f"config/assignments/{assignment_id}.json"
-            if not os.path.exists(assignment_file):
+            assignment = assignment_service.get_assignment(assignment_id)
+            if not assignment:
                 return jsonify({"error": "Assignment not found"}), 404
-            
-            with open(assignment_file, 'r') as f:
-                assignment = json.load(f)
             
             if not assignment.get('jira', {}).get('enabled', False):
                 return jsonify({"error": "Jira not enabled for this assignment"}), 400
@@ -156,12 +150,9 @@ def register_routes(app):
         """Get all metrics for specific assignment"""
         try:
             # Load assignment configuration
-            assignment_file = f"config/assignments/{assignment_id}.json"
-            if not os.path.exists(assignment_file):
+            assignment = assignment_service.get_assignment(assignment_id)
+            if not assignment:
                 return jsonify({"error": "Assignment not found"}), 404
-            
-            with open(assignment_file, 'r') as f:
-                assignment = json.load(f)
             
             metrics = {}
             

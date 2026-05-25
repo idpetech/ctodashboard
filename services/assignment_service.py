@@ -13,7 +13,7 @@ class AssignmentService:
         # Get assignments directory from environment variable (never hardcode!)
         self.assignments_dir = os.getenv(
             "ASSIGNMENTS_CONFIG_PATH", 
-            os.path.join(os.path.dirname(__file__), "assignments")
+            "config/assignments"
         )
         self.archived_dir = os.path.join(self.assignments_dir, "archived")
         
