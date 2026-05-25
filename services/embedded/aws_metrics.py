@@ -212,3 +212,18 @@ class EmbeddedAWSMetrics:
             recommendations.append(f"• Review {service_name} usage patterns and optimization opportunities")
         
         return recommendations
+    
+    def get_metrics(self) -> dict:
+        """Get AWS metrics (combines cost and resource metrics)"""
+        try:
+            cost_data = self.get_real_cost_metrics()
+            resource_data = self.get_real_resource_metrics()
+            
+            # Combine both datasets
+            return {
+                "timestamp": datetime.now().isoformat(),
+                "cost_analysis": cost_data,
+                "resources": resource_data
+            }
+        except Exception as e:
+            return {"error": f"AWS metrics error: {str(e)}"}
