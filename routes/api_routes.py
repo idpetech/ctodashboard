@@ -9,6 +9,7 @@ import json
 from datetime import datetime, timedelta
 from services.service_manager import ServiceManager
 from services.embedded.aws_metrics import EmbeddedAWSMetrics
+from services.embedded.aws_metrics_v2 import EmbeddedAWSMetricsV2
 from services.embedded.github_metrics import EmbeddedGitHubMetrics
 from services.embedded.jira_metrics import EmbeddedJiraMetrics
 from services.embedded.openai_metrics import OpenAIMetrics
@@ -19,6 +20,7 @@ from services.assignment_service import AssignmentService
 service_manager = ServiceManager()
 assignment_service = AssignmentService()
 aws_metrics = EmbeddedAWSMetrics()
+aws_metrics_v2 = EmbeddedAWSMetricsV2()
 github_metrics = EmbeddedGitHubMetrics()
 jira_metrics = EmbeddedJiraMetrics()
 openai_metrics = OpenAIMetrics()
@@ -106,7 +108,7 @@ def register_routes(app):
     def get_aws_metrics():
         """Get AWS metrics"""
         try:
-            metrics = aws_metrics.get_metrics()
+            metrics = aws_metrics_v2.get_metrics()
             return jsonify(metrics)
         except Exception as e:
             return jsonify({"error": str(e)}), 500
