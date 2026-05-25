@@ -12,14 +12,18 @@ from services.embedded.aws_metrics import EmbeddedAWSMetrics
 from services.embedded.github_metrics import EmbeddedGitHubMetrics
 from services.embedded.jira_metrics import EmbeddedJiraMetrics
 from services.embedded.openai_metrics import OpenAIMetrics
+from services.embedded.railway_metrics import RailwayMetrics
 from services.chatbot_service import process_question, process_question_stream, get_conversation_history, clear_conversation_history
+from services.assignment_service import AssignmentService
 
 # Initialize services
 service_manager = ServiceManager()
+assignment_service = AssignmentService()
 aws_metrics = EmbeddedAWSMetrics()
 github_metrics = EmbeddedGitHubMetrics()
 jira_metrics = EmbeddedJiraMetrics()
 openai_metrics = OpenAIMetrics()
+railway_metrics = RailwayMetrics()
 
 def register_routes(app):
     """Register all routes with the Flask app"""
@@ -31,23 +35,16 @@ def register_routes(app):
 
     @app.route("/health")
     def health_check():
-        """Health check endpoint for Railway"""
+        """Health check endpoint showing service configuration status"""
         return jsonify({
-            "status": "read_only",
-            "note": "Feature flags are controlled via environment variables",
-            "feature_flags": {
-                "multi_tenancy": os.getenv("ENABLE_MULTI_TENANCY", "false").lower() == "true",
-                "workstream_management": os.getenv("ENABLE_WORKSTREAM_MGMT", "false").lower() == "true",
-                "service_config_ui": os.getenv("ENABLE_SERVICE_CONFIG_UI", "false").lower() == "true",
-                "advanced_billing": os.getenv("ENABLE_BILLING", "false").lower() == "true",
-                "database_storage": os.getenv("ENABLE_DATABASE", "false").lower() == "true"
-            },
-            "environment_variables": {
-                "ENABLE_MULTI_TENANCY": os.getenv("ENABLE_MULTI_TENANCY", "false"),
-                "ENABLE_WORKSTREAM_MGMT": os.getenv("ENABLE_WORKSTREAM_MGMT", "false"),
-                "ENABLE_SERVICE_CONFIG_UI": os.getenv("ENABLE_SERVICE_CONFIG_UI", "false"),
-                "ENABLE_BILLING": os.getenv("ENABLE_BILLING", "false"),
-                "ENABLE_DATABASE": os.getenv("ENABLE_DATABASE", "false")
+            "status": "healthy", 
+            "timestamp": datetime.now().isoformat(),
+            "services": {
+                "github": "configured" if os.getenv("GITHUB_TOKEN") else "not_configured",
+                "jira": "configured" if os.getenv("JIRA_TOKEN") else "not_configured", 
+                "aws": "configured" if os.getenv("AWS_ACCESS_KEY_ID") else "not_configured",
+                "railway": "configured" if os.getenv("RAILWAY_TOKEN") else "not_configured",
+                "openai": "configured" if os.getenv("OPENAI_API_KEY") else "not_configured"
             }
         })
 
@@ -97,24 +94,16 @@ def register_routes(app):
     @app.route("/api/assignments")
     def get_assignments():
         """Get all assignments"""
-        assignments_dir = "backend/assignments"
-        assignments = []
-        
-        if os.path.exists(assignments_dir):
-            for filename in os.listdir(assignments_dir):
-                if filename.endswith('.json'):
-                    assignment_id = filename[:-5]  # Remove .json extension
-                    filepath = os.path.join(assignments_dir, filename)
-                    
-                    try:
-                        with open(filepath, 'r') as f:
-                            assignment_data = json.load(f)
-                            assignment_data['id'] = assignment_id
-                            assignments.append(assignment_data)
-                    except Exception as e:
-                        print(f"Error loading assignment {assignment_id}: {e}")
-        
+        assignments = assignment_service.get_all_assignments()
         return jsonify(assignments)
+
+    @app.route("/api/assignments/<assignment_id>")
+    def get_assignment(assignment_id):
+        """Get a specific assignment configuration"""
+        assignment = assignment_service.get_assignment(assignment_id)
+        if not assignment:
+            return jsonify({"error": f"Assignment {assignment_id} not found"}), 404
+        return jsonify(assignment)
 
     @app.route("/api/aws-metrics")
     def get_aws_metrics():
@@ -130,37 +119,42 @@ def register_routes(app):
         """Get GitHub metrics for specific assignment"""
         try:
             # Load assignment configuration
-            assignment_file = f"backend/assignments/{assignment_id}.json"
-            if not os.path.exists(assignment_file):
+            assignment = assignment_service.get_assignment(assignment_id)
+            if not assignment:
                 return jsonify({"error": "Assignment not found"}), 404
             
-            with open(assignment_file, 'r') as f:
-                assignment = json.load(f)
-            
-            if not assignment.get('github', {}).get('enabled', False):
+            github_config = assignment.get('metrics_config', {}).get('github', {})
+            if not github_config.get('enabled', False):
                 return jsonify({"error": "GitHub not enabled for this assignment"}), 400
             
-            metrics = github_metrics.get_metrics(assignment['github'])
+            metrics = github_metrics.get_metrics(github_config)
             return jsonify(metrics)
         except Exception as e:
             return jsonify({"error": str(e)}), 500
+    
+    @app.route("/api/github-token-status")
+    def check_github_token_status():
+        """Check GitHub token validation status"""
+        try:
+            status = github_metrics.validate_token()
+            return jsonify(status)
+        except Exception as e:
+            return jsonify({"error": str(e), "valid": False}), 500
 
     @app.route("/api/jira-metrics/<assignment_id>")
     def get_jira_metrics(assignment_id):
         """Get Jira metrics for specific assignment"""
         try:
             # Load assignment configuration
-            assignment_file = f"backend/assignments/{assignment_id}.json"
-            if not os.path.exists(assignment_file):
+            assignment = assignment_service.get_assignment(assignment_id)
+            if not assignment:
                 return jsonify({"error": "Assignment not found"}), 404
             
-            with open(assignment_file, 'r') as f:
-                assignment = json.load(f)
-            
-            if not assignment.get('jira', {}).get('enabled', False):
+            jira_config = assignment.get('metrics_config', {}).get('jira', {})
+            if not jira_config.get('enabled', False):
                 return jsonify({"error": "Jira not enabled for this assignment"}), 400
             
-            metrics = jira_metrics.get_metrics(assignment['jira'])
+            metrics = jira_metrics.get_metrics(jira_config)
             return jsonify(metrics)
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -170,42 +164,54 @@ def register_routes(app):
         """Get all metrics for specific assignment"""
         try:
             # Load assignment configuration
-            assignment_file = f"backend/assignments/{assignment_id}.json"
-            if not os.path.exists(assignment_file):
+            assignment = assignment_service.get_assignment(assignment_id)
+            if not assignment:
                 return jsonify({"error": "Assignment not found"}), 404
-            
-            with open(assignment_file, 'r') as f:
-                assignment = json.load(f)
             
             metrics = {}
             
             # AWS metrics
-            if assignment.get('aws', {}).get('enabled', False):
+            aws_config = assignment.get('metrics_config', {}).get('aws', {})
+            if aws_config.get('enabled', False):
                 try:
                     metrics['aws'] = aws_metrics.get_metrics()
                 except Exception as e:
                     metrics['aws'] = {"error": str(e)}
             
             # GitHub metrics
-            if assignment.get('github', {}).get('enabled', False):
+            github_config = assignment.get('metrics_config', {}).get('github', {})
+            if github_config.get('enabled', False):
                 try:
-                    metrics['github'] = github_metrics.get_metrics(assignment['github'])
+                    metrics['github'] = github_metrics.get_metrics(github_config)
                 except Exception as e:
                     metrics['github'] = {"error": str(e)}
             
             # Jira metrics
-            if assignment.get('jira', {}).get('enabled', False):
+            jira_config = assignment.get('metrics_config', {}).get('jira', {})
+            if jira_config.get('enabled', False):
                 try:
-                    metrics['jira'] = jira_metrics.get_metrics(assignment['jira'])
+                    metrics['jira'] = jira_metrics.get_metrics(jira_config)
                 except Exception as e:
                     metrics['jira'] = {"error": str(e)}
             
             # OpenAI metrics
-            if assignment.get('openai', {}).get('enabled', False):
+            openai_config = assignment.get('metrics_config', {}).get('openai', {})
+            if openai_config.get('enabled', False):
                 try:
-                    metrics['openai'] = openai_metrics.get_usage_metrics(assignment['openai'])
+                    metrics['openai'] = openai_metrics.get_usage_metrics(openai_config)
                 except Exception as e:
                     metrics['openai'] = {"error": str(e)}
+            
+            # Railway metrics
+            if assignment.get('metrics_config', {}).get('railway', {}).get('enabled'):
+                try:
+                    import asyncio
+                    railway_config = assignment.get('metrics_config', {}).get('railway', {})
+                    project_id = railway_config.get('project_id')
+                    project_name = railway_config.get('project_name')
+                    metrics['railway'] = asyncio.run(railway_metrics.get_metrics(project_id=project_id, project_name=project_name))
+                except Exception as e:
+                    metrics['railway'] = {"error": str(e)}
             
             return jsonify(metrics)
         except Exception as e:
@@ -216,7 +222,7 @@ def register_routes(app):
         """Get metrics for specific assignment"""
         try:
             # Load assignment configuration
-            assignment_file = f"backend/assignments/{assignment_id}.json"
+            assignment_file = f"config/assignments/{assignment_id}.json"
             if not os.path.exists(assignment_file):
                 return jsonify({"error": "Assignment not found"}), 404
             
@@ -253,10 +259,54 @@ def register_routes(app):
                 except Exception as e:
                     metrics['openai'] = {"error": str(e)}
             
+            # Railway metrics
+            if assignment.get('metrics_config', {}).get('railway', {}).get('enabled'):
+                try:
+                    import asyncio
+                    railway_config = assignment.get('metrics_config', {}).get('railway', {})
+                    project_id = railway_config.get('project_id')
+                    project_name = railway_config.get('project_name')
+                    metrics['railway'] = asyncio.run(railway_metrics.get_metrics(project_id=project_id, project_name=project_name))
+                except Exception as e:
+                    metrics['railway'] = {"error": str(e)}
+            
             return jsonify(metrics)
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
+    @app.route("/api/assignments/<assignment_id>/cto-insights")
+    def get_cto_insights(assignment_id):
+        """Get comprehensive CTO insights for specific assignment"""
+        try:
+            # Load assignment configuration
+            assignment = assignment_service.get_assignment(assignment_id)
+            if not assignment:
+                return jsonify({"error": "Assignment not found"}), 404
+            
+            # Check if AWS metrics are enabled
+            if not assignment.get('aws', {}).get('enabled', False):
+                return jsonify({"error": "AWS metrics not enabled for this assignment"}), 400
+            
+            # Get comprehensive AWS report
+            aws_report = aws_metrics.get_comprehensive_aws_report()
+            
+            # Merge with assignment info
+            response = {
+                "assignment_info": {
+                    "id": assignment.get("id"),
+                    "name": assignment.get("name"),
+                    "monthly_burn_rate": assignment.get("monthly_burn_rate"),
+                    "team_size": assignment.get("team_size")
+                }
+            }
+            
+            # Add AWS comprehensive report data
+            response.update(aws_report)
+            
+            return jsonify(response)
+            
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
     @app.route("/api/chatbot/ask-stream", methods=["POST"])
     def ask_chatbot_stream():

@@ -47,7 +47,7 @@ Provide concise, actionable insights. When asked about specific data, reference 
 
 def get_assignment_data() -> Dict[str, Any]:
     """Load assignment data with REAL metrics"""
-    assignments_dir = "backend/assignments"
+    assignments_dir = "config/assignments"
     assignments = []
     
     if os.path.exists(assignments_dir):
@@ -181,8 +181,12 @@ def _process_rule_based(question: str, assignment_data: Dict) -> Dict[str, Any]:
     question_lower = question.lower()
     assignments = assignment_data.get("assignments", [])
     
-    # Simple keyword matching
-    if "team size" in question_lower or "how many" in question_lower:
+    # Simple keyword matching with better logic
+    if "how many assignments" in question_lower or "total assignments" in question_lower:
+        names = [a['name'] for a in assignments]
+        response = f"I'm tracking {len(assignments)} assignment(s): {', '.join(names)}."
+    
+    elif "team size" in question_lower and "how many" in question_lower:
         ideptech = next((a for a in assignments if a['id'] == 'ideptech'), None)
         if ideptech:
             response = f"IdepTech has a team size of {ideptech.get('team_size', 'unknown')} member(s)."

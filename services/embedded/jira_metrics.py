@@ -24,15 +24,17 @@ class EmbeddedJiraMetrics:
             project_response = requests.get(project_url, auth=auth, headers=headers, timeout=10)
             project_data = project_response.json() if project_response.status_code == 200 else {}
             
-            # Get issues by status
-            search_url = f"{self.base_url}/rest/api/3/search"
+            # Get issues by status using new JQL API endpoint  
+            search_url = f"{self.base_url}/rest/api/3/search/jql"
             jql_query = f"project = '{project_key}' AND created >= -30d"
-            search_params = {
+            search_payload = {
                 "jql": jql_query,
-                "fields": "status,priority,created,resolutiondate"
+                "fields": ["status", "priority", "created", "resolutiondate"],
+                "maxResults": 100
             }
             
-            search_response = requests.get(search_url, auth=auth, headers=headers, params=search_params, timeout=10)
+            headers_with_content = {**headers, "Content-Type": "application/json"}
+            search_response = requests.post(search_url, auth=auth, headers=headers_with_content, json=search_payload, timeout=10)
             
             if search_response.status_code != 200:
                 return {"error": f"Jira API returned {search_response.status_code}: {search_response.text[:200]}"}
@@ -54,6 +56,24 @@ class EmbeddedJiraMetrics:
             
         except Exception as e:
             return {"error": f"Jira API error: {str(e)}"}
+
+    def get_metrics(self, config: dict) -> dict:
+        """Get Jira metrics with configuration - main method called by routes"""
+        project_key = config.get('project_key')
+        if not project_key:
+            return {"error": "No Jira project_key specified in configuration"}
+        
+        metrics = self.get_project_metrics(project_key)
+        
+        # Add configuration context
+        metrics['config'] = {
+            'project_key': project_key,
+            'track_sprints': config.get('track_sprints', False),
+            'track_bugs': config.get('track_bugs', False),
+            'enabled': config.get('enabled', False)
+        }
+        
+        return metrics
 
 # Note: This is a service class, no Flask routes needed here
 # Routes are handled in the main integrated_dashboard.py file

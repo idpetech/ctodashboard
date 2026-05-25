@@ -44,3 +44,6 @@ fi
 echo "Starting MCP server..."
 python3 mcp_server.py
 
+
+
+

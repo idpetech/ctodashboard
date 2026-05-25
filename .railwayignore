@@ -1,7 +1,6 @@
 # Railway ignore file
 # Exclude Cursor enforcement files from Railway build
 package.json
-node_modules/
 .cursorrules
 .cursorignore
 cursor.config.json
@@ -22,3 +21,4 @@ requirements-mcp.txt
 requirements-simple.txt
 render-*.yaml
 vercel.json
+_attic/
