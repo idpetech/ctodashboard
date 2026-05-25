@@ -161,7 +161,7 @@ def register_routes(app):
             # AWS metrics
             if assignment.get('aws', {}).get('enabled', False):
                 try:
-                    metrics['aws'] = aws_metrics.get_metrics()
+                    metrics['aws'] = aws_metrics_v2.get_metrics()
                 except Exception as e:
                     metrics['aws'] = {"error": str(e)}
             
@@ -207,7 +207,7 @@ def register_routes(app):
             # AWS metrics
             if assignment.get('aws', {}).get('enabled', False):
                 try:
-                    metrics['aws'] = aws_metrics.get_metrics()
+                    metrics['aws'] = aws_metrics_v2.get_metrics()
                 except Exception as e:
                     metrics['aws'] = {"error": str(e)}
             
