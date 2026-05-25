@@ -9,7 +9,6 @@ import json
 from datetime import datetime, timedelta
 from services.service_manager import ServiceManager
 from services.embedded.aws_metrics import EmbeddedAWSMetrics
-from services.embedded.aws_metrics_v2 import EmbeddedAWSMetricsV2
 from services.embedded.github_metrics import EmbeddedGitHubMetrics
 from services.embedded.jira_metrics import EmbeddedJiraMetrics
 from services.embedded.openai_metrics import OpenAIMetrics
@@ -20,7 +19,6 @@ from services.assignment_service import AssignmentService
 service_manager = ServiceManager()
 assignment_service = AssignmentService()
 aws_metrics = EmbeddedAWSMetrics()
-aws_metrics_v2 = EmbeddedAWSMetricsV2()
 github_metrics = EmbeddedGitHubMetrics()
 jira_metrics = EmbeddedJiraMetrics()
 openai_metrics = OpenAIMetrics()
@@ -108,7 +106,7 @@ def register_routes(app):
     def get_aws_metrics():
         """Get AWS metrics"""
         try:
-            metrics = aws_metrics_v2.get_metrics()
+            metrics = aws_metrics.get_metrics()
             return jsonify(metrics)
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -161,7 +159,7 @@ def register_routes(app):
             # AWS metrics
             if assignment.get('aws', {}).get('enabled', False):
                 try:
-                    metrics['aws'] = aws_metrics_v2.get_metrics()
+                    metrics['aws'] = aws_metrics.get_metrics()
                 except Exception as e:
                     metrics['aws'] = {"error": str(e)}
             
@@ -207,7 +205,7 @@ def register_routes(app):
             # AWS metrics
             if assignment.get('aws', {}).get('enabled', False):
                 try:
-                    metrics['aws'] = aws_metrics_v2.get_metrics()
+                    metrics['aws'] = aws_metrics.get_metrics()
                 except Exception as e:
                     metrics['aws'] = {"error": str(e)}
             
@@ -250,7 +248,7 @@ def register_routes(app):
                 return jsonify({"error": "AWS metrics not enabled for this assignment"}), 400
             
             # Get comprehensive AWS report
-            aws_report = aws_metrics_v2.get_comprehensive_aws_report()
+            aws_report = aws_metrics.get_comprehensive_aws_report()
             
             # Merge with assignment info
             response = {
