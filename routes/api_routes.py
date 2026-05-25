@@ -12,6 +12,7 @@ from services.embedded.aws_metrics import EmbeddedAWSMetrics
 from services.embedded.github_metrics import EmbeddedGitHubMetrics
 from services.embedded.jira_metrics import EmbeddedJiraMetrics
 from services.embedded.openai_metrics import OpenAIMetrics
+from services.embedded.railway_metrics import RailwayMetrics
 from services.chatbot_service import process_question, process_question_stream, get_conversation_history, clear_conversation_history
 from services.assignment_service import AssignmentService
 
@@ -22,6 +23,7 @@ aws_metrics = EmbeddedAWSMetrics()
 github_metrics = EmbeddedGitHubMetrics()
 jira_metrics = EmbeddedJiraMetrics()
 openai_metrics = OpenAIMetrics()
+railway_metrics = RailwayMetrics()
 
 def register_routes(app):
     """Register all routes with the Flask app"""
@@ -184,6 +186,17 @@ def register_routes(app):
                 except Exception as e:
                     metrics['openai'] = {"error": str(e)}
             
+            # Railway metrics
+            if assignment.get('metrics_config', {}).get('railway', {}).get('enabled'):
+                try:
+                    import asyncio
+                    railway_config = assignment.get('metrics_config', {}).get('railway', {})
+                    project_id = railway_config.get('project_id')
+                    project_name = railway_config.get('project_name')
+                    metrics['railway'] = asyncio.run(railway_metrics.get_metrics(project_id=project_id, project_name=project_name))
+                except Exception as e:
+                    metrics['railway'] = {"error": str(e)}
+            
             return jsonify(metrics)
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -229,6 +242,17 @@ def register_routes(app):
                     metrics['openai'] = openai_metrics.get_usage_metrics(assignment['openai'])
                 except Exception as e:
                     metrics['openai'] = {"error": str(e)}
+            
+            # Railway metrics
+            if assignment.get('metrics_config', {}).get('railway', {}).get('enabled'):
+                try:
+                    import asyncio
+                    railway_config = assignment.get('metrics_config', {}).get('railway', {})
+                    project_id = railway_config.get('project_id')
+                    project_name = railway_config.get('project_name')
+                    metrics['railway'] = asyncio.run(railway_metrics.get_metrics(project_id=project_id, project_name=project_name))
+                except Exception as e:
+                    metrics['railway'] = {"error": str(e)}
             
             return jsonify(metrics)
         except Exception as e:
