@@ -4,11 +4,15 @@ import json
 from datetime import datetime
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, render_template_string
+from routes.api_routes import register_routes
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
+
+# Register all API routes
+register_routes(app)
 
 # Simple HTML template with embedded CSS and JavaScript
 HTML_TEMPLATE = """
@@ -217,92 +221,6 @@ HTML_TEMPLATE = """
 def dashboard():
     """Serve the main dashboard page"""
     return render_template_string(HTML_TEMPLATE)
-
-@app.route("/api/health")
-def health_check():
-    return jsonify({
-        "status": "healthy", 
-        "timestamp": datetime.utcnow().isoformat(),
-        "services": {
-            "github": "configured" if os.getenv("GITHUB_TOKEN") else "not_configured",
-            "jira": "configured" if os.getenv("JIRA_TOKEN") else "not_configured", 
-            "aws": "configured" if os.getenv("AWS_ACCESS_KEY_ID") else "not_configured",
-            "railway": "configured" if os.getenv("RAILWAY_TOKEN") else "not_configured"
-        }
-    })
-
-@app.route("/api/assignments")
-def get_assignments():
-    """Get all assignments from JSON configuration files"""
-    try:
-        # Read assignments directly from JSON files
-        assignments_dir = 'config/assignments'
-        assignments = []
-        
-        for filename in os.listdir(assignments_dir):
-            if filename.endswith('.json'):
-                try:
-                    with open(os.path.join(assignments_dir, filename), 'r') as f:
-                        assignment = json.load(f)
-                        if not request.args.get('include_archived', 'false').lower() == 'true':
-                            if assignment.get('status') != 'archived':
-                                assignments.append(assignment)
-                        else:
-                            assignments.append(assignment)
-                except json.JSONDecodeError as e:
-                    print(f"Error loading {filename}: {e}")
-                    continue
-        
-        return jsonify(assignments)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route("/api/assignments/<assignment_id>/metrics")
-def get_assignment_metrics(assignment_id):
-    """Get mock metrics for a specific assignment (simplified for demo)"""
-    try:
-        # Return mock metrics data for demo purposes
-        mock_metrics = {
-            "timestamp": datetime.utcnow().isoformat(),
-            "assignment_id": assignment_id,
-            "github": [
-                {
-                    "repo_name": "sample-repo",
-                    "commits_last_30_days": 42,
-                    "language": "Python",
-                    "stars": 15,
-                    "open_issues": 3,
-                    "total_prs": 8,
-                    "last_updated": "2025-08-28T10:00:00Z"
-                }
-            ],
-            "aws": {
-                "total_cost_last_30_days": "45.67",
-                "period": "Last 30 days",
-                "top_services": {
-                    "EC2": "25.30",
-                    "S3": "12.45",
-                    "Route53": "2.50"
-                }
-            },
-            "jira": {
-                "project_name": "Sample Project",
-                "total_issues_last_30_days": 23,
-                "resolved_issues_last_30_days": 18,
-                "resolution_rate": 78
-            },
-            "railway": {
-                "project_name": "sample-project",
-                "total_deployments": 15,
-                "successful_deployments": 14,
-                "success_rate": 93,
-                "last_deployment": "2025-08-28T15:30:00Z"
-            }
-        }
-        
-        return jsonify(mock_metrics)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     port = int(os.getenv('PORT', 8000))
