@@ -19,11 +19,11 @@ python-dotenv==1.0.0
 # AI Chatbot dependencies
 langchain==0.3.27
 langchain-openai==0.3.34
-openai==2.1.0
+openai==1.45.0
 
 # MCP Server dependencies
 mcp>=1.0.0
-anyio>=4.7.0
+anyio>=3.7.1,<4.0.0
 
 # Legacy FastAPI dependencies (if needed)
 fastapi==0.104.1
