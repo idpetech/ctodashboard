@@ -12,6 +12,15 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Feature Flags - must match those in services/service_manager.py
+FEATURE_FLAGS = {
+    "multi_tenancy": os.getenv("ENABLE_MULTI_TENANCY", "false").lower() == "true",
+    "workstream_management": os.getenv("ENABLE_WORKSTREAM_MGMT", "false").lower() == "true",
+    "service_config_ui": os.getenv("ENABLE_SERVICE_CONFIG_UI", "false").lower() == "true",
+    "advanced_billing": os.getenv("ENABLE_BILLING", "false").lower() == "true",
+    "database_storage": os.getenv("ENABLE_DATABASE", "false").lower() == "true"
+}
+
 # Configure Flask paths
 app = Flask(__name__, template_folder='templates')
 
