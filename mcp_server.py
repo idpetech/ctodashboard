@@ -37,9 +37,13 @@ from mcp.types import (
 )
 
 # Import our existing services
-from assignment_service import AssignmentService
-from metrics_service import MetricsAggregator, AWSMetrics, GitHubMetrics, JiraMetrics, RailwayMetrics
-from chatbot_service import chatbot_service
+from services.assignment_service import AssignmentService
+from services.metrics_aggregator import MetricsAggregator
+from services.embedded.aws_metrics import EmbeddedAWSMetrics as AWSMetrics
+from services.embedded.github_metrics import EmbeddedGitHubMetrics as GitHubMetrics
+from services.embedded.jira_metrics import EmbeddedJiraMetrics as JiraMetrics
+from services.embedded.railway_metrics import RailwayMetrics
+from services.chatbot_service import process_question, get_conversation_history, clear_conversation_history
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -523,7 +527,7 @@ class CTODashboardMCPServer:
                     question = arguments["question"]
                     user_id = arguments.get("user_id", "default")
                     
-                    response = await chatbot_service.process_question(question, user_id)
+                    response = process_question(question, user_id)
                     return CallToolResult(
                         content=[TextContent(
                             type="text",
@@ -535,7 +539,7 @@ class CTODashboardMCPServer:
                     user_id = arguments.get("user_id", "default")
                     limit = arguments.get("limit", 10)
                     
-                    history = chatbot_service.get_conversation_history(user_id, limit)
+                    history = get_conversation_history(user_id, limit)
                     return CallToolResult(
                         content=[TextContent(
                             type="text",
@@ -546,7 +550,7 @@ class CTODashboardMCPServer:
                 elif name == "clear_chatbot_history":
                     user_id = arguments.get("user_id", "default")
                     
-                    chatbot_service.clear_conversation_history(user_id)
+                    clear_conversation_history(user_id)
                     return CallToolResult(
                         content=[TextContent(
                             type="text",
