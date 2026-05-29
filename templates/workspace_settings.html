@@ -455,8 +455,16 @@
         let currentUser = null;
         let authToken = null;
 
-        // Initialize page
+        // Initialize page - multiple approaches for Railway compatibility
         document.addEventListener('DOMContentLoaded', initializePage);
+        
+        // Fallback initialization for Railway
+        setTimeout(function() {
+            if (typeof currentWorkspace === 'undefined') {
+                console.log('[FALLBACK] Running fallback initialization for Railway');
+                initializePage();
+            }
+        }, 1000);
 
         function initializePage() {
             // Check authentication
@@ -489,6 +497,8 @@
                 window.location.href = '/workspace/default_workspace/settings';
                 return;
             }
+            
+            console.log(`[DEBUG] Workspace extracted from URL: ${currentWorkspace}`);
 
             loadWorkspaceSettings();
         }
