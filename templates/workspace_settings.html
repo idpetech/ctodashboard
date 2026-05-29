@@ -495,15 +495,23 @@
 
         async function loadWorkspaceSettings() {
             try {
+                console.log(`[DEBUG] Loading workspace settings for: ${currentWorkspace}`);
+                console.log(`[DEBUG] Request URL: /api/workspaces/${currentWorkspace}/settings`);
+                
                 const response = await fetch(`/api/workspaces/${currentWorkspace}/settings`, {
                     headers: getAuthHeaders()
                 });
 
+                console.log(`[DEBUG] Response status: ${response.status}`);
+
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    const errorText = await response.text();
+                    console.error(`[DEBUG] Error response: ${errorText}`);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
                 }
 
                 workspaceSettings = await response.json();
+                console.log(`[DEBUG] Workspace settings loaded:`, workspaceSettings);
                 displayWorkspaceSettings();
                 loadCredentialStatus();
 
