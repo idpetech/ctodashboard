@@ -27,6 +27,9 @@ class UserService:
         # JWT secret (in production, this should be from env var)
         self.jwt_secret = os.getenv("JWT_SECRET", self._generate_default_secret())
         self.token_expiry_hours = int(os.getenv("TOKEN_EXPIRY_HOURS", "24"))
+        
+        # Ensure default admin user exists for Railway deployment
+        self._ensure_default_admin()
     
     def _generate_default_secret(self) -> str:
         """Generate a default JWT secret (for development only)"""
@@ -309,3 +312,41 @@ class UserService:
                 print(f"Warning: Could not read user file {user_file}: {e}")
         
         return users
+    
+    def _ensure_default_admin(self):
+        """Ensure a default admin user exists for Railway deployment"""
+        admin_email = "admin@railway.app"
+        admin_file = self.users_dir / f"{admin_email}.json"
+        
+        # Only create if no users exist at all
+        if not any(self.users_dir.glob("*.json")):
+            try:
+                password_hash, salt = self._hash_password("admin123")
+                
+                admin_user = {
+                    "email": admin_email,
+                    "display_name": "Railway Admin",
+                    "password_hash": password_hash,
+                    "salt": salt,
+                    "created_at": datetime.utcnow().isoformat(),
+                    "last_login": None,
+                    "workspaces": ["default_workspace"],
+                    "role": "admin", 
+                    "status": "active",
+                    "preferences": {
+                        "default_workspace": "default_workspace",
+                        "theme": "light",
+                        "timezone": "UTC"
+                    },
+                    "workspace_roles": {
+                        "default_workspace": "admin"
+                    }
+                }
+                
+                with open(admin_file, 'w') as f:
+                    json.dump(admin_user, f, indent=2)
+                    
+                print(f"Created default admin user: {admin_email} / admin123")
+                
+            except Exception as e:
+                print(f"Warning: Could not create default admin user: {e}")

@@ -484,7 +484,9 @@
             }
 
             if (!currentWorkspace) {
-                showError('No workspace specified in URL');
+                // For Railway deployment, redirect to default workspace
+                console.log('No workspace in URL, redirecting to default workspace');
+                window.location.href = '/workspace/default_workspace/settings';
                 return;
             }
 

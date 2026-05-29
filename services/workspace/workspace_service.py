@@ -255,20 +255,73 @@ class WorkspaceService:
             }
     
     def get_workspace(self, workspace_id: str) -> Dict[str, Any]:
-        """Get workspace by ID"""
+        """Get workspace by ID, auto-create default if it doesn't exist"""
         if not self.feature_enabled:
             return {"error": "Workspace functionality is disabled"}
         
         workspace_file = self.workspace_dir / f"{workspace_id}.json"
         
+        # Auto-create default workspace if it doesn't exist
         if not workspace_file.exists():
-            return {"error": f"Workspace '{workspace_id}' not found"}
+            # Check if this is a request for a default workspace (common names)
+            if workspace_id in ["default", "main", "primary"] or workspace_id.endswith("_workspace"):
+                result = self._create_default_workspace(workspace_id)
+                if "error" in result:
+                    return result
+                # Workspace was created, continue to read it
+            else:
+                return {"error": f"Workspace '{workspace_id}' not found"}
         
         try:
             with open(workspace_file, 'r') as f:
                 return json.load(f)
         except Exception as e:
             return {"error": f"Failed to read workspace: {str(e)}"}
+    
+    def _create_default_workspace(self, workspace_id: str) -> Dict[str, Any]:
+        """Create a default workspace for Railway deployment"""
+        try:
+            # Ensure workspace directory exists
+            self.workspace_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Create workspace directory structure
+            workspace_path = self.workspace_dir / workspace_id
+            workspace_path.mkdir(parents=True, exist_ok=True)
+            
+            # Create assignments subdirectory
+            assignments_dir = workspace_path / "assignments"
+            assignments_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Default workspace configuration
+            workspace_config = {
+                "id": workspace_id,
+                "name": workspace_id.replace("_", " ").title(),
+                "description": "Default workspace for Railway deployment",
+                "created_at": datetime.utcnow().isoformat(),
+                "owner": "admin",
+                "members": ["admin"],
+                "settings": {
+                    "auto_create_assignments": True,
+                    "default_connectors": ["github", "jira", "aws"],
+                    "theme": "default"
+                },
+                "connector_templates": {
+                    "github": {},
+                    "jira": {},
+                    "aws": {}
+                },
+                "status": "active"
+            }
+            
+            # Write workspace config file
+            workspace_file = self.workspace_dir / f"{workspace_id}.json"
+            with open(workspace_file, 'w') as f:
+                json.dump(workspace_config, f, indent=2)
+            
+            return {"success": True, "workspace_id": workspace_id}
+            
+        except Exception as e:
+            return {"error": f"Failed to create default workspace: {str(e)}"}
     
     def list_workspaces(self) -> Dict[str, Any]:
         """List all workspaces"""
