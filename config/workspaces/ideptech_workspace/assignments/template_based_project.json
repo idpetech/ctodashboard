@@ -1,0 +1,36 @@
+{
+  "id": "template_based_project",
+  "workspace_id": "ideptech_workspace",
+  "created_at": "2026-05-28T12:05:32.829256",
+  "name": "Template-Based Project",
+  "description": "Project created using GitHub and Jira templates",
+  "status": "active",
+  "metrics_config": {
+    "github": {
+      "track_deployments": true,
+      "track_issues": true,
+      "track_pull_requests": true,
+      "default_branch": "main",
+      "enabled": true,
+      "org": "ideptech",
+      "repos": [
+        "webapp-frontend",
+        "webapp-api"
+      ],
+      "template_used": "standard_github_template"
+    },
+    "jira": {
+      "track_sprints": true,
+      "track_bugs": true,
+      "track_story_points": true,
+      "default_board": "scrum",
+      "enabled": true,
+      "project_key": "WEB",
+      "template_used": "agile_jira_template"
+    }
+  },
+  "created_from_templates": {
+    "github": "standard_github_template",
+    "jira": "agile_jira_template"
+  }
+}

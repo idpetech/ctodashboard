@@ -1,0 +1,35 @@
+{
+  "project_name": "ctodashboard",
+  "port_range": [8520, 8529],
+  "services": {
+    "main_dashboard": {
+      "port": 8520,
+      "type": "flask",
+      "file": "integrated_dashboard.py",
+      "command": "python3 {file}",
+      "description": "CTO Dashboard Main Application"
+    },
+    "mcp_server": {
+      "port": 8521,
+      "type": "mcp",
+      "file": "mcp_server.py", 
+      "command": "python3 {file}",
+      "description": "MCP Server for CTO Dashboard"
+    },
+    "skippy_coach": {
+      "port": 8522,
+      "type": "streamlit",
+      "file": "ewm_skippy/app.py",
+      "command": "streamlit run {file} --server.port {port}",
+      "description": "Skippy Coach Interface"
+    }
+  },
+  "dependencies": {
+    "startup_order": ["main_dashboard", "mcp_server", "skippy_coach"]
+  },
+  "health_check_urls": {
+    "main_dashboard": "http://localhost:{port}/health"
+  },
+  "development_ports": [8525, 8526, 8527],
+  "testing_ports": [8528, 8529]
+}

@@ -8,9 +8,32 @@ from datetime import datetime, timedelta
 class EmbeddedGitHubMetrics:
     """GitHub metrics embedded directly in the Flask app"""
     
-    def __init__(self):
-        self.token = os.getenv("GITHUB_TOKEN")
+    def __init__(self, workspace_id=None, assignment_id=None):
+        # Phase 3: Support workspace credentials with environment variable fallback
+        self.workspace_id = workspace_id
+        self.assignment_id = assignment_id
+        
+        # Initialize credentials (preserves existing behavior if no workspace context)
+        self._init_credentials()
         self.base_url = "https://api.github.com"
+    
+    def _init_credentials(self):
+        """Initialize GitHub credentials with workspace support and env var fallback"""
+        if self.workspace_id and self.assignment_id:
+            try:
+                from services.auth.credential_service import CredentialService
+                credential_service = CredentialService()
+                credentials = credential_service.get_github_credentials(self.workspace_id, self.assignment_id)
+                self.token = credentials.get("token") or os.getenv("GITHUB_TOKEN")
+                self.org = credentials.get("org") or os.getenv("GITHUB_ORG")
+            except Exception as e:
+                print(f"Warning: Could not load workspace credentials, falling back to env vars: {e}")
+                self.token = os.getenv("GITHUB_TOKEN")
+                self.org = os.getenv("GITHUB_ORG")
+        else:
+            # Fallback to environment variables (preserves existing behavior)
+            self.token = os.getenv("GITHUB_TOKEN")
+            self.org = os.getenv("GITHUB_ORG")
     
     def validate_token(self) -> dict:
         """Validate GitHub token and return status information"""

@@ -32,5 +32,5 @@ from routes.api_routes import register_routes
 register_routes(app)
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 3001))
+    port = int(os.getenv("PORT", 8520))  # Use allocated CTO Dashboard port
     app.run(host="0.0.0.0", port=port, debug=True)

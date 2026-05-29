@@ -5,10 +5,34 @@ from datetime import datetime, timedelta
 class EmbeddedJiraMetrics:
     """Jira metrics embedded directly in the Flask app"""
     
-    def __init__(self):
-        self.base_url = os.getenv("JIRA_URL")
-        self.email = os.getenv("JIRA_EMAIL")
-        self.token = os.getenv("JIRA_TOKEN")
+    def __init__(self, workspace_id=None, assignment_id=None):
+        # Phase 3: Support workspace credentials with environment variable fallback
+        self.workspace_id = workspace_id
+        self.assignment_id = assignment_id
+        
+        # Initialize credentials (preserves existing behavior if no workspace context)
+        self._init_credentials()
+    
+    def _init_credentials(self):
+        """Initialize Jira credentials with workspace support and env var fallback"""
+        if self.workspace_id and self.assignment_id:
+            try:
+                from services.auth.credential_service import CredentialService
+                credential_service = CredentialService()
+                credentials = credential_service.get_jira_credentials(self.workspace_id, self.assignment_id)
+                self.base_url = credentials.get("url") or os.getenv("JIRA_URL")
+                self.email = credentials.get("email") or os.getenv("JIRA_EMAIL") 
+                self.token = credentials.get("token") or os.getenv("JIRA_TOKEN")
+            except Exception as e:
+                print(f"Warning: Could not load workspace credentials, falling back to env vars: {e}")
+                self.base_url = os.getenv("JIRA_URL")
+                self.email = os.getenv("JIRA_EMAIL")
+                self.token = os.getenv("JIRA_TOKEN")
+        else:
+            # Fallback to environment variables (preserves existing behavior)
+            self.base_url = os.getenv("JIRA_URL")
+            self.email = os.getenv("JIRA_EMAIL")
+            self.token = os.getenv("JIRA_TOKEN")
         
     def get_project_metrics(self, project_key: str) -> dict:
         """Get Jira project metrics"""

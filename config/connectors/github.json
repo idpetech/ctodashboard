@@ -1,0 +1,81 @@
+{
+  "connector_type": "github",
+  "display_name": "GitHub",
+  "description": "GitHub repository and organization integration",
+  "auth_config": {
+    "required_env_vars": ["GITHUB_TOKEN"],
+    "auth_type": "personal_access_token",
+    "setup_instructions": {
+      "steps": [
+        "Go to GitHub Settings > Developer settings > Personal access tokens",
+        "Generate a new token with 'repo', 'read:org', 'read:user' scopes",
+        "Set GITHUB_TOKEN environment variable with the token",
+        "For organization access, ensure token has appropriate org permissions"
+      ],
+      "documentation_url": "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token"
+    },
+    "scopes_needed": ["repo", "read:org", "read:user"],
+    "test_endpoint": "/user",
+    "validation_method": "GET request to GitHub API with token"
+  },
+  "credential_fields": {
+    "primary_token": {
+      "field_name": "github_token",
+      "display_name": "GitHub Personal Access Token",
+      "type": "token",
+      "required": true,
+      "description": "Personal access token with repo, read:org, read:user scopes",
+      "placeholder": "ghp_xxxxxxxxxxxxxxxxxxxx",
+      "env_var_pattern": "WORKSPACE_{workspace_id}_GITHUB_TOKEN"
+    },
+    "organization": {
+      "field_name": "github_org",
+      "display_name": "Default GitHub Organization",
+      "type": "text",
+      "required": false,
+      "description": "Default organization for repository access",
+      "placeholder": "your-org-name",
+      "env_var_pattern": "WORKSPACE_{workspace_id}_GITHUB_ORG"
+    }
+  },
+  "default_config": {
+    "track_deployments": true,
+    "track_issues": true,
+    "track_pull_requests": true,
+    "default_branch": "main",
+    "enabled": true
+  },
+  "config_schema": {
+    "org": {
+      "type": "string",
+      "required": true,
+      "description": "GitHub organization name"
+    },
+    "repos": {
+      "type": "array",
+      "items": {"type": "string"},
+      "required": true,
+      "description": "List of repository names to track"
+    },
+    "track_deployments": {
+      "type": "boolean",
+      "default": true,
+      "description": "Track deployment events"
+    },
+    "track_issues": {
+      "type": "boolean", 
+      "default": true,
+      "description": "Track issue creation and updates"
+    },
+    "track_pull_requests": {
+      "type": "boolean",
+      "default": true,
+      "description": "Track pull request activity"
+    },
+    "default_branch": {
+      "type": "string",
+      "default": "main",
+      "description": "Default branch for repository operations"
+    }
+  }
+}

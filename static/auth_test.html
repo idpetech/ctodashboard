@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Phase 3 Authentication Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { color: green; }
+        .error { color: red; }
+        .token { background: #f5f5f5; padding: 10px; word-break: break-all; }
+        button { padding: 8px 16px; margin: 5px; }
+        input { padding: 8px; margin: 5px; width: 200px; }
+        .response { background: #f9f9f9; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Phase 3 Authentication System Test</h1>
+    
+    <div class="section">
+        <h2>1. Authentication</h2>
+        <div>
+            <input id="email" placeholder="Email" value="admin@example.com">
+            <input id="password" type="password" placeholder="Password" value="admin123">
+            <button onclick="login()">Login</button>
+            <button onclick="register()">Register New User</button>
+        </div>
+        <div id="authResult" class="response"></div>
+        <div id="tokenDisplay" class="token" style="display:none;"></div>
+    </div>
+
+    <div class="section">
+        <h2>2. Basic Authenticated Endpoints</h2>
+        <button onclick="testWorkspaces()">Get Workspaces List</button>
+        <button onclick="testUsers()">Get Users List</button>
+        <div id="basicResult" class="response"></div>
+    </div>
+
+    <div class="section">
+        <h2>3. Workspace-Specific Endpoints</h2>
+        <button onclick="testWorkspaceDetail()">Get Workspace Detail</button>
+        <button onclick="testTemplates()">Get Templates</button>
+        <button onclick="testAssignments()">Get Assignments</button>
+        <div id="workspaceResult" class="response"></div>
+    </div>
+
+    <div class="section">
+        <h2>4. Test Results Summary</h2>
+        <div id="testSummary" class="response"></div>
+    </div>
+
+    <script>
+        let authToken = '';
+        const results = {
+            login: false,
+            basicAuth: false,
+            workspaceAuth: false
+        };
+
+        async function apiCall(url, options = {}) {
+            try {
+                const response = await fetch(url, options);
+                const data = await response.json();
+                return { status: response.status, data };
+            } catch (error) {
+                return { status: 500, data: { error: error.message } };
+            }
+        }
+
+        function displayResult(elementId, title, result) {
+            const element = document.getElementById(elementId);
+            const statusClass = result.status === 200 ? 'success' : 'error';
+            element.innerHTML = `
+                <strong>${title}:</strong> 
+                <span class="${statusClass}">Status ${result.status}</span><br>
+                <pre>${JSON.stringify(result.data, null, 2)}</pre>
+            `;
+        }
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            const result = await apiCall('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            
+            displayResult('authResult', 'Login', result);
+            
+            if (result.status === 200 && result.data.success) {
+                authToken = result.data.token;
+                document.getElementById('tokenDisplay').style.display = 'block';
+                document.getElementById('tokenDisplay').innerHTML = `<strong>Token:</strong> ${authToken}`;
+                results.login = true;
+            } else {
+                results.login = false;
+            }
+            updateSummary();
+        }
+
+        async function register() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            const result = await apiCall('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    email, 
+                    password, 
+                    display_name: email.split('@')[0] 
+                })
+            });
+            
+            displayResult('authResult', 'Register', result);
+        }
+
+        async function testWorkspaces() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+            
+            const result = await apiCall('/api/workspaces', {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            
+            displayResult('basicResult', 'Workspaces List', result);
+            results.basicAuth = result.status === 200;
+            updateSummary();
+        }
+
+        async function testUsers() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+            
+            const result = await apiCall('/api/auth/users', {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            
+            displayResult('basicResult', 'Users List', result);
+        }
+
+        async function testWorkspaceDetail() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+            
+            const result = await apiCall('/api/workspaces/ideptech_workspace', {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            
+            displayResult('workspaceResult', 'Workspace Detail', result);
+            results.workspaceAuth = result.status === 200;
+            updateSummary();
+        }
+
+        async function testTemplates() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+            
+            const result = await apiCall('/api/workspaces/ideptech_workspace/connector-templates', {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            
+            displayResult('workspaceResult', 'Templates', result);
+        }
+
+        async function testAssignments() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+            
+            const result = await apiCall('/api/workspaces/ideptech_workspace/assignments', {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            
+            displayResult('workspaceResult', 'Assignments', result);
+        }
+
+        function updateSummary() {
+            const summary = document.getElementById('testSummary');
+            const loginStatus = results.login ? '✅ Login Working' : '❌ Login Failed';
+            const basicAuthStatus = results.basicAuth ? '✅ Basic Auth Working' : '❌ Basic Auth Failed';
+            const workspaceAuthStatus = results.workspaceAuth ? '✅ Workspace Auth Working' : '❌ Workspace Auth Failed';
+            
+            summary.innerHTML = `
+                <h3>Test Status:</h3>
+                <div>${loginStatus}</div>
+                <div>${basicAuthStatus}</div>
+                <div>${workspaceAuthStatus}</div>
+                <br>
+                <strong>Phase 3 Authentication: ${results.login && results.basicAuth ? 'WORKING' : 'NEEDS FIXES'}</strong>
+            `;
+        }
+
+        // Auto-test when page loads
+        window.onload = function() {
+            updateSummary();
+        }
+    </script>
+</body>
+</html>

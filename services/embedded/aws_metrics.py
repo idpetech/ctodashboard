@@ -9,17 +9,42 @@ from botocore.exceptions import ClientError
 class EmbeddedAWSMetrics:
     """AWS Cost Explorer and Resource Management integration for CTO insights"""
     
-    def __init__(self):
-        # AWS credentials from environment variables (never hardcode!)
-        self.access_key = os.getenv("AWS_ACCESS_KEY_ID")
-        self.secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-        self.region = os.getenv("AWS_REGION", "us-east-1")
+    def __init__(self, workspace_id=None, assignment_id=None):
+        # Phase 3: Support workspace credentials with environment variable fallback
+        self.workspace_id = workspace_id
+        self.assignment_id = assignment_id
+        
+        # Initialize credentials (preserves existing behavior if no workspace context)
+        self._init_credentials()
         
         # Initialize AWS clients lazily
         self._ce_client = None
         self._ec2_client = None
         self._lightsail_client = None
         self._rds_client = None
+    
+    def _init_credentials(self):
+        """Initialize AWS credentials with workspace support and env var fallback"""
+        if self.workspace_id and self.assignment_id:
+            try:
+                from services.auth.credential_service import CredentialService
+                credential_service = CredentialService()
+                credentials = credential_service.get_aws_credentials(self.workspace_id, self.assignment_id)
+                self.access_key = credentials.get("access_key") or os.getenv("AWS_ACCESS_KEY_ID")
+                self.secret_key = credentials.get("secret_key") or os.getenv("AWS_SECRET_ACCESS_KEY")
+                self.region = credentials.get("region") or os.getenv("AWS_REGION", "us-east-1")
+            except Exception as e:
+                print(f"Warning: Could not load workspace credentials, falling back to env vars: {e}")
+                # AWS credentials from environment variables (never hardcode!)
+                self.access_key = os.getenv("AWS_ACCESS_KEY_ID")
+                self.secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+                self.region = os.getenv("AWS_REGION", "us-east-1")
+        else:
+            # Fallback to environment variables (preserves existing behavior)
+            # AWS credentials from environment variables (never hardcode!)
+            self.access_key = os.getenv("AWS_ACCESS_KEY_ID")
+            self.secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+            self.region = os.getenv("AWS_REGION", "us-east-1")
     
     def _get_aws_client(self, service_name: str):
         """Get AWS client for the specified service"""

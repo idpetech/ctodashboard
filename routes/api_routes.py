@@ -15,15 +15,36 @@ from services.embedded.openai_metrics import OpenAIMetrics
 from services.embedded.railway_metrics import RailwayMetrics
 from services.chatbot_service import process_question, process_question_stream, get_conversation_history, clear_conversation_history
 from services.assignment_service import AssignmentService
+from services.workspace.workspace_service import WorkspaceService
+from services.auth.user_service import UserService
+from services.auth.auth_middleware import create_auth_decorators, get_current_user
 
 # Initialize services
 service_manager = ServiceManager()
 assignment_service = AssignmentService()
+workspace_service = WorkspaceService()
+user_service = UserService()
+
+# Create authentication decorators with dependency injection
+require_auth, require_workspace_access, optional_auth = create_auth_decorators(user_service)
+
+# Global connector instances (for backward compatibility)
 aws_metrics = EmbeddedAWSMetrics()
 github_metrics = EmbeddedGitHubMetrics()
 jira_metrics = EmbeddedJiraMetrics()
 openai_metrics = OpenAIMetrics()
 railway_metrics = RailwayMetrics()
+
+def get_workspace_connectors(workspace_id, assignment_id):
+    """
+    Create workspace-scoped connector instances with credentials from assignment JSON.
+    Phase 3: Enable workspace-specific authentication instead of global env vars.
+    """
+    return {
+        'github': EmbeddedGitHubMetrics(workspace_id=workspace_id, assignment_id=assignment_id),
+        'jira': EmbeddedJiraMetrics(workspace_id=workspace_id, assignment_id=assignment_id),
+        'aws': EmbeddedAWSMetrics(workspace_id=workspace_id, assignment_id=assignment_id)
+    }
 
 def register_routes(app):
     """Register all routes with the Flask app"""
@@ -32,6 +53,12 @@ def register_routes(app):
     def index():
         """Main dashboard page"""
         return render_template("dashboard.html")
+    
+    @app.route("/auth-test")
+    def auth_test():
+        """Authentication system test page"""
+        from flask import send_from_directory
+        return send_from_directory('static', 'auth_test.html')
 
     @app.route("/health")
     def health_check():
@@ -370,6 +397,383 @@ def register_routes(app):
             return jsonify({"message": "History cleared", "success": True})
         except Exception as e:
             return jsonify({"error": str(e)}), 500
+
+    # ===== AUTHENTICATION ENDPOINTS (Phase 3) =====
+    
+    @app.route("/api/auth/register", methods=["POST"])
+    def register():
+        """Register a new user account"""
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No registration data provided"}), 400
+        
+        email = data.get("email")
+        password = data.get("password")
+        display_name = data.get("display_name")
+        
+        if not email or not password:
+            return jsonify({"error": "Email and password are required"}), 400
+        
+        result = user_service.register_user(email, password, display_name)
+        
+        if result.get("success"):
+            return jsonify(result), 201
+        else:
+            return jsonify(result), 400
+    
+    @app.route("/api/auth/login", methods=["POST"])
+    def login():
+        """Authenticate user and return token"""
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No login data provided"}), 400
+        
+        email = data.get("email")
+        password = data.get("password")
+        
+        if not email or not password:
+            return jsonify({"error": "Email and password are required"}), 400
+        
+        result = user_service.authenticate_user(email, password)
+        
+        if result.get("success"):
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 401
+    
+    @app.route("/api/auth/verify", methods=["GET"])
+    @require_auth
+    def verify_token():
+        """Verify current token and return user info"""
+        return jsonify({
+            "valid": True,
+            "user": get_current_user()
+        })
+    
+    @app.route("/api/auth/users", methods=["GET"])
+    @require_auth
+    def list_users():
+        """List all users (admin only)"""
+        current_user = get_current_user()
+        
+        # Only admins can list users
+        if current_user.get("role") != "admin":
+            return jsonify({"error": "Admin access required"}), 403
+        
+        users = user_service.list_users()
+        return jsonify({"users": users})
+    
+    @app.route("/api/auth/users/<user_email>/workspaces", methods=["POST"])
+    @require_auth
+    def grant_workspace_access(user_email):
+        """Grant user access to workspace (admin only)"""
+        current_user = get_current_user()
+        
+        # Only admins can grant access (for now)
+        if current_user.get("role") != "admin":
+            return jsonify({"error": "Admin access required"}), 403
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No workspace data provided"}), 400
+        
+        workspace_id = data.get("workspace_id")
+        role = data.get("role", "member")
+        
+        if not workspace_id:
+            return jsonify({"error": "Workspace ID is required"}), 400
+        
+        result = user_service.add_user_to_workspace(user_email, workspace_id, role)
+        
+        if result.get("success"):
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 400
+    
+    # ===== WORKSPACE MANAGEMENT ENDPOINTS (Phase 1 + 3 Auth) =====
+    
+    @app.route("/api/workspaces", methods=["GET", "POST"])
+    @require_auth
+    def workspace_management():
+        """Workspace management endpoint"""
+        if request.method == "GET":
+            # List all workspaces
+            result = workspace_service.list_workspaces()
+            return jsonify(result)
+        
+        elif request.method == "POST":
+            # Create new workspace
+            data = request.get_json()
+            if not data:
+                return jsonify({"error": "No data provided"}), 400
+            
+            workspace_id = data.get("id")
+            name = data.get("name")
+            description = data.get("description", "")
+            
+            if not workspace_id or not name:
+                return jsonify({"error": "Workspace ID and name are required"}), 400
+            
+            result = workspace_service.create_workspace(workspace_id, name, description)
+            
+            if result.get("success"):
+                return jsonify(result), 201
+            else:
+                return jsonify(result), 400
+    
+    @app.route("/api/workspaces/<workspace_id>", methods=["GET", "DELETE"])
+    @require_workspace_access
+    def workspace_detail(workspace_id):
+        """Workspace detail operations"""
+        if request.method == "GET":
+            # Get workspace details
+            workspace = workspace_service.get_workspace(workspace_id)
+            if "error" in workspace:
+                return jsonify(workspace), 404
+            return jsonify(workspace)
+        
+        elif request.method == "DELETE":
+            # Delete workspace
+            result = workspace_service.delete_workspace(workspace_id)
+            if result.get("success"):
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 400
+    
+    @app.route("/api/workspaces/<workspace_id>/assignments", methods=["GET", "POST"])
+    @require_workspace_access
+    def workspace_assignments(workspace_id):
+        """Workspace assignment management"""
+        if request.method == "GET":
+            # Get assignments for workspace
+            result = workspace_service.get_workspace_assignments(workspace_id)
+            if "error" in result:
+                return jsonify(result), 404
+            return jsonify(result)
+        
+        elif request.method == "POST":
+            # Add assignment to workspace
+            data = request.get_json()
+            if not data:
+                return jsonify({"error": "No assignment data provided"}), 400
+            
+            assignment_id = data.get("id")
+            if not assignment_id:
+                return jsonify({"error": "Assignment ID is required"}), 400
+            
+            # Remove 'id' from data since it's passed separately
+            assignment_config = {k: v for k, v in data.items() if k != "id"}
+            
+            result = workspace_service.add_assignment_to_workspace(
+                workspace_id, 
+                assignment_id, 
+                assignment_config
+            )
+            
+            if result.get("success"):
+                return jsonify(result), 201
+            else:
+                return jsonify(result), 400
+    
+    @app.route("/api/workspaces/<workspace_id>/assignments/<assignment_id>", methods=["GET"])
+    def workspace_assignment_detail(workspace_id, assignment_id):
+        """Get specific assignment in workspace"""
+        # Get all assignments and find the specific one
+        result = workspace_service.get_workspace_assignments(workspace_id)
+        if "error" in result:
+            return jsonify(result), 404
+        
+        assignments = result.get("assignments", [])
+        assignment = next((a for a in assignments if a.get("id") == assignment_id), None)
+        
+        if not assignment:
+            return jsonify({"error": f"Assignment '{assignment_id}' not found in workspace '{workspace_id}'"}), 404
+        
+        return jsonify(assignment)
+    
+    # ===== PHASE 3 WORKSPACE CREDENTIALS TEST ENDPOINT =====
+    
+    @app.route("/api/workspaces/<workspace_id>/assignments/<assignment_id>/test-credentials", methods=["GET"])
+    @require_workspace_access
+    def test_workspace_credentials(workspace_id, assignment_id):
+        """
+        Test endpoint to verify Phase 3 workspace credentials are working.
+        Returns credential sources and connector initialization status.
+        """
+        try:
+            # Test workspace connectors
+            connectors = get_workspace_connectors(workspace_id, assignment_id)
+            
+            results = {
+                "workspace_id": workspace_id,
+                "assignment_id": assignment_id,
+                "test_results": {},
+                "credential_sources": {}
+            }
+            
+            # Test GitHub credentials
+            github_connector = connectors['github']
+            results["credential_sources"]["github"] = {
+                "token_source": "workspace" if github_connector.token != github_metrics.token else "environment",
+                "token_present": bool(github_connector.token),
+                "org_source": "workspace" if hasattr(github_connector, 'org') and github_connector.org != getattr(github_metrics, 'org', None) else "environment",
+                "org_present": bool(getattr(github_connector, 'org', None))
+            }
+            
+            # Test Jira credentials
+            jira_connector = connectors['jira']
+            results["credential_sources"]["jira"] = {
+                "token_source": "workspace" if jira_connector.token != jira_metrics.token else "environment",
+                "token_present": bool(jira_connector.token),
+                "url_source": "workspace" if jira_connector.base_url != jira_metrics.base_url else "environment",
+                "url_present": bool(jira_connector.base_url),
+                "email_present": bool(jira_connector.email)
+            }
+            
+            # Test AWS credentials
+            aws_connector = connectors['aws']
+            results["credential_sources"]["aws"] = {
+                "access_key_source": "workspace" if aws_connector.access_key != aws_metrics.access_key else "environment", 
+                "access_key_present": bool(aws_connector.access_key),
+                "secret_key_source": "workspace" if aws_connector.secret_key != aws_metrics.secret_key else "environment",
+                "secret_key_present": bool(aws_connector.secret_key),
+                "region_source": "workspace" if aws_connector.region != aws_metrics.region else "environment",
+                "region": aws_connector.region
+            }
+            
+            # Test credential service directly
+            from services.auth.credential_service import CredentialService
+            credential_service = CredentialService()
+            
+            results["direct_credential_test"] = {
+                "github": credential_service.get_github_credentials(workspace_id, assignment_id),
+                "jira": credential_service.get_jira_credentials(workspace_id, assignment_id), 
+                "aws": credential_service.get_aws_credentials(workspace_id, assignment_id)
+            }
+            
+            results["test_results"]["phase_3_status"] = "✅ WORKING" if any(
+                src.get("token_source") == "workspace" or src.get("access_key_source") == "workspace"
+                for src in results["credential_sources"].values()
+            ) else "❌ FALLBACK_TO_ENV_VARS"
+            
+            return jsonify(results)
+            
+        except Exception as e:
+            return jsonify({
+                "error": "Failed to test workspace credentials",
+                "details": str(e),
+                "workspace_id": workspace_id,
+                "assignment_id": assignment_id
+            }), 500
+    
+    # ===== CONNECTOR TEMPLATE ENDPOINTS (Phase 2) =====
+    
+    @app.route("/api/workspaces/<workspace_id>/connector-templates", methods=["GET"])
+    @require_workspace_access
+    def get_workspace_templates(workspace_id):
+        """Get all connector templates for workspace"""
+        connector_type = request.args.get("type")  # Optional filter by connector type
+        result = workspace_service.get_connector_templates(workspace_id, connector_type)
+        
+        if "error" in result:
+            return jsonify(result), 404
+        
+        return jsonify(result)
+    
+    @app.route("/api/workspaces/<workspace_id>/connector-templates/<connector_type>", methods=["POST"])
+    def create_connector_template(workspace_id, connector_type):
+        """Create a connector template"""
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No template data provided"}), 400
+        
+        template_name = data.get("name")
+        template_config = data.get("config", {})
+        
+        if not template_name:
+            return jsonify({"error": "Template name is required"}), 400
+        
+        result = workspace_service.create_connector_template(
+            workspace_id, 
+            connector_type, 
+            template_name, 
+            template_config
+        )
+        
+        if result.get("success"):
+            return jsonify(result), 201
+        else:
+            return jsonify(result), 400
+    
+    @app.route("/api/workspaces/<workspace_id>/connector-templates/<connector_type>/<template_name>", methods=["GET", "DELETE"])
+    def connector_template_detail(workspace_id, connector_type, template_name):
+        """Get or delete specific connector template"""
+        if request.method == "GET":
+            # Get template details
+            result = workspace_service.get_connector_template(workspace_id, connector_type, template_name)
+            if "error" in result:
+                return jsonify(result), 404
+            return jsonify(result)
+        
+        elif request.method == "DELETE":
+            # Delete template
+            result = workspace_service.delete_connector_template(workspace_id, connector_type, template_name)
+            if result.get("success"):
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 400
+    
+    @app.route("/api/workspaces/<workspace_id>/assignments/from-template", methods=["POST"])
+    def create_assignment_from_template(workspace_id):
+        """Create assignment using connector templates"""
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No assignment data provided"}), 400
+        
+        assignment_id = data.get("id")
+        if not assignment_id:
+            return jsonify({"error": "Assignment ID is required"}), 400
+        
+        # Extract templates mapping
+        templates = data.get("templates", {})  # {connector_type: template_name}
+        
+        # Remove 'id' and 'templates' from assignment config
+        assignment_config = {k: v for k, v in data.items() if k not in ["id", "templates"]}
+        
+        result = workspace_service.create_assignment_from_template(
+            workspace_id,
+            assignment_id,
+            assignment_config,
+            templates
+        )
+        
+        if result.get("success"):
+            return jsonify(result), 201
+        else:
+            return jsonify(result), 400
+    
+    @app.route("/api/workspaces/<workspace_id>/assignments/<assignment_id>/auth/<connector_type>", methods=["PUT"])
+    def update_assignment_auth(workspace_id, assignment_id, connector_type):
+        """Update authentication credentials for assignment connector"""
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No credentials provided"}), 400
+        
+        credentials = data.get("credentials", {})
+        if not credentials:
+            return jsonify({"error": "Credentials object is required"}), 400
+        
+        result = workspace_service.update_assignment_auth(
+            workspace_id,
+            assignment_id, 
+            connector_type,
+            credentials
+        )
+        
+        if result.get("success"):
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 400
 
     @app.route("/static/<path:filename>")
     def serve_static(filename):
