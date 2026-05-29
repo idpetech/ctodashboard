@@ -39,6 +39,20 @@
                 from { opacity: 0; transform: translateY(10px); }
                 to { opacity: 1; transform: translateY(0); }
             }
+            
+            /* Phase 5A: Mobile responsiveness fixes */
+            @media (max-width: 768px) {
+                .assignment-card { margin: 0.5rem; padding: 1rem; }
+                .metric-card { margin: 0.25rem; }
+                .tab-button { padding: 0.5rem 1rem; font-size: 0.875rem; }
+                .workspace-selector { position: relative !important; top: auto !important; left: auto !important; width: 100%; margin: 1rem 0; }
+                #auth-overlay .w-full.max-w-md { max-width: 95vw; margin: 1rem; }
+                .grid { grid-template-columns: 1fr !important; gap: 0.5rem; }
+                .text-4xl { font-size: 1.875rem; }
+                .text-2xl { font-size: 1.5rem; }
+                .px-6 { padding-left: 1rem; padding-right: 1rem; }
+                .py-4 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+            }
         </style>
     </head>
     <body class="bg-gray-100">
@@ -127,6 +141,10 @@
                     <div class="font-medium text-gray-800" id="user-display-name"></div>
                     <div class="text-gray-500" id="user-email"></div>
                 </div>
+                <!-- Phase 5A: Essential Profile Management -->
+                <button onclick="showProfileModal()" class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200">
+                    👤 Profile
+                </button>
                 <button onclick="handleLogout()" class="text-red-600 hover:text-red-700 text-sm">
                     Logout
                 </button>
@@ -148,6 +166,43 @@
                 <select id="workspace-select" onchange="handleWorkspaceChange()" class="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-blue-500">
                     <option value="">Select Workspace...</option>
                 </select>
+            </div>
+        </div>
+
+        <!-- Phase 5A: Profile Management Modal -->
+        <div id="profile-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold text-gray-800">👤 Profile Settings</h2>
+                        <button onclick="hideProfileModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                    </div>
+                    
+                    <div id="profile-message" class="hidden mb-4 p-3 rounded"></div>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
+                            <input type="text" id="profile-name" class="w-full border rounded px-3 py-2" placeholder="Your Name">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <input type="email" id="profile-email" class="w-full border rounded px-3 py-2 bg-gray-100" readonly>
+                        </div>
+                        
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-700 mb-2">Change Password</h3>
+                            <input type="password" id="new-password" class="w-full border rounded px-3 py-2 mb-2" placeholder="New Password">
+                            <input type="password" id="confirm-password" class="w-full border rounded px-3 py-2" placeholder="Confirm Password">
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <button onclick="hideProfileModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                        <button onclick="saveProfile()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Changes</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -244,10 +299,11 @@
             // Authentication State Management
             let currentUser = null;
             let authToken = null;
+            let assignments = []; // Store assignments globally for management functions
             
             // Initialize authentication state on page load
             function initializeAuth() {
-                // Check if user is already logged in (token in localStorage)
+                // Check if user is already logged in (token in localStorage or session)
                 const savedToken = localStorage.getItem('auth_token');
                 const savedUser = localStorage.getItem('current_user');
                 
@@ -255,14 +311,66 @@
                     try {
                         authToken = savedToken;
                         currentUser = JSON.parse(savedUser);
-                        showDashboard();
+                        // Verify token is still valid with server
+                        verifyAuthToken();
                     } catch (error) {
                         console.error('Error parsing saved user data:', error);
-                        showAuthOverlay();
+                        clearAuthAndRedirect();
                     }
                 } else {
-                    showAuthOverlay();
+                    // Check if server session exists (after page refresh)
+                    checkServerSession();
                 }
+            }
+            
+            // Check if server has valid session
+            async function checkServerSession() {
+                try {
+                    const response = await fetch('/api/auth/verify', {
+                        method: 'GET',
+                        credentials: 'include' // Include session cookies
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.valid) {
+                            // Server session is valid, restore client state
+                            currentUser = data.user;
+                            authToken = 'session'; // Marker that we're using session auth
+                            showDashboard();
+                            return;
+                        }
+                    }
+                } catch (error) {
+                    console.log('No valid server session found');
+                }
+                showAuthOverlay();
+            }
+            
+            // Verify stored token is still valid
+            async function verifyAuthToken() {
+                try {
+                    const response = await fetch('/api/auth/verify', {
+                        headers: getAuthHeaders(),
+                        credentials: 'include'
+                    });
+                    
+                    if (response.ok) {
+                        showDashboard();
+                    } else {
+                        clearAuthAndRedirect();
+                    }
+                } catch (error) {
+                    clearAuthAndRedirect();
+                }
+            }
+            
+            function clearAuthAndRedirect() {
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('current_user');
+                authToken = null;
+                currentUser = null;
+                showAuthOverlay();
             }
             
             function showAuthOverlay() {
@@ -341,6 +449,7 @@
                         headers: {
                             'Content-Type': 'application/json'
                         },
+                        credentials: 'include',  // Include session cookies
                         body: JSON.stringify({
                             email: email,
                             password: password
@@ -553,10 +662,13 @@
                     }
                     
                     // Handle both array and object wrapper formats
-                    const assignments = Array.isArray(data) ? data : data.assignments;
-                    console.log('✅ Assignments to display:', assignments);
+                    const assignmentsData = Array.isArray(data) ? data : data.assignments;
+                    console.log('✅ Assignments to display:', assignmentsData);
                     
-                    displayAssignments(assignments);
+                    // Store assignments globally for management functions
+                    assignments = assignmentsData;
+                    
+                    displayAssignments(assignmentsData);
                     
                 } catch (error) {
                     document.getElementById('dashboard-content').innerHTML = 
@@ -735,11 +847,20 @@
                 }
                 html += '</div>';
                 
-                // Status badge
+                html += '<div class="flex items-center space-x-2">';
+                // Status badge  
                 const statusColor = assignment.status === 'active' ? 'green' : 
                                   assignment.status === 'completed' ? 'blue' : 'yellow';
                 html += '<span class="px-3 py-1 bg-' + statusColor + '-100 text-' + statusColor + '-800 text-sm rounded-full">' + 
                         (assignment.status || 'unknown') + '</span>';
+                
+                // Phase 5A: Basic Assignment Management buttons
+                html += '<button onclick="editAssignment(\'' + assignment.id + '\')" class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200 ml-2">✏️ Edit</button>';
+                html += '<button onclick="toggleAssignmentStatus(\'' + assignment.id + '\')" class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs hover:bg-yellow-200 ml-1">⏸️ Toggle</button>';
+                html += '<button onclick="deleteAssignment(\'' + assignment.id + '\')" class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200 ml-1">🗑️ Delete</button>';
+                
+                console.log('Assignment management buttons added for:', assignment.id);
+                html += '</div>';
                 html += '</div>';
                 
                 // Assignment Details
@@ -1575,6 +1696,104 @@
                 
                 // Scroll to bottom
                 messages.scrollTop = messages.scrollHeight;
+            }
+
+            // Phase 5A: Basic Assignment Management Functions  
+            function editAssignment(assignmentId) {
+                // Find the assignment data
+                const assignment = assignments?.find(a => a.id === assignmentId);
+                if (!assignment) {
+                    alert('Assignment not found');
+                    return;
+                }
+                
+                // Show current values in prompts (Phase 5A basic implementation)
+                const currentName = assignment.name || assignment.id;
+                const currentDesc = assignment.description || '';
+                
+                const newName = prompt(`Edit assignment name:\n(Current: "${currentName}")`, currentName);
+                if (newName === null) return; // User cancelled
+                
+                const newDescription = prompt(`Edit description:\n(Current: "${currentDesc}")`, currentDesc);
+                if (newDescription === null) return; // User cancelled
+                
+                // Phase 5B will implement proper modal editing with API calls
+                alert(`Phase 5A: Basic edit captured\nName: ${newName}\nDescription: ${newDescription}\n\nFull edit functionality with forms and API calls coming in Phase 5B`);
+                console.log('Edit assignment:', assignmentId, {
+                    old: {name: currentName, description: currentDesc},
+                    new: {name: newName, description: newDescription}
+                });
+            }
+            
+            function toggleAssignmentStatus(assignmentId) {
+                const newStatus = prompt('Enter new status (active, paused, completed):');
+                if (newStatus && ['active', 'paused', 'completed'].includes(newStatus.toLowerCase())) {
+                    // In a real implementation, this would call an API  
+                    alert('Status toggle functionality coming in Phase 5B');
+                    console.log('Toggle status:', assignmentId, newStatus);
+                }
+            }
+            
+            function deleteAssignment(assignmentId) {
+                if (confirm('Are you sure you want to delete this assignment? This cannot be undone.')) {
+                    // In a real implementation, this would call an API
+                    alert('Assignment deletion functionality coming in Phase 5B');
+                    console.log('Delete assignment:', assignmentId);
+                }
+            }
+            
+            // Phase 5A: Profile Management Functions
+            function showProfileModal() {
+                if (currentUser) {
+                    document.getElementById('profile-name').value = currentUser.name || '';
+                    document.getElementById('profile-email').value = currentUser.email || '';
+                }
+                document.getElementById('profile-modal').classList.remove('hidden');
+            }
+            
+            function hideProfileModal() {
+                document.getElementById('profile-modal').classList.add('hidden');
+                // Clear password fields
+                document.getElementById('new-password').value = '';
+                document.getElementById('confirm-password').value = '';
+                // Hide any messages
+                document.getElementById('profile-message').classList.add('hidden');
+            }
+            
+            function saveProfile() {
+                const newName = document.getElementById('profile-name').value;
+                const newPassword = document.getElementById('new-password').value;
+                const confirmPassword = document.getElementById('confirm-password').value;
+                
+                // Validate password if provided
+                if (newPassword && newPassword !== confirmPassword) {
+                    showProfileMessage('Passwords do not match', 'error');
+                    return;
+                }
+                
+                if (newPassword && newPassword.length < 6) {
+                    showProfileMessage('Password must be at least 6 characters', 'error');
+                    return;
+                }
+                
+                // In Phase 5B, this will make API calls
+                showProfileMessage('Profile updates will be fully implemented in Phase 5B', 'info');
+                
+                // Update local user display
+                if (newName && currentUser) {
+                    currentUser.name = newName;
+                    document.getElementById('user-display-name').textContent = newName;
+                    localStorage.setItem('current_user', JSON.stringify(currentUser));
+                }
+                
+                console.log('Profile update:', {name: newName, passwordChanged: !!newPassword});
+            }
+            
+            function showProfileMessage(message, type) {
+                const messageDiv = document.getElementById('profile-message');
+                messageDiv.textContent = message;
+                messageDiv.className = `mb-4 p-3 rounded ${type === 'error' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`;
+                messageDiv.classList.remove('hidden');
             }
 
             // Initialize authentication when page loads

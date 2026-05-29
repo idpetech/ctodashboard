@@ -206,7 +206,7 @@ def register_routes(app):
             # Load assignment configuration
             assignment = assignment_service.get_assignment(assignment_id)
             if not assignment:
-                return jsonify({"error": "Assignment not found"}), 404
+                return jsonify({"error": f"Assignment '{assignment_id}' not found"}), 404
             
             metrics = {}
             
@@ -471,13 +471,36 @@ def register_routes(app):
         return jsonify({"success": True, "message": "Logged out successfully"}), 200
     
     @app.route("/api/auth/verify", methods=["GET"])
-    @require_auth
     def verify_token():
-        """Verify current token and return user info"""
-        return jsonify({
-            "valid": True,
-            "user": get_current_user()
-        })
+        """Verify current token or session and return user info"""
+        from flask import session
+        
+        # Check session first (for page refreshes)
+        if 'user_email' in session and 'auth_token' in session:
+            # Verify the session token
+            verification = user_service.verify_token(session['auth_token'])
+            if verification.get("valid"):
+                return jsonify({
+                    "valid": True,
+                    "user": verification["user"]
+                })
+        
+        # Check Authorization header
+        auth_header = request.headers.get('Authorization')
+        if auth_header:
+            try:
+                scheme, token = auth_header.split(' ')
+                if scheme.lower() == 'bearer':
+                    verification = user_service.verify_token(token)
+                    if verification.get("valid"):
+                        return jsonify({
+                            "valid": True,
+                            "user": verification["user"]
+                        })
+            except ValueError:
+                pass
+        
+        return jsonify({"valid": False, "error": "No valid authentication found"}), 401
     
     @app.route("/api/auth/users", methods=["GET"])
     @require_auth
@@ -986,8 +1009,16 @@ def register_routes(app):
                     "name": user_data.get("name"),
                     "scopes": response.headers.get("x-oauth-scopes", "").split(", ") if response.headers.get("x-oauth-scopes") else []
                 }
+            elif response.status_code == 401:
+                return {"valid": False, "error": "Invalid GitHub token or expired"}
+            elif response.status_code == 403:
+                return {"valid": False, "error": "GitHub token lacks required permissions"}
             else:
-                return {"valid": False, "error": f"GitHub API error: {response.status_code} - {response.text}"}
+                return {"valid": False, "error": f"GitHub API error: {response.status_code}"}
+        except requests.exceptions.ConnectionError:
+            return {"valid": False, "error": "Cannot connect to GitHub API - check internet connection"}
+        except requests.exceptions.Timeout:
+            return {"valid": False, "error": "GitHub API request timed out"}
         except Exception as e:
             return {"valid": False, "error": f"GitHub connection failed: {str(e)}"}
     
@@ -1008,10 +1039,14 @@ def register_routes(app):
             import requests
             import base64
             
-            # Clean URL
-            jira_url = url.rstrip("/")
+            # Clean URL with validation
+            jira_url = url.strip().rstrip("/")
             if not jira_url.startswith("http"):
                 jira_url = f"https://{jira_url}"
+            
+            # Validate URL format
+            if not (".atlassian.net" in jira_url or jira_url.startswith("https://") or jira_url.startswith("http://")):
+                return {"valid": False, "error": "Invalid Jira URL format - should be like 'company.atlassian.net'"}
             
             # Test API connection
             auth_string = base64.b64encode(f"{email}:{token}".encode()).decode()
@@ -1030,8 +1065,18 @@ def register_routes(app):
                     "displayName": user_data.get("displayName"),
                     "accountId": user_data.get("accountId")
                 }
+            elif response.status_code == 401:
+                return {"valid": False, "error": "Invalid Jira email/token combination"}
+            elif response.status_code == 403:
+                return {"valid": False, "error": "Jira token lacks required permissions"}
+            elif response.status_code == 404:
+                return {"valid": False, "error": "Jira URL not found - check the domain"}
             else:
-                return {"valid": False, "error": f"Jira API error: {response.status_code} - {response.text}"}
+                return {"valid": False, "error": f"Jira API error: {response.status_code}"}
+        except requests.exceptions.ConnectionError:
+            return {"valid": False, "error": "Cannot connect to Jira - check URL and internet connection"}
+        except requests.exceptions.Timeout:
+            return {"valid": False, "error": "Jira API request timed out"}
         except Exception as e:
             return {"valid": False, "error": f"Jira connection failed: {str(e)}"}
     
@@ -1066,8 +1111,18 @@ def register_routes(app):
                 "userId": response.get("UserId"),
                 "region": region
             }
-        except (ClientError, NoCredentialsError) as e:
-            return {"valid": False, "error": f"AWS authentication failed: {str(e)}"}
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            if error_code == 'InvalidUserID.NotFound':
+                return {"valid": False, "error": "Invalid AWS access key"}
+            elif error_code == 'SignatureDoesNotMatch':
+                return {"valid": False, "error": "Invalid AWS secret key"}  
+            elif error_code == 'TokenRefreshRequired':
+                return {"valid": False, "error": "AWS credentials expired"}
+            else:
+                return {"valid": False, "error": f"AWS authentication failed: {error_code}"}
+        except NoCredentialsError:
+            return {"valid": False, "error": "AWS credentials not provided correctly"}
         except Exception as e:
             return {"valid": False, "error": f"AWS connection failed: {str(e)}"}
 

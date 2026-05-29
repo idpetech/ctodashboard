@@ -43,8 +43,8 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True   # Prevent JavaScript access (secu
 # app.config['SESSION_COOKIE_DOMAIN'] = '.yourdomain.com'  # Allow subdomains
 # app.config['SESSION_COOKIE_SECURE'] = True  # HTTPS only
 
-# Enable CORS for all routes
-CORS(app, origins=["*"])
+# Enable CORS with credentials support
+CORS(app, origins=["*"], supports_credentials=True)
 
 # Import and register routes
 from routes.api_routes import register_routes
