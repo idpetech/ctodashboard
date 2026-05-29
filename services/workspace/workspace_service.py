@@ -775,3 +775,108 @@ class WorkspaceService:
                 "error": f"Failed to update auth credentials: {str(e)}"
             }
     
+    def update_workspace_settings(self, workspace_id: str, settings_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Update workspace settings like name, description, etc.
+        Preserves existing connector templates and assignments.
+        """
+        if not self.feature_enabled:
+            return {
+                "success": False,
+                "error": "Workspace functionality is disabled"
+            }
+        
+        workspace = self.get_workspace(workspace_id)
+        if "error" in workspace:
+            return {
+                "success": False,
+                "error": workspace["error"]
+            }
+        
+        try:
+            # Update only provided fields, preserve existing data
+            allowed_fields = ["name", "description", "status"]
+            for field in allowed_fields:
+                if field in settings_data:
+                    workspace[field] = settings_data[field]
+            
+            # Update timestamp
+            workspace["updated_at"] = datetime.now().isoformat()
+            
+            # Save updated workspace
+            workspace_file = self.workspace_dir / f"{workspace_id}.json"
+            with open(workspace_file, 'w') as f:
+                json.dump(workspace, f, indent=2)
+            
+            return {
+                "success": True,
+                "workspace": workspace,
+                "message": "Workspace settings updated successfully"
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to update workspace settings: {str(e)}"
+            }
+    
+    def clear_assignment_auth(self, workspace_id: str, assignment_id: str, connector_type: str) -> Dict[str, Any]:
+        """
+        Clear authentication credentials for a specific assignment's connector.
+        Removes credentials but keeps connector configuration.
+        """
+        if not self.feature_enabled:
+            return {
+                "success": False,
+                "error": "Workspace functionality is disabled"
+            }
+        
+        # Get assignment
+        assignments_result = self.get_workspace_assignments(workspace_id)
+        if "error" in assignments_result:
+            return {
+                "success": False,
+                "error": assignments_result["error"]
+            }
+        
+        assignments = assignments_result.get("assignments", [])
+        assignment = next((a for a in assignments if a.get("id") == assignment_id), None)
+        
+        if not assignment:
+            return {
+                "success": False,
+                "error": f"Assignment '{assignment_id}' not found in workspace '{workspace_id}'"
+            }
+        
+        # Check if connector exists in assignment
+        metrics_config = assignment.get("metrics_config", {})
+        if connector_type not in metrics_config:
+            return {
+                "success": False,
+                "error": f"Connector '{connector_type}' not found in assignment '{assignment_id}'"
+            }
+        
+        try:
+            # Clear auth credentials but keep connector config
+            if "auth_instance" in metrics_config[connector_type]:
+                metrics_config[connector_type]["auth_instance"].update({
+                    "credentials": {},
+                    "auth_configured": False,
+                    "cleared_at": datetime.now().isoformat()
+                })
+            
+            # Save updated assignment
+            assignment_file = self.workspace_dir / workspace_id / "assignments" / f"{assignment_id}.json"
+            with open(assignment_file, 'w') as f:
+                json.dump(assignment, f, indent=2)
+            
+            return {
+                "success": True,
+                "message": f"Auth credentials cleared for {connector_type} in assignment '{assignment_id}'",
+                "auth_status": "not_configured"
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to clear auth credentials: {str(e)}"
+            }
+    

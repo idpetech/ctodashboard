@@ -54,6 +54,11 @@ def register_routes(app):
         """Main dashboard page"""
         return render_template("dashboard.html")
     
+    @app.route("/workspace/<workspace_id>/settings")
+    def workspace_settings_page(workspace_id):
+        """Workspace settings page"""
+        return render_template("workspace_settings.html")
+    
     @app.route("/auth-test")
     def auth_test():
         """Authentication system test page"""
@@ -774,6 +779,276 @@ def register_routes(app):
             return jsonify(result), 200
         else:
             return jsonify(result), 400
+    
+    # ===== WORKSPACE SETTINGS & CREDENTIAL MANAGEMENT =====
+    
+    @app.route("/api/workspaces/<workspace_id>/settings", methods=["GET", "PUT"])
+    @require_workspace_access
+    def workspace_settings(workspace_id):
+        """Get or update workspace settings"""
+        if request.method == "GET":
+            # Get workspace settings including connector configurations
+            workspace = workspace_service.get_workspace(workspace_id)
+            if "error" in workspace:
+                return jsonify(workspace), 404
+            
+            # Get assignments for credential status
+            assignments = workspace_service.get_workspace_assignments(workspace_id)
+            
+            # Return workspace info with credential status
+            return jsonify({
+                "workspace": workspace,
+                "assignments": assignments.get("assignments", []),
+                "connector_templates": workspace.get("connector_templates", {}),
+                "credential_status": _get_workspace_credential_status(workspace_id)
+            })
+        
+        elif request.method == "PUT":
+            # Update workspace settings
+            data = request.get_json()
+            if not data:
+                return jsonify({"error": "No settings data provided"}), 400
+            
+            result = workspace_service.update_workspace_settings(workspace_id, data)
+            if result.get("success"):
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 400
+    
+    @app.route("/api/workspaces/<workspace_id>/credentials", methods=["GET"])
+    @require_workspace_access
+    def get_workspace_credentials(workspace_id):
+        """Get credential status for all connectors in workspace"""
+        try:
+            status = _get_workspace_credential_status(workspace_id)
+            return jsonify(status)
+        except Exception as e:
+            return jsonify({"error": f"Failed to get credential status: {str(e)}"}), 500
+    
+    @app.route("/api/workspaces/<workspace_id>/credentials/<connector_type>", methods=["PUT", "DELETE"])
+    @require_workspace_access  
+    def manage_connector_credentials(workspace_id, connector_type):
+        """Set or delete credentials for a specific connector type"""
+        if request.method == "PUT":
+            data = request.get_json()
+            if not data:
+                return jsonify({"error": "No credential data provided"}), 400
+            
+            credentials = data.get("credentials", {})
+            assignment_id = data.get("assignment_id")
+            
+            if not credentials:
+                return jsonify({"error": "Credentials are required"}), 400
+            
+            if not assignment_id:
+                return jsonify({"error": "Assignment ID is required"}), 400
+            
+            # Validate credentials by testing them
+            validation_result = _validate_connector_credentials(connector_type, credentials)
+            if not validation_result.get("valid"):
+                return jsonify({
+                    "error": "Credential validation failed",
+                    "details": validation_result.get("error", "Invalid credentials")
+                }), 400
+            
+            # Update assignment auth
+            result = workspace_service.update_assignment_auth(
+                workspace_id, assignment_id, connector_type, credentials
+            )
+            
+            if result.get("success"):
+                return jsonify({
+                    "success": True,
+                    "message": f"{connector_type.title()} credentials updated successfully",
+                    "validation": validation_result
+                })
+            else:
+                return jsonify(result), 400
+                
+        elif request.method == "DELETE":
+            # Clear credentials for connector type
+            data = request.get_json()
+            assignment_id = data.get("assignment_id") if data else None
+            
+            if not assignment_id:
+                return jsonify({"error": "Assignment ID is required"}), 400
+            
+            result = workspace_service.clear_assignment_auth(workspace_id, assignment_id, connector_type)
+            
+            if result.get("success"):
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 400
+    
+    @app.route("/api/workspaces/<workspace_id>/credentials/<connector_type>/test", methods=["POST"])
+    @require_workspace_access
+    def test_connector_credentials(workspace_id, connector_type):
+        """Test connector credentials without saving them"""
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No credential data provided"}), 400
+        
+        credentials = data.get("credentials", {})
+        if not credentials:
+            return jsonify({"error": "Credentials are required"}), 400
+        
+        result = _validate_connector_credentials(connector_type, credentials)
+        return jsonify(result)
+    
+    def _get_workspace_credential_status(workspace_id):
+        """Get credential configuration status for workspace"""
+        try:
+            workspace = workspace_service.get_workspace(workspace_id)
+            if "error" in workspace:
+                return {"error": "Workspace not found"}
+            
+            assignments = workspace_service.get_workspace_assignments(workspace_id)
+            status = {
+                "workspace_id": workspace_id,
+                "connectors": {
+                    "github": {"configured": False, "assignments": []},
+                    "jira": {"configured": False, "assignments": []},
+                    "aws": {"configured": False, "assignments": []},
+                }
+            }
+            
+            # Check each assignment for configured connectors
+            for assignment in assignments.get("assignments", []):
+                assignment_id = assignment.get("id")
+                auth_instances = assignment.get("auth_instances", {})
+                
+                for connector_type in ["github", "jira", "aws"]:
+                    if connector_type in auth_instances:
+                        creds = auth_instances[connector_type].get("credentials", {})
+                        if creds:
+                            status["connectors"][connector_type]["configured"] = True
+                            status["connectors"][connector_type]["assignments"].append({
+                                "id": assignment_id,
+                                "name": assignment.get("name", assignment_id),
+                                "credentials_count": len(creds)
+                            })
+            
+            return status
+        except Exception as e:
+            return {"error": f"Failed to get credential status: {str(e)}"}
+    
+    def _validate_connector_credentials(connector_type, credentials):
+        """Validate connector credentials by attempting to use them"""
+        try:
+            if connector_type == "github":
+                return _validate_github_credentials(credentials)
+            elif connector_type == "jira":
+                return _validate_jira_credentials(credentials)  
+            elif connector_type == "aws":
+                return _validate_aws_credentials(credentials)
+            else:
+                return {"valid": False, "error": f"Unknown connector type: {connector_type}"}
+        except Exception as e:
+            return {"valid": False, "error": f"Validation error: {str(e)}"}
+    
+    def _validate_github_credentials(credentials):
+        """Test GitHub credentials"""
+        token = credentials.get("github_token")
+        if not token:
+            return {"valid": False, "error": "GitHub token is required"}
+        
+        try:
+            import requests
+            headers = {"Authorization": f"token {token}", "User-Agent": "CTO-Dashboard"}
+            response = requests.get("https://api.github.com/user", headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                user_data = response.json()
+                return {
+                    "valid": True,
+                    "user": user_data.get("login"),
+                    "name": user_data.get("name"),
+                    "scopes": response.headers.get("x-oauth-scopes", "").split(", ") if response.headers.get("x-oauth-scopes") else []
+                }
+            else:
+                return {"valid": False, "error": f"GitHub API error: {response.status_code} - {response.text}"}
+        except Exception as e:
+            return {"valid": False, "error": f"GitHub connection failed: {str(e)}"}
+    
+    def _validate_jira_credentials(credentials):
+        """Test Jira credentials"""
+        token = credentials.get("jira_token")
+        email = credentials.get("jira_email")
+        url = credentials.get("jira_url")
+        
+        if not token:
+            return {"valid": False, "error": "Jira token is required"}
+        if not email:
+            return {"valid": False, "error": "Jira email is required"}
+        if not url:
+            return {"valid": False, "error": "Jira URL is required"}
+        
+        try:
+            import requests
+            import base64
+            
+            # Clean URL
+            jira_url = url.rstrip("/")
+            if not jira_url.startswith("http"):
+                jira_url = f"https://{jira_url}"
+            
+            # Test API connection
+            auth_string = base64.b64encode(f"{email}:{token}".encode()).decode()
+            headers = {
+                "Authorization": f"Basic {auth_string}",
+                "Content-Type": "application/json"
+            }
+            
+            response = requests.get(f"{jira_url}/rest/api/3/myself", headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                user_data = response.json()
+                return {
+                    "valid": True,
+                    "user": user_data.get("emailAddress"),
+                    "displayName": user_data.get("displayName"),
+                    "accountId": user_data.get("accountId")
+                }
+            else:
+                return {"valid": False, "error": f"Jira API error: {response.status_code} - {response.text}"}
+        except Exception as e:
+            return {"valid": False, "error": f"Jira connection failed: {str(e)}"}
+    
+    def _validate_aws_credentials(credentials):
+        """Test AWS credentials"""
+        access_key = credentials.get("aws_access_key")
+        secret_key = credentials.get("aws_secret_key") 
+        region = credentials.get("aws_region", "us-east-1")
+        
+        if not access_key:
+            return {"valid": False, "error": "AWS access key is required"}
+        if not secret_key:
+            return {"valid": False, "error": "AWS secret key is required"}
+        
+        try:
+            import boto3
+            from botocore.exceptions import ClientError, NoCredentialsError
+            
+            # Test credentials by calling STS get-caller-identity
+            client = boto3.client(
+                'sts',
+                aws_access_key_id=access_key,
+                aws_secret_access_key=secret_key,
+                region_name=region
+            )
+            
+            response = client.get_caller_identity()
+            return {
+                "valid": True,
+                "account": response.get("Account"),
+                "arn": response.get("Arn"),
+                "userId": response.get("UserId"),
+                "region": region
+            }
+        except (ClientError, NoCredentialsError) as e:
+            return {"valid": False, "error": f"AWS authentication failed: {str(e)}"}
+        except Exception as e:
+            return {"valid": False, "error": f"AWS connection failed: {str(e)}"}
 
     @app.route("/static/<path:filename>")
     def serve_static(filename):

@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workspace Settings - CTO Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .loading-spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .credential-form {
+            display: none;
+        }
+        .credential-form.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-blue-600 text-white p-4 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <div>
+                <a href="/" class="text-2xl font-bold hover:text-blue-200">🚀 CTO Dashboard</a>
+                <span class="text-blue-200 ml-4">/ Workspace Settings</span>
+            </div>
+            <div class="flex space-x-4">
+                <div id="userInfo" class="flex items-center space-x-4">
+                    <span id="userName" class="text-sm"></span>
+                    <button onclick="handleLogout()" class="bg-red-500 hover:bg-red-600 px-3 py-1 text-sm rounded">Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- Page Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Workspace Settings</h1>
+            <p class="text-gray-600">Configure connectors and manage credentials for your workspace</p>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="text-center py-8">
+            <div class="loading-spinner"></div>
+            <span class="text-gray-600">Loading workspace settings...</span>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <div class="flex">
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium">Error Loading Workspace</h3>
+                    <div class="mt-2 text-sm" id="errorMessage"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div id="mainContent" class="hidden">
+            <!-- Workspace Info -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-gray-800">Workspace Information</h2>
+                    <button onclick="editWorkspace()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                        Edit Details
+                    </button>
+                </div>
+                <div id="workspaceInfo" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Workspace details will be populated here -->
+                </div>
+            </div>
+
+            <!-- Connector Credentials -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">Connector Credentials</h2>
+                <p class="text-gray-600 mb-6">Configure API credentials for each service integration</p>
+                
+                <!-- Connector Status Grid -->
+                <div id="connectorStatus" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <!-- GitHub Card -->
+                    <div class="border rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center">
+                                <div class="w-8 h-8 bg-gray-800 rounded text-white flex items-center justify-center text-sm font-bold mr-3">
+                                    GH
+                                </div>
+                                <h3 class="font-medium text-gray-800">GitHub</h3>
+                            </div>
+                            <span id="github-status" class="px-2 py-1 text-xs rounded font-medium bg-gray-100 text-gray-600">
+                                Not Configured
+                            </span>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-3">Repository metrics and activity tracking</p>
+                        <button onclick="configureConnector('github')" class="w-full bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">
+                            Configure
+                        </button>
+                    </div>
+
+                    <!-- Jira Card -->
+                    <div class="border rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center">
+                                <div class="w-8 h-8 bg-blue-600 rounded text-white flex items-center justify-center text-sm font-bold mr-3">
+                                    JI
+                                </div>
+                                <h3 class="font-medium text-gray-800">Jira</h3>
+                            </div>
+                            <span id="jira-status" class="px-2 py-1 text-xs rounded font-medium bg-gray-100 text-gray-600">
+                                Not Configured
+                            </span>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-3">Project management and issue tracking</p>
+                        <button onclick="configureConnector('jira')" class="w-full bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">
+                            Configure
+                        </button>
+                    </div>
+
+                    <!-- AWS Card -->
+                    <div class="border rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center">
+                                <div class="w-8 h-8 bg-orange-500 rounded text-white flex items-center justify-center text-sm font-bold mr-3">
+                                    AWS
+                                </div>
+                                <h3 class="font-medium text-gray-800">AWS</h3>
+                            </div>
+                            <span id="aws-status" class="px-2 py-1 text-xs rounded font-medium bg-gray-100 text-gray-600">
+                                Not Configured
+                            </span>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-3">Cloud infrastructure and cost tracking</p>
+                        <button onclick="configureConnector('aws')" class="w-full bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">
+                            Configure
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Assignments -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">Workspace Assignments</h2>
+                <p class="text-gray-600 mb-6">Projects and teams in this workspace</p>
+                
+                <div id="assignmentsList" class="space-y-4">
+                    <!-- Assignments will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Credential Configuration Modal -->
+    <div id="credentialModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-screen overflow-y-auto">
+            <!-- Modal Header -->
+            <div class="bg-gray-50 px-6 py-4 border-b">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-medium text-gray-800" id="modalTitle">Configure Connector</h3>
+                    <button onclick="closeCredentialModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-6">
+                <div id="credentialError" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"></div>
+                <div id="credentialSuccess" class="hidden bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4"></div>
+
+                <!-- GitHub Form -->
+                <div id="github-form" class="credential-form">
+                    <div class="mb-6">
+                        <h4 class="font-medium text-gray-800 mb-2">GitHub Configuration</h4>
+                        <p class="text-sm text-gray-600">Connect to GitHub for repository metrics and activity tracking</p>
+                    </div>
+                    
+                    <form onsubmit="saveCredentials(event, 'github')">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Personal Access Token</label>
+                            <input type="password" id="github_token" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+                            <p class="text-xs text-gray-500 mt-1">
+                                <a href="https://github.com/settings/personal-access-tokens" target="_blank" class="text-blue-600 hover:underline">
+                                    Generate a token with 'repo', 'read:org', 'read:user' scopes
+                                </a>
+                            </p>
+                        </div>
+                        
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">GitHub Organization (Optional)</label>
+                            <input type="text" id="github_org" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="your-org-name">
+                            <p class="text-xs text-gray-500 mt-1">Leave blank for personal repositories</p>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Assignment</label>
+                            <select id="github_assignment" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Select assignment...</option>
+                            </select>
+                        </div>
+                        
+                        <div class="flex space-x-3">
+                            <button type="button" onclick="testCredentials('github')" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+                                Test Connection
+                            </button>
+                            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                Save Credentials
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Jira Form -->
+                <div id="jira-form" class="credential-form">
+                    <div class="mb-6">
+                        <h4 class="font-medium text-gray-800 mb-2">Jira Configuration</h4>
+                        <p class="text-sm text-gray-600">Connect to Jira for project management and issue tracking</p>
+                    </div>
+                    
+                    <form onsubmit="saveCredentials(event, 'jira')">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Jira Instance URL</label>
+                            <input type="url" id="jira_url" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="https://yourcompany.atlassian.net">
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input type="email" id="jira_email" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="your@email.com">
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">API Token</label>
+                            <input type="password" id="jira_token" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="ATxxxxxxxxxxxxxxxxxxxxxx">
+                            <p class="text-xs text-gray-500 mt-1">
+                                <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" class="text-blue-600 hover:underline">
+                                    Generate API token from Atlassian account settings
+                                </a>
+                            </p>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Assignment</label>
+                            <select id="jira_assignment" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Select assignment...</option>
+                            </select>
+                        </div>
+                        
+                        <div class="flex space-x-3">
+                            <button type="button" onclick="testCredentials('jira')" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+                                Test Connection
+                            </button>
+                            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                Save Credentials
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- AWS Form -->
+                <div id="aws-form" class="credential-form">
+                    <div class="mb-6">
+                        <h4 class="font-medium text-gray-800 mb-2">AWS Configuration</h4>
+                        <p class="text-sm text-gray-600">Connect to AWS for cloud infrastructure and cost tracking</p>
+                    </div>
+                    
+                    <form onsubmit="saveCredentials(event, 'aws')">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Access Key ID</label>
+                            <input type="password" id="aws_access_key" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="AKIAXXXXXXXXXXXXXXXXX">
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Secret Access Key</label>
+                            <input type="password" id="aws_secret_key" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Region</label>
+                            <select id="aws_region" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="us-east-1">US East (N. Virginia)</option>
+                                <option value="us-west-2">US West (Oregon)</option>
+                                <option value="eu-west-1">Europe (Ireland)</option>
+                                <option value="ap-southeast-1">Asia Pacific (Singapore)</option>
+                                <option value="ap-northeast-1">Asia Pacific (Tokyo)</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Assignment</label>
+                            <select id="aws_assignment" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Select assignment...</option>
+                            </select>
+                        </div>
+                        
+                        <div class="flex space-x-3">
+                            <button type="button" onclick="testCredentials('aws')" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+                                Test Connection
+                            </button>
+                            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                Save Credentials
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentWorkspace = null;
+        let workspaceSettings = null;
+        let currentUser = null;
+        let authToken = null;
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', initializePage);
+
+        function initializePage() {
+            // Check authentication
+            authToken = localStorage.getItem('auth_token');
+            const savedUser = localStorage.getItem('current_user');
+
+            if (!authToken || !savedUser) {
+                window.location.href = '/';
+                return;
+            }
+
+            try {
+                currentUser = JSON.parse(savedUser);
+                document.getElementById('userName').textContent = currentUser.name || currentUser.email;
+            } catch (error) {
+                window.location.href = '/';
+                return;
+            }
+
+            // Get workspace ID from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            currentWorkspace = urlParams.get('workspace');
+
+            if (!currentWorkspace) {
+                showError('No workspace specified in URL');
+                return;
+            }
+
+            loadWorkspaceSettings();
+        }
+
+        async function loadWorkspaceSettings() {
+            try {
+                const response = await fetch(`/api/workspaces/${currentWorkspace}/settings`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                workspaceSettings = await response.json();
+                displayWorkspaceSettings();
+                loadCredentialStatus();
+
+            } catch (error) {
+                console.error('Error loading workspace settings:', error);
+                showError(`Failed to load workspace: ${error.message}`);
+            }
+        }
+
+        function displayWorkspaceSettings() {
+            const workspace = workspaceSettings.workspace;
+            
+            // Update workspace info
+            document.getElementById('workspaceInfo').innerHTML = `
+                <div class="bg-gray-50 rounded p-4">
+                    <div class="text-sm text-gray-600 mb-1">Name</div>
+                    <div class="font-medium text-gray-800">${workspace.name || workspace.id}</div>
+                </div>
+                <div class="bg-gray-50 rounded p-4">
+                    <div class="text-sm text-gray-600 mb-1">Status</div>
+                    <div class="font-medium text-gray-800">${workspace.status || 'Active'}</div>
+                </div>
+                <div class="bg-gray-50 rounded p-4">
+                    <div class="text-sm text-gray-600 mb-1">Assignments</div>
+                    <div class="font-medium text-gray-800">${workspace.assignments?.length || 0}</div>
+                </div>
+            `;
+
+            // Update assignments list
+            const assignments = workspaceSettings.assignments || [];
+            document.getElementById('assignmentsList').innerHTML = assignments.length > 0 
+                ? assignments.map(assignment => `
+                    <div class="border rounded-lg p-4 flex justify-between items-center">
+                        <div>
+                            <h3 class="font-medium text-gray-800">${assignment.name || assignment.id}</h3>
+                            <p class="text-sm text-gray-600">${assignment.description || 'No description'}</p>
+                        </div>
+                        <span class="px-2 py-1 text-xs rounded font-medium bg-green-100 text-green-600">
+                            ${assignment.status || 'Active'}
+                        </span>
+                    </div>
+                `).join('')
+                : '<p class="text-gray-500 text-center py-4">No assignments found</p>';
+
+            // Populate assignment dropdowns in forms
+            populateAssignmentSelectors(assignments);
+
+            // Show main content
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('mainContent').classList.remove('hidden');
+        }
+
+        function populateAssignmentSelectors(assignments) {
+            const selectors = ['github_assignment', 'jira_assignment', 'aws_assignment'];
+            
+            selectors.forEach(selectorId => {
+                const selector = document.getElementById(selectorId);
+                selector.innerHTML = '<option value="">Select assignment...</option>' +
+                    assignments.map(assignment => 
+                        `<option value="${assignment.id}">${assignment.name || assignment.id}</option>`
+                    ).join('');
+            });
+        }
+
+        async function loadCredentialStatus() {
+            try {
+                const response = await fetch(`/api/workspaces/${currentWorkspace}/credentials`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const status = await response.json();
+                    updateConnectorStatus(status);
+                }
+            } catch (error) {
+                console.error('Error loading credential status:', error);
+            }
+        }
+
+        function updateConnectorStatus(status) {
+            const connectors = status.connectors || {};
+            
+            Object.keys(connectors).forEach(connectorType => {
+                const connector = connectors[connectorType];
+                const statusElement = document.getElementById(`${connectorType}-status`);
+                
+                if (statusElement) {
+                    if (connector.configured) {
+                        statusElement.textContent = 'Configured';
+                        statusElement.className = 'px-2 py-1 text-xs rounded font-medium bg-green-100 text-green-600';
+                    } else {
+                        statusElement.textContent = 'Not Configured';
+                        statusElement.className = 'px-2 py-1 text-xs rounded font-medium bg-gray-100 text-gray-600';
+                    }
+                }
+            });
+        }
+
+        function configureConnector(connectorType) {
+            document.getElementById('modalTitle').textContent = `Configure ${connectorType.toUpperCase()}`;
+            
+            // Hide all forms
+            document.querySelectorAll('.credential-form').forEach(form => {
+                form.classList.remove('active');
+            });
+            
+            // Show specific form
+            document.getElementById(`${connectorType}-form`).classList.add('active');
+            
+            // Clear any previous messages
+            clearMessages();
+            
+            // Show modal
+            document.getElementById('credentialModal').classList.remove('hidden');
+        }
+
+        function closeCredentialModal() {
+            document.getElementById('credentialModal').classList.add('hidden');
+            clearMessages();
+        }
+
+        async function testCredentials(connectorType) {
+            const credentials = getCredentialsFromForm(connectorType);
+            if (!credentials) return;
+
+            showMessage('Testing connection...', 'info');
+
+            try {
+                const response = await fetch(`/api/workspaces/${currentWorkspace}/credentials/${connectorType}/test`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ credentials })
+                });
+
+                const result = await response.json();
+
+                if (result.valid) {
+                    showMessage(`✅ Connection successful! Connected as: ${result.user || result.account}`, 'success');
+                } else {
+                    showMessage(`❌ Connection failed: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`❌ Test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function saveCredentials(event, connectorType) {
+            event.preventDefault();
+            
+            const credentials = getCredentialsFromForm(connectorType);
+            const assignmentId = document.getElementById(`${connectorType}_assignment`).value;
+            
+            if (!credentials || !assignmentId) {
+                showMessage('Please fill in all required fields and select an assignment', 'error');
+                return;
+            }
+
+            showMessage('Saving credentials...', 'info');
+
+            try {
+                const response = await fetch(`/api/workspaces/${currentWorkspace}/credentials/${connectorType}`, {
+                    method: 'PUT',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ 
+                        credentials,
+                        assignment_id: assignmentId
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showMessage('✅ Credentials saved successfully!', 'success');
+                    setTimeout(() => {
+                        closeCredentialModal();
+                        loadCredentialStatus(); // Refresh status
+                    }, 2000);
+                } else {
+                    showMessage(`❌ Save failed: ${result.error || result.details}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`❌ Save failed: ${error.message}`, 'error');
+            }
+        }
+
+        function getCredentialsFromForm(connectorType) {
+            switch (connectorType) {
+                case 'github':
+                    return {
+                        github_token: document.getElementById('github_token').value,
+                        github_org: document.getElementById('github_org').value
+                    };
+                case 'jira':
+                    return {
+                        jira_url: document.getElementById('jira_url').value,
+                        jira_email: document.getElementById('jira_email').value,
+                        jira_token: document.getElementById('jira_token').value
+                    };
+                case 'aws':
+                    return {
+                        aws_access_key: document.getElementById('aws_access_key').value,
+                        aws_secret_key: document.getElementById('aws_secret_key').value,
+                        aws_region: document.getElementById('aws_region').value
+                    };
+                default:
+                    return null;
+            }
+        }
+
+        function showMessage(message, type) {
+            clearMessages();
+            
+            const messageElement = document.getElementById(type === 'error' ? 'credentialError' : 'credentialSuccess');
+            messageElement.textContent = message;
+            messageElement.classList.remove('hidden');
+        }
+
+        function clearMessages() {
+            document.getElementById('credentialError').classList.add('hidden');
+            document.getElementById('credentialSuccess').classList.add('hidden');
+        }
+
+        function showError(message) {
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorState').classList.remove('hidden');
+        }
+
+        function getAuthHeaders() {
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            };
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('current_user');
+            window.location.href = '/';
+        }
+
+        function editWorkspace() {
+            // TODO: Implement workspace editing
+            alert('Workspace editing will be implemented in the next phase');
+        }
+    </script>
+</body>
+</html>
