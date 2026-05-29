@@ -5,6 +5,7 @@ All service logic is now in services/* modules and imported via routes/api_route
 """
 
 import os
+import secrets
 from flask import Flask
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -23,6 +24,24 @@ FEATURE_FLAGS = {
 
 # Configure Flask paths
 app = Flask(__name__, template_folder='templates')
+
+# Configure sessions for web authentication
+app.secret_key = os.getenv("JWT_SECRET", secrets.token_urlsafe(32))
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_USE_SIGNER'] = True
+
+# Development-friendly session configuration
+# This allows sessions to work across localhost/127.0.0.1/IP addresses
+app.config['SESSION_COOKIE_DOMAIN'] = None  # Don't restrict to specific domain
+app.config['SESSION_COOKIE_PATH'] = '/'     # Available across entire site
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Allow reasonable cross-origin usage
+app.config['SESSION_COOKIE_SECURE'] = False    # Allow HTTP for development
+app.config['SESSION_COOKIE_HTTPONLY'] = True   # Prevent JavaScript access (security)
+
+# For production, you would set:
+# app.config['SESSION_COOKIE_DOMAIN'] = '.yourdomain.com'  # Allow subdomains
+# app.config['SESSION_COOKIE_SECURE'] = True  # HTTPS only
 
 # Enable CORS for all routes
 CORS(app, origins=["*"])

@@ -26,7 +26,9 @@ workspace_service = WorkspaceService()
 user_service = UserService()
 
 # Create authentication decorators with dependency injection
-require_auth, require_workspace_access, optional_auth = create_auth_decorators(user_service)
+auth_decorators = create_auth_decorators(user_service)
+require_auth, require_workspace_access, optional_auth = auth_decorators[:3]
+require_web_auth, require_web_workspace_access = auth_decorators[3:5] if len(auth_decorators) >= 5 else (None, None)
 
 # Global connector instances (for backward compatibility)
 aws_metrics = EmbeddedAWSMetrics()
@@ -56,7 +58,7 @@ def register_routes(app):
     
     @app.route("/workspace/<workspace_id>/settings")
     def workspace_settings_page(workspace_id):
-        """Workspace settings page"""
+        """Workspace settings page - temporarily unprotected for debugging"""
         return render_template("workspace_settings.html")
     
     @app.route("/auth-test")
@@ -429,6 +431,8 @@ def register_routes(app):
     @app.route("/api/auth/login", methods=["POST"])
     def login():
         """Authenticate user and return token"""
+        from flask import session
+        
         data = request.get_json()
         if not data:
             return jsonify({"error": "No login data provided"}), 400
@@ -442,9 +446,23 @@ def register_routes(app):
         result = user_service.authenticate_user(email, password)
         
         if result.get("success"):
+            # Store authentication in session for web pages
+            session['user_email'] = email
+            session['auth_token'] = result.get("token")
+            session['user_data'] = result.get("user")
+            session.permanent = True  # Keep session across browser restarts
+            
             return jsonify(result), 200
         else:
             return jsonify(result), 401
+    
+    @app.route("/api/auth/logout", methods=["POST"])
+    def logout():
+        """Logout user and clear session"""
+        from flask import session
+        
+        session.clear()
+        return jsonify({"success": True, "message": "Logged out successfully"}), 200
     
     @app.route("/api/auth/verify", methods=["GET"])
     @require_auth

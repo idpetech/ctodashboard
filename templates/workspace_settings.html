@@ -151,8 +151,15 @@
 
             <!-- Assignments -->
             <div class="bg-white rounded-lg shadow-lg p-6">
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">Workspace Assignments</h2>
-                <p class="text-gray-600 mb-6">Projects and teams in this workspace</p>
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-800">Workspace Assignments</h2>
+                        <p class="text-gray-600">Projects and teams in this workspace</p>
+                    </div>
+                    <button onclick="showCreateAssignmentModal()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                        + Create Assignment
+                    </button>
+                </div>
                 
                 <div id="assignmentsList" class="space-y-4">
                     <!-- Assignments will be populated here -->
@@ -319,6 +326,128 @@
         </div>
     </div>
 
+    <!-- Create Assignment Modal -->
+    <div id="createAssignmentModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-screen overflow-y-auto">
+            <!-- Modal Header -->
+            <div class="bg-gray-50 px-6 py-4 border-b">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-medium text-gray-800">Create New Assignment</h3>
+                    <button onclick="closeCreateAssignmentModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-6">
+                <div id="assignmentError" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"></div>
+                <div id="assignmentSuccess" class="hidden bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4"></div>
+
+                <form onsubmit="createAssignment(event)">
+                    <!-- Basic Info -->
+                    <div class="mb-6">
+                        <h4 class="font-medium text-gray-800 mb-4">Assignment Details</h4>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Assignment ID *</label>
+                                <input type="text" id="assignment_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="my_project">
+                                <p class="text-xs text-gray-500 mt-1">Unique identifier (lowercase, no spaces)</p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Display Name *</label>
+                                <input type="text" id="assignment_name" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="My Project">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                            <textarea id="assignment_description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Brief description of this assignment..."></textarea>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Team Size</label>
+                                <input type="number" id="team_size" min="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="5">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Monthly Budget</label>
+                                <input type="number" id="monthly_burn_rate" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="10000">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                                <select id="assignment_status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="active">Active</option>
+                                    <option value="planned">Planned</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="on_hold">On Hold</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Connector Selection -->
+                    <div class="mb-6">
+                        <h4 class="font-medium text-gray-800 mb-4">Select Connectors</h4>
+                        <p class="text-sm text-gray-600 mb-4">Choose which services this assignment will integrate with</p>
+                        
+                        <div class="space-y-3">
+                            <label class="flex items-center">
+                                <input type="checkbox" id="enable_github" class="rounded border-gray-300 mr-3">
+                                <div class="flex items-center">
+                                    <div class="w-6 h-6 bg-gray-800 rounded text-white flex items-center justify-center text-xs font-bold mr-3">GH</div>
+                                    <div>
+                                        <div class="font-medium text-gray-800">GitHub</div>
+                                        <div class="text-sm text-gray-600">Repository metrics and activity tracking</div>
+                                    </div>
+                                </div>
+                            </label>
+                            
+                            <label class="flex items-center">
+                                <input type="checkbox" id="enable_jira" class="rounded border-gray-300 mr-3">
+                                <div class="flex items-center">
+                                    <div class="w-6 h-6 bg-blue-600 rounded text-white flex items-center justify-center text-xs font-bold mr-3">JI</div>
+                                    <div>
+                                        <div class="font-medium text-gray-800">Jira</div>
+                                        <div class="text-sm text-gray-600">Project management and issue tracking</div>
+                                    </div>
+                                </div>
+                            </label>
+                            
+                            <label class="flex items-center">
+                                <input type="checkbox" id="enable_aws" class="rounded border-gray-300 mr-3">
+                                <div class="flex items-center">
+                                    <div class="w-6 h-6 bg-orange-500 rounded text-white flex items-center justify-center text-xs font-bold mr-3">AWS</div>
+                                    <div>
+                                        <div class="font-medium text-gray-800">AWS</div>
+                                        <div class="text-sm text-gray-600">Cloud infrastructure and cost tracking</div>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <p class="text-xs text-gray-500 mt-3">You can configure credentials for enabled connectors after creating the assignment</p>
+                    </div>
+                    
+                    <div class="flex space-x-3">
+                        <button type="button" onclick="closeCreateAssignmentModal()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                            Cancel
+                        </button>
+                        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                            Create Assignment
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Global variables
         let currentWorkspace = null;
@@ -347,9 +476,12 @@
                 return;
             }
 
-            // Get workspace ID from URL
-            const urlParams = new URLSearchParams(window.location.search);
-            currentWorkspace = urlParams.get('workspace');
+            // Get workspace ID from URL path /workspace/<workspace_id>/settings
+            const pathParts = window.location.pathname.split('/');
+            const workspaceIndex = pathParts.indexOf('workspace');
+            if (workspaceIndex !== -1 && pathParts[workspaceIndex + 1]) {
+                currentWorkspace = pathParts[workspaceIndex + 1];
+            }
 
             if (!currentWorkspace) {
                 showError('No workspace specified in URL');
@@ -398,21 +530,40 @@
                 </div>
             `;
 
-            // Update assignments list
+            // Update assignments list  
             const assignments = workspaceSettings.assignments || [];
             document.getElementById('assignmentsList').innerHTML = assignments.length > 0 
                 ? assignments.map(assignment => `
-                    <div class="border rounded-lg p-4 flex justify-between items-center">
-                        <div>
-                            <h3 class="font-medium text-gray-800">${assignment.name || assignment.id}</h3>
-                            <p class="text-sm text-gray-600">${assignment.description || 'No description'}</p>
+                    <div class="border rounded-lg p-4">
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="flex-1">
+                                <h3 class="font-medium text-gray-800">${assignment.name || assignment.id}</h3>
+                                <p class="text-sm text-gray-600 mt-1">${assignment.description || 'No description'}</p>
+                                <div class="flex items-center space-x-4 text-xs text-gray-500 mt-2">
+                                    <span>👥 ${assignment.team_size || 'N/A'} team members</span>
+                                    <span>💰 $${(assignment.monthly_burn_rate || 0).toLocaleString()}/month</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-1 text-xs rounded font-medium bg-green-100 text-green-600">
+                                    ${assignment.status || 'Active'}
+                                </span>
+                                <button onclick="editAssignment('${assignment.id}')" class="text-gray-500 hover:text-gray-700 p-1" title="Edit Assignment">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                </button>
+                                <button onclick="deleteAssignment('${assignment.id}')" class="text-red-500 hover:text-red-700 p-1" title="Delete Assignment">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
-                        <span class="px-2 py-1 text-xs rounded font-medium bg-green-100 text-green-600">
-                            ${assignment.status || 'Active'}
-                        </span>
+                        ${getConnectorStatus(assignment)}
                     </div>
                 `).join('')
-                : '<p class="text-gray-500 text-center py-4">No assignments found</p>';
+                : '<div class="text-center py-8"><p class="text-gray-500 mb-4">No assignments found</p><button onclick="showCreateAssignmentModal()" class="text-blue-600 hover:underline">Create your first assignment</button></div>';
 
             // Populate assignment dropdowns in forms
             populateAssignmentSelectors(assignments);
@@ -614,6 +765,164 @@
         function editWorkspace() {
             // TODO: Implement workspace editing
             alert('Workspace editing will be implemented in the next phase');
+        }
+
+        // Assignment Management Functions
+        function getConnectorStatus(assignment) {
+            const authInstances = assignment.auth_instances || {};
+            const connectors = ['github', 'jira', 'aws'];
+            
+            const configuredConnectors = connectors.filter(connector => {
+                const instance = authInstances[connector];
+                return instance && instance.credentials && Object.keys(instance.credentials).length > 0;
+            });
+            
+            if (configuredConnectors.length === 0) {
+                return '<div class="text-sm text-gray-500 mt-2">No connectors configured</div>';
+            }
+            
+            return `<div class="flex items-center space-x-2 mt-2">
+                <span class="text-sm text-gray-600">Connectors:</span>
+                ${configuredConnectors.map(connector => `
+                    <span class="px-2 py-1 text-xs rounded bg-blue-100 text-blue-600">${connector.toUpperCase()}</span>
+                `).join('')}
+            </div>`;
+        }
+
+        function showCreateAssignmentModal() {
+            // Clear form
+            document.getElementById('assignment_id').value = '';
+            document.getElementById('assignment_name').value = '';
+            document.getElementById('assignment_description').value = '';
+            document.getElementById('team_size').value = '';
+            document.getElementById('monthly_burn_rate').value = '';
+            document.getElementById('assignment_status').value = 'active';
+            document.getElementById('enable_github').checked = false;
+            document.getElementById('enable_jira').checked = false;
+            document.getElementById('enable_aws').checked = false;
+            
+            clearAssignmentMessages();
+            document.getElementById('createAssignmentModal').classList.remove('hidden');
+        }
+
+        function closeCreateAssignmentModal() {
+            document.getElementById('createAssignmentModal').classList.add('hidden');
+            clearAssignmentMessages();
+        }
+
+        async function createAssignment(event) {
+            event.preventDefault();
+            clearAssignmentMessages();
+
+            // Get form data
+            const assignmentData = {
+                id: document.getElementById('assignment_id').value.trim(),
+                name: document.getElementById('assignment_name').value.trim(),
+                description: document.getElementById('assignment_description').value.trim(),
+                team_size: parseInt(document.getElementById('team_size').value) || null,
+                monthly_burn_rate: parseInt(document.getElementById('monthly_burn_rate').value) || null,
+                status: document.getElementById('assignment_status').value,
+                workspace_id: currentWorkspace,
+                created_at: new Date().toISOString()
+            };
+
+            // Get enabled connectors
+            const connectors = {};
+            if (document.getElementById('enable_github').checked) {
+                connectors.github = {
+                    enabled: true,
+                    track_deployments: true,
+                    track_issues: true,
+                    track_pull_requests: true,
+                    default_branch: "main"
+                };
+            }
+            if (document.getElementById('enable_jira').checked) {
+                connectors.jira = {
+                    enabled: true,
+                    track_sprints: true,
+                    track_bugs: true,
+                    track_story_points: true,
+                    default_board: "scrum"
+                };
+            }
+            if (document.getElementById('enable_aws').checked) {
+                connectors.aws = {
+                    enabled: true,
+                    track_costs: true,
+                    track_resources: true,
+                    cost_alert_threshold: 100
+                };
+            }
+
+            if (Object.keys(connectors).length > 0) {
+                assignmentData.metrics_config = connectors;
+            }
+
+            showAssignmentMessage('Creating assignment...', 'info');
+
+            try {
+                const response = await fetch(`/api/workspaces/${currentWorkspace}/assignments`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(assignmentData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    showAssignmentMessage('✅ Assignment created successfully!', 'success');
+                    setTimeout(() => {
+                        closeCreateAssignmentModal();
+                        loadWorkspaceSettings(); // Refresh the page
+                    }, 2000);
+                } else {
+                    showAssignmentMessage(`❌ Failed to create assignment: ${result.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                showAssignmentMessage(`❌ Error creating assignment: ${error.message}`, 'error');
+            }
+        }
+
+        function editAssignment(assignmentId) {
+            // TODO: Implement assignment editing
+            alert(`Edit assignment: ${assignmentId}\nThis will be implemented in the next phase`);
+        }
+
+        async function deleteAssignment(assignmentId) {
+            if (!confirm(`Are you sure you want to delete assignment "${assignmentId}"?\n\nThis action cannot be undone and will remove all associated data.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/workspaces/${currentWorkspace}/assignments/${assignmentId}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    // Refresh the workspace settings
+                    loadWorkspaceSettings();
+                } else {
+                    const result = await response.json();
+                    alert(`Failed to delete assignment: ${result.error || 'Unknown error'}`);
+                }
+            } catch (error) {
+                alert(`Error deleting assignment: ${error.message}`);
+            }
+        }
+
+        function showAssignmentMessage(message, type) {
+            clearAssignmentMessages();
+            
+            const messageElement = document.getElementById(type === 'error' ? 'assignmentError' : 'assignmentSuccess');
+            messageElement.textContent = message;
+            messageElement.classList.remove('hidden');
+        }
+
+        function clearAssignmentMessages() {
+            document.getElementById('assignmentError').classList.add('hidden');
+            document.getElementById('assignmentSuccess').classList.add('hidden');
         }
     </script>
 </body>

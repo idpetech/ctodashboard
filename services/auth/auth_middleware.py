@@ -4,7 +4,7 @@ Protects workspace endpoints with user authentication
 """
 
 from functools import wraps
-from flask import request, jsonify, g
+from flask import request, jsonify, g, redirect, url_for, session
 
 def create_auth_decorators(user_service):
     """
@@ -145,8 +145,129 @@ def create_auth_decorators(user_service):
         
         return decorated_function
     
+    def require_web_auth(f):
+        """
+        Decorator for web pages that require authentication.
+        Redirects to login page if not authenticated instead of returning JSON.
+        """
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            # For web pages, we can check session first, then fall back to header
+            user = None
+            
+            # Option 1: Check session (if implemented)
+            if 'user_email' in session and 'auth_token' in session:
+                verification = user_service.verify_token(session['auth_token'])
+                if verification.get("valid"):
+                    user = verification["user"]
+            
+            # Option 2: Check Authorization header (for cases where JS sets it)
+            if not user:
+                auth_header = request.headers.get('Authorization')
+                if auth_header:
+                    try:
+                        scheme, token = auth_header.split(' ')
+                        if scheme.lower() == 'bearer':
+                            verification = user_service.verify_token(token)
+                            if verification.get("valid"):
+                                user = verification["user"]
+                    except:
+                        pass
+            
+            # If no valid authentication found, redirect to login
+            if not user:
+                return redirect(url_for('index'))  # Redirect to dashboard/login page
+            
+            # Store user info for the endpoint
+            g.current_user = user
+            
+            return f(*args, **kwargs)
+        
+        return decorated_function
+
+    def require_web_workspace_access(f):
+        """
+        Decorator for web pages that require workspace access.
+        Combines authentication check with workspace access check.
+        """
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            # STEP 1: Check authentication (same as require_web_auth)
+            user = None
+            
+            # Debug logging
+            print(f"DEBUG: Workspace auth check for {request.url}")
+            print(f"DEBUG: Session keys: {list(session.keys())}")
+            
+            # Check session first
+            session_valid = False
+            if 'user_email' in session and 'auth_token' in session:
+                print(f"DEBUG: Found session data for {session['user_email']}")
+                verification = user_service.verify_token(session['auth_token'])
+                if verification.get("valid"):
+                    print(f"DEBUG: Session token is valid")
+                    user = verification["user"]
+                    session_valid = True
+                else:
+                    print(f"DEBUG: Session token invalid: {verification}")
+            else:
+                print(f"DEBUG: No session data found")
+            
+            # Fall back to Authorization header (for cross-hostname access)
+            if not user:
+                auth_header = request.headers.get('Authorization')
+                if auth_header:
+                    try:
+                        scheme, token = auth_header.split(' ')
+                        if scheme.lower() == 'bearer':
+                            verification = user_service.verify_token(token)
+                            if verification.get("valid"):
+                                user = verification["user"]
+                                # Restore session if header auth worked (helpful for hostname switches)
+                                session['user_email'] = user['email']
+                                session['auth_token'] = token
+                    except:
+                        pass
+            
+            # Final fallback: Check localStorage token via cookie
+            if not user:
+                # Check if there's a token in a special cookie (set by frontend)
+                token_cookie = request.cookies.get('auth_token_backup')
+                if token_cookie:
+                    verification = user_service.verify_token(token_cookie)
+                    if verification.get("valid"):
+                        user = verification["user"]
+                        # Restore session
+                        session['user_email'] = user['email']
+                        session['auth_token'] = token_cookie
+            
+            # If no authentication, redirect to login
+            if not user:
+                return redirect(url_for('index'))
+            
+            g.current_user = user
+            
+            # STEP 2: Check workspace access
+            workspace_id = kwargs.get('workspace_id') or request.view_args.get('workspace_id')
+            
+            if not workspace_id:
+                # For web pages, we could redirect to a "select workspace" page
+                return redirect(url_for('index'))
+            
+            # Check workspace access
+            user_email = user["email"]
+            if not user_service.check_workspace_access(user_email, workspace_id):
+                # Redirect to dashboard with error message
+                return redirect(url_for('index') + '?error=workspace_access_denied')
+            
+            g.current_workspace = workspace_id
+            
+            return f(*args, **kwargs)
+        
+        return decorated_function
+
     # Return all decorators from the factory function
-    return require_auth, require_workspace_access, optional_auth
+    return require_auth, require_workspace_access, optional_auth, require_web_auth, require_web_workspace_access
 
 def get_current_user():
     """Helper function to get current authenticated user"""
