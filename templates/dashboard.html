@@ -1133,6 +1133,62 @@
                 return headers;
             }
             
+            // Retry utility with exponential backoff for handling eventual consistency
+            async function retryWithExponentialBackoff(operation, options = {}) {
+                const {
+                    maxRetries = 3,
+                    initialDelayMs = 1000,
+                    maxDelayMs = 10000,
+                    backoffMultiplier = 2,
+                    onRetry = null
+                } = options;
+                
+                let lastError;
+                let delay = initialDelayMs;
+                
+                for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                    try {
+                        const result = await operation();
+                        
+                        // For fetch operations, check if the response is ok
+                        if (result && typeof result.ok === 'boolean') {
+                            if (result.ok) {
+                                return result;
+                            }
+                            // If it's a 404/401 during user initialization, retry
+                            if (attempt < maxRetries && (result.status === 404 || result.status === 401)) {
+                                throw new Error(`HTTP ${result.status} - retrying...`);
+                            }
+                            return result; // Return non-ok responses on last attempt
+                        }
+                        
+                        return result;
+                        
+                    } catch (error) {
+                        lastError = error;
+                        
+                        if (attempt === maxRetries) {
+                            console.error(`Operation failed after ${maxRetries + 1} attempts:`, error);
+                            throw error;
+                        }
+                        
+                        console.log(`Attempt ${attempt + 1} failed, retrying in ${delay}ms:`, error.message);
+                        
+                        if (onRetry) {
+                            onRetry(attempt + 1, delay, error);
+                        }
+                        
+                        // Wait before retrying
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        
+                        // Increase delay for next attempt (exponential backoff)
+                        delay = Math.min(delay * backoffMultiplier, maxDelayMs);
+                    }
+                }
+                
+                throw lastError;
+            }
+            
             // Workspace Management
             let currentWorkspace = null;
             
@@ -1146,7 +1202,8 @@
                         const workspaces = await response.json();
                         
                         if (workspaces.length === 0) {
-                            // No workspace - create user's workspace automatically
+                            // No workspace - show loading and create user's workspace automatically
+                            showWorkspaceLoading('Creating your first workspace...');
                             await createUserWorkspace();
                         } else if (workspaces.length === 1) {
                             // One workspace - auto-select and show simplified UI
@@ -1190,11 +1247,23 @@
             
             async function createUserWorkspace() {
                 // Auto-create workspace for user (called when user has no workspace)
+                console.log('🏗️ Creating user workspace (handling potential race condition)...');
+                
                 try {
-                    // Get user info to create workspace name
-                    const profileResponse = await fetch('/api/auth/profile', {
-                        headers: getAuthHeaders()
-                    });
+                    // Get user info to create workspace name - with retry logic for race conditions
+                    const profileResponse = await retryWithExponentialBackoff(
+                        () => fetch('/api/auth/profile', { headers: getAuthHeaders() }),
+                        {
+                            maxRetries: 5,
+                            initialDelayMs: 500,
+                            maxDelayMs: 5000,
+                            backoffMultiplier: 2,
+                            onRetry: (attempt, delay, error) => {
+                                console.log(`🔄 Profile fetch retry ${attempt}/5 in ${delay}ms (${error.message})`);
+                                showWorkspaceLoading(`Initializing account... (attempt ${attempt}/5)`);
+                            }
+                        }
+                    );
                     
                     if (!profileResponse.ok) {
                         throw new Error('Failed to get user profile');
@@ -1210,21 +1279,34 @@
                     const workspaceName = displayName + "'s Workspace";
                     const workspaceDescription = `Personal workspace for ${email}`;
                     
-                    // Create the user's personal workspace via API
-                    const createResponse = await fetch('/api/workspaces', {
-                        method: 'POST',
-                        headers: getAuthHeaders(),
-                        body: JSON.stringify({
-                            id: workspaceId,
-                            name: workspaceName,
-                            description: workspaceDescription
-                        })
-                    });
+                    // Create the user's personal workspace via API - with retry for consistency
+                    console.log(`📝 Creating workspace: ${workspaceName}`);
+                    const createResponse = await retryWithExponentialBackoff(
+                        () => fetch('/api/workspaces', {
+                            method: 'POST',
+                            headers: getAuthHeaders(),
+                            body: JSON.stringify({
+                                id: workspaceId,
+                                name: workspaceName,
+                                description: workspaceDescription
+                            })
+                        }),
+                        {
+                            maxRetries: 3,
+                            initialDelayMs: 1000,
+                            maxDelayMs: 5000,
+                            onRetry: (attempt, delay, error) => {
+                                console.log(`🔄 Workspace creation retry ${attempt}/3 in ${delay}ms`);
+                            }
+                        }
+                    );
 
                     if (!createResponse.ok) {
                         const errData = await createResponse.json().catch(() => ({}));
                         throw new Error(errData.error || 'Failed to create workspace');
                     }
+                    
+                    console.log('✅ Workspace created successfully');
 
                     // Reload to pick up the newly created workspace
                     await loadWorkspaces();
@@ -1259,6 +1341,27 @@
                 loadDashboard();
             }
             
+            function showWorkspaceLoading(message = 'Setting up your workspace...') {
+                const selector = document.getElementById('workspace-selector');
+                selector.innerHTML = `
+                    <div class="workspace-selector bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                        <div class="text-sm font-medium text-blue-700 mb-2">
+                            🏗️ Initializing Workspace
+                        </div>
+                        <div class="text-xs text-blue-600 mb-3">
+                            ${message}
+                        </div>
+                        <div class="w-full bg-blue-200 rounded-full h-2">
+                            <div class="bg-blue-600 h-2 rounded-full animate-pulse" style="width: 70%"></div>
+                        </div>
+                        <div class="text-xs text-blue-500 mt-2">
+                            This may take a few seconds for new accounts...
+                        </div>
+                    </div>
+                `;
+                selector.classList.remove('hidden');
+            }
+
             function showWorkspaceError(message) {
                 const selector = document.getElementById('workspace-selector');
                 selector.innerHTML = `
