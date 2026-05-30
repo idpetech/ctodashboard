@@ -92,3 +92,18 @@ pids
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# 🚨 SECURITY: Never commit credentials or sensitive user data
+config/users/*.json
+config/workspaces/**/*.json
+config/workspaces/*/assignments/*.json
+!config/users/README.md
+!config/workspaces/README.md
+config/credentials/
+config/secrets/
+*.key
+*.pem
+*.crt
+*.p12
+*_credentials.json
+*_secrets.*
