@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 300 integrated_dashboard:app",
+    "startCommand": "python railway_init_db.py && gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 300 integrated_dashboard:app",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300
   },
@@ -13,5 +13,9 @@
       "mountPath": "/app/config",
       "name": "database-storage"
     }
-  ]
+  ],
+  "variables": {
+    "DATABASE_PERSISTENCE": "true",
+    "CONFIG_BACKUP": "true"
+  }
 }

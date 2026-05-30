@@ -3584,13 +3584,149 @@
                 activeBtn.classList.remove('border-transparent', 'text-gray-500');
                 activeBtn.classList.add('border-blue-500', 'text-blue-600');
                 
-                // Load metrics config if switching to connectors tab
+                // Load connector config if switching to connectors tab
                 if (tabName === 'connectors') {
-                    loadAssignmentMetricsConfig();
+                    loadAssignmentModalConnectors();
                 }
             }
             
             
+            function loadAssignmentModalConnectors() {
+                const assignmentId = document.getElementById('assignment-id').value;
+                if (!assignmentId) return;
+                
+                const assignment = assignments?.find(a => a.id === assignmentId);
+                if (!assignment) return;
+                
+                displayAssignmentModalConnectors(assignment);
+            }
+            
+            function displayAssignmentModalConnectors(assignment) {
+                const container = document.getElementById('assignmentModalConnectorsList');
+                const noConnectorsMsg = document.getElementById('assignmentModalNoConnectors');
+                const metrics_config = assignment.metrics_config || {};
+                
+                // Get all configured connectors
+                const configuredConnectors = [];
+                const connectorTypes = ['github', 'jira', 'aws', 'openai'];
+                
+                connectorTypes.forEach(type => {
+                    const config = metrics_config[type];
+                    if (config && config.enabled) {
+                        const authInstance = config.auth_instance || {};
+                        const isConfigured = authInstance.auth_configured;
+                        
+                        configuredConnectors.push({
+                            type,
+                            name: type.charAt(0).toUpperCase() + type.slice(1),
+                            configured: isConfigured,
+                            credentials: authInstance.credentials || {},
+                            config: config
+                        });
+                    }
+                });
+                
+                if (configuredConnectors.length === 0) {
+                    container.innerHTML = '';
+                    noConnectorsMsg.classList.remove('hidden');
+                } else {
+                    noConnectorsMsg.classList.add('hidden');
+                    container.innerHTML = configuredConnectors.map(connector => {
+                        const statusBadge = connector.configured 
+                            ? '<span class="px-2 py-1 text-xs rounded bg-green-100 text-green-600">✅ Configured</span>'
+                            : '<span class="px-2 py-1 text-xs rounded bg-yellow-100 text-yellow-600">⚡ Enabled</span>';
+                        
+                        const credentialSummary = connector.configured
+                            ? `<div class="text-xs text-gray-600 mt-1">Last updated: ${new Date(connector.config.auth_instance?.last_updated || '').toLocaleDateString()}</div>`
+                            : '<div class="text-xs text-red-600 mt-1">Credentials not configured</div>';
+                        
+                        return `
+                            <div class="border rounded-lg p-4 hover:bg-gray-50">
+                                <div class="flex justify-between items-start">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <h4 class="font-medium text-gray-800">${connector.name}</h4>
+                                            ${statusBadge}
+                                        </div>
+                                        ${credentialSummary}
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button onclick="configureAssignmentConnector('${connector.type}')" 
+                                                class="text-blue-600 hover:text-blue-800 text-sm">
+                                            ${connector.configured ? 'Reconfigure' : 'Configure'}
+                                        </button>
+                                        <button onclick="removeAssignmentConnector('${connector.type}')" 
+                                                class="text-red-600 hover:text-red-800 text-sm">
+                                            Remove
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            }
+
+            function configureAssignmentConnector(connectorType) {
+                const assignmentId = document.getElementById('assignment-id').value;
+                if (!assignmentId) {
+                    alert('Please save the assignment first');
+                    return;
+                }
+                
+                // Set up the connector configuration in context of this assignment
+                selectedAssignmentId = assignmentId;
+                showCredentialModal(connectorType);
+            }
+            
+            function addConnectorToAssignment() {
+                const assignmentId = document.getElementById('assignment-id').value;
+                if (!assignmentId) {
+                    alert('Please save the assignment first');
+                    return;
+                }
+                
+                selectedAssignmentId = assignmentId;
+                showCreateConnectorModal();
+            }
+            
+            async function removeAssignmentConnector(connectorType) {
+                const assignmentId = document.getElementById('assignment-id').value;
+                if (!assignmentId) return;
+                
+                if (!confirm(`Remove ${connectorType} connector from this assignment?`)) return;
+                
+                try {
+                    const workspaceId = currentWorkspace || 'default_workspace';
+                    
+                    // Remove the connector by disabling it
+                    const assignment = assignments?.find(a => a.id === assignmentId);
+                    if (assignment && assignment.metrics_config && assignment.metrics_config[connectorType]) {
+                        assignment.metrics_config[connectorType].enabled = false;
+                        
+                        const response = await fetch(`/api/workspaces/${workspaceId}/assignments/${assignmentId}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...getAuthHeaders()
+                            },
+                            body: JSON.stringify(assignment)
+                        });
+                        
+                        if (response.ok) {
+                            // Refresh the connector list
+                            loadAssignmentModalConnectors();
+                            showAssignmentEditMessage('Connector removed successfully', 'success');
+                        } else {
+                            throw new Error('Failed to remove connector');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error removing connector:', error);
+                    showAssignmentEditMessage('Failed to remove connector: ' + error.message, 'error');
+                }
+            }
+
             function loadAssignmentMetricsConfig() {
                 const assignmentId = document.getElementById('assignment-id').value;
                 if (!assignmentId) return;
