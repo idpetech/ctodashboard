@@ -3447,25 +3447,46 @@
             }
 
             // Phase 5B: Enhanced Assignment Management Functions
-            function editAssignment(assignmentId) {
-                // Find the assignment data
-                const assignment = assignments?.find(a => a.id === assignmentId);
-                if (!assignment) {
-                    showAssignmentEditMessage('Assignment not found', 'error');
-                    return;
+            async function editAssignment(assignmentId) {
+                try {
+                    // Fetch assignment data directly rather than relying on global state
+                    const workspaceId = currentWorkspace || 'default_workspace';
+                    const response = await fetch(`/api/workspaces/${workspaceId}/assignments`);
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to load assignment data');
+                    }
+                    
+                    const data = await response.json();
+                    const assignment = data.assignments.find(a => a.id === assignmentId);
+                    
+                    if (!assignment) {
+                        showAssignmentEditMessage('Assignment not found', 'error');
+                        return;
+                    }
+                    
+                    console.log('Loading assignment for edit:', assignment);
+                    
+                    // Populate modal form with current assignment data
+                    document.getElementById('assignment-id').value = assignment.id;
+                    document.getElementById('assignment-name').value = assignment.name || assignment.id;
+                    document.getElementById('assignment-description').value = assignment.description || '';
+                    document.getElementById('assignment-status').value = assignment.status || 'active';
+                    document.getElementById('assignment-team-size').value = assignment.team_size || '';
+                    document.getElementById('assignment-burn-rate').value = assignment.monthly_burn_rate || '';
+                    document.getElementById('assignment-start-date').value = assignment.start_date || '';
+                    
+                    // Load connectors for the assignment
+                    console.log('Loading connectors for assignment:', assignmentId);
+                    displayAssignmentModalConnectors(assignment);
+                    
+                    // Show the modal
+                    document.getElementById('assignment-edit-modal').classList.remove('hidden');
+                    
+                } catch (error) {
+                    console.error('Error loading assignment:', error);
+                    showAssignmentEditMessage('Failed to load assignment: ' + error.message, 'error');
                 }
-                
-                // Populate modal form with current assignment data
-                document.getElementById('assignment-id').value = assignment.id;
-                document.getElementById('assignment-name').value = assignment.name || assignment.id;
-                document.getElementById('assignment-description').value = assignment.description || '';
-                document.getElementById('assignment-status').value = assignment.status || 'active';
-                document.getElementById('assignment-team-size').value = assignment.team_size || '';
-                document.getElementById('assignment-burn-rate').value = assignment.monthly_burn_rate || '';
-                document.getElementById('assignment-start-date').value = assignment.start_date || '';
-                
-                // Show the modal
-                document.getElementById('assignment-edit-modal').classList.remove('hidden');
             }
             
             function hideAssignmentEditModal() {
@@ -3593,18 +3614,40 @@
             
             function loadAssignmentModalConnectors() {
                 const assignmentId = document.getElementById('assignment-id').value;
-                if (!assignmentId) return;
+                if (!assignmentId) {
+                    console.warn('No assignment ID found for loading connectors');
+                    return;
+                }
                 
                 const assignment = assignments?.find(a => a.id === assignmentId);
-                if (!assignment) return;
+                if (!assignment) {
+                    console.warn('Assignment not found in assignments array:', assignmentId);
+                    console.log('Available assignments:', assignments?.map(a => a.id));
+                    return;
+                }
                 
+                console.log('Loading connectors for assignment:', assignmentId);
                 displayAssignmentModalConnectors(assignment);
             }
             
             function displayAssignmentModalConnectors(assignment) {
+                console.log('displayAssignmentModalConnectors called with:', assignment);
+                
                 const container = document.getElementById('assignmentModalConnectorsList');
                 const noConnectorsMsg = document.getElementById('assignmentModalNoConnectors');
+                
+                if (!container) {
+                    console.error('assignmentModalConnectorsList element not found');
+                    return;
+                }
+                
+                if (!noConnectorsMsg) {
+                    console.error('assignmentModalNoConnectors element not found');
+                    return;
+                }
+                
                 const metrics_config = assignment.metrics_config || {};
+                console.log('Assignment metrics_config:', metrics_config);
                 
                 // Get all configured connectors
                 const configuredConnectors = [];
@@ -3676,7 +3719,7 @@
                 
                 // Set up the connector configuration in context of this assignment
                 selectedAssignmentId = assignmentId;
-                showCredentialModal(connectorType);
+                configureConnector(connectorType);
             }
             
             function addConnectorToAssignment() {
@@ -4827,9 +4870,115 @@ Backups are stored in: ./backups/
                 
                 // Populate assignment dropdown and then show modal
                 populateAssignmentDropdown(connectorType).then(() => {
-                    // Show modal after dropdown is populated
+                    // Load existing credentials if we have a pre-selected assignment
+                    loadExistingCredentials(connectorType);
+                    
+                    // Show modal after dropdown and credentials are populated
                     document.getElementById('credentialModal').classList.remove('hidden');
                 });
+            }
+
+            async function loadExistingCredentials(connectorType) {
+                try {
+                    // Get the currently selected assignment (either pre-selected or from dropdown)
+                    const assignmentId = selectedConnectorAssignmentId || document.getElementById(`${connectorType}_assignment`)?.value;
+                    
+                    if (!assignmentId) {
+                        console.log('No assignment selected, skipping credential loading');
+                        return;
+                    }
+                    
+                    console.log(`Loading existing ${connectorType} credentials for assignment:`, assignmentId);
+                    
+                    // Fetch assignment data to get current credentials
+                    const workspaceId = currentWorkspace || 'default_workspace';
+                    const response = await fetch(`/api/workspaces/${workspaceId}/assignments`, {
+                        headers: getAuthHeaders()
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const assignment = data.assignments.find(a => a.id === assignmentId);
+                        
+                        if (assignment && assignment.metrics_config && assignment.metrics_config[connectorType]) {
+                            const connectorConfig = assignment.metrics_config[connectorType];
+                            const credentials = connectorConfig.auth_instance?.credentials || {};
+                            
+                            console.log(`Found existing ${connectorType} credentials:`, credentials);
+                            
+                            // Pre-populate form fields based on connector type
+                            if (connectorType === 'github') {
+                                populateGitHubForm(credentials);
+                            } else if (connectorType === 'aws') {
+                                populateAWSForm(credentials);
+                            } else if (connectorType === 'openai') {
+                                populateOpenAIForm(credentials);
+                            } else if (connectorType === 'jira') {
+                                populateJiraForm(credentials);
+                            }
+                        } else {
+                            console.log(`No existing ${connectorType} configuration found for assignment:`, assignmentId);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error loading existing credentials:', error);
+                }
+            }
+            
+            function populateGitHubForm(credentials) {
+                // Pre-populate GitHub form fields
+                if (credentials.github_token) {
+                    document.getElementById('github_token').value = credentials.github_token;
+                }
+                if (credentials.github_org) {
+                    document.getElementById('github_org').value = credentials.github_org;
+                }
+                if (credentials.github_repos) {
+                    document.getElementById('github_repos').value = credentials.github_repos;
+                }
+                console.log('GitHub form pre-populated with existing credentials');
+            }
+            
+            function populateAWSForm(credentials) {
+                // Pre-populate AWS form fields
+                if (credentials.aws_access_key) {
+                    document.getElementById('aws_access_key').value = credentials.aws_access_key;
+                }
+                if (credentials.aws_secret_key) {
+                    document.getElementById('aws_secret_key').value = credentials.aws_secret_key;
+                }
+                if (credentials.aws_region) {
+                    document.getElementById('aws_region').value = credentials.aws_region;
+                }
+                console.log('AWS form pre-populated with existing credentials');
+            }
+            
+            function populateOpenAIForm(credentials) {
+                // Pre-populate OpenAI form fields
+                if (credentials.openai_api_key) {
+                    document.getElementById('openai_api_key').value = credentials.openai_api_key;
+                }
+                if (credentials.openai_org_id) {
+                    document.getElementById('openai_org_id').value = credentials.openai_org_id;
+                }
+                if (credentials.openai_model) {
+                    document.getElementById('openai_model').value = credentials.openai_model;
+                }
+                console.log('OpenAI form pre-populated with existing credentials');
+            }
+            
+            function populateJiraForm(credentials) {
+                // Pre-populate Jira form fields
+                if (credentials.jira_url) {
+                    document.getElementById('jira_url').value = credentials.jira_url;
+                }
+                if (credentials.jira_email) {
+                    document.getElementById('jira_email').value = credentials.jira_email;
+                }
+                if (credentials.jira_token) {
+                    document.getElementById('jira_token').value = credentials.jira_token;
+                }
+                console.log('Jira form pre-populated with existing credentials');
             }
 
             function closeCredentialModal() {
@@ -4964,7 +5113,9 @@ Backups are stored in: ./backups/
             async function populateAssignmentDropdown(connectorType) {
                 try {
                     const workspaceId = currentWorkspace || 'default_workspace';
-                    const response = await fetch(`/api/workspaces/${workspaceId}/assignments`);
+                    const response = await fetch(`/api/workspaces/${workspaceId}/assignments`, {
+                        headers: getAuthHeaders()
+                    });
                     
                     if (response.ok) {
                         const data = await response.json();
