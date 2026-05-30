@@ -862,21 +862,35 @@ def register_routes(app):
             else:
                 return jsonify(result), 400
     
-    @app.route("/api/workspaces/<workspace_id>/assignments/<assignment_id>", methods=["GET"])
+    @app.route("/api/workspaces/<workspace_id>/assignments/<assignment_id>", methods=["GET", "PUT"])
     def workspace_assignment_detail(workspace_id, assignment_id):
-        """Get specific assignment in workspace"""
-        # Get all assignments and find the specific one
-        result = workspace_service.get_workspace_assignments(workspace_id)
-        if "error" in result:
-            return jsonify(result), 404
+        """Get or update specific assignment in workspace"""
+        if request.method == "GET":
+            # Get all assignments and find the specific one
+            result = workspace_service.get_workspace_assignments(workspace_id)
+            if "error" in result:
+                return jsonify(result), 404
+            
+            assignments = result.get("assignments", [])
+            assignment = next((a for a in assignments if a.get("id") == assignment_id), None)
+            
+            if not assignment:
+                return jsonify({"error": f"Assignment '{assignment_id}' not found in workspace '{workspace_id}'"}), 404
+            
+            return jsonify(assignment)
         
-        assignments = result.get("assignments", [])
-        assignment = next((a for a in assignments if a.get("id") == assignment_id), None)
-        
-        if not assignment:
-            return jsonify({"error": f"Assignment '{assignment_id}' not found in workspace '{workspace_id}'"}), 404
-        
-        return jsonify(assignment)
+        elif request.method == "PUT":
+            # Update assignment in workspace
+            data = request.get_json()
+            if not data:
+                return jsonify({"error": "No assignment data provided"}), 400
+            
+            # Use workspace service to update assignment
+            result = workspace_service.update_assignment(workspace_id, assignment_id, data)
+            if "error" in result:
+                return jsonify(result), 400
+            
+            return jsonify(result)
     
     # ===== PHASE 3 WORKSPACE CREDENTIALS TEST ENDPOINT =====
     
