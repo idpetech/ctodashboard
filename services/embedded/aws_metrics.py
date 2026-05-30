@@ -510,16 +510,48 @@ class EmbeddedAWSMetrics:
             # Use the rich get_cost_metrics method but adapt to existing shape
             cost_data = self.get_cost_metrics()
             
-            # Create a simplified resource inventory for compatibility
-            # Note: The v2 service has much richer data via get_comprehensive_aws_report()
+            # Get actual resource inventory data
             resources = {
-                "inventory": {
-                    "note": "Rich resource details available via get_comprehensive_aws_report()",
-                    "ec2": {"total_instances": 0},
-                    "lightsail": {"total_instances": 0},
-                    "rds": {"total_databases": 0},
-                    "s3": {"total_buckets": 0}
-                }
+                "inventory": {}
+            }
+            
+            # Get real Lightsail data
+            lightsail_data = self._get_lightsail_details()
+            resources["inventory"]["lightsail"] = {
+                "total_instances": lightsail_data.get("total_instances", 0),
+                "running_instances": lightsail_data.get("running_instances", 0),
+                "stopped_instances": lightsail_data.get("stopped_instances", 0),
+                "estimated_monthly_cost": lightsail_data.get("estimated_monthly_cost", 0),
+                "details": lightsail_data.get("instances", [])[:3] if lightsail_data.get("instances") else [],  # First 3 for overview
+                "optimization_suggestions": lightsail_data.get("cost_optimization_suggestions", [])
+            }
+            
+            # Get real EC2 data  
+            ec2_data = self._get_ec2_details()
+            resources["inventory"]["ec2"] = {
+                "total_instances": ec2_data.get("total_instances", 0),
+                "running_instances": ec2_data.get("running_instances", 0),
+                "stopped_instances": ec2_data.get("stopped_instances", 0),
+                "details": ec2_data.get("instances", [])[:3] if ec2_data.get("instances") else [],  # First 3 for overview
+                "suggestions": ec2_data.get("suggestions", [])
+            }
+            
+            # Get real RDS data
+            rds_data = self._get_rds_details()
+            resources["inventory"]["rds"] = {
+                "total_databases": rds_data.get("total_databases", 0),
+                "running_databases": rds_data.get("running_databases", 0),
+                "details": rds_data.get("databases", [])[:3] if rds_data.get("databases") else [],  # First 3 for overview
+                "suggestions": rds_data.get("suggestions", [])
+            }
+            
+            # Get real S3 data
+            s3_data = self._get_s3_details()
+            resources["inventory"]["s3"] = {
+                "total_buckets": s3_data.get("total_buckets", 0),
+                "total_size_readable": s3_data.get("total_size_readable", "0 B"),
+                "details": s3_data.get("buckets", [])[:5] if s3_data.get("buckets") else [],  # First 5 for overview
+                "suggestions": s3_data.get("suggestions", [])
             }
             
             # Return the same shape as original get_metrics()

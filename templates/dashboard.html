@@ -2448,8 +2448,8 @@
                 if (!metricsElement) return;
                 
                 try {
-                    // Load lightweight metrics summary
-                    const response = await fetch(`/api/assignments/${assignmentId}/metrics`, {
+                    // Load workspace-aware metrics summary
+                    const response = await fetch(`/api/workspaces/${currentWorkspace}/assignments/${assignmentId}/metrics`, {
                         credentials: 'include'
                     });
                     
@@ -2660,93 +2660,262 @@
                     html += '</div>';
                 }
                 
-                // AWS Metrics
+                // AWS Metrics - Comprehensive Display
                 if (metrics.aws && !metrics.aws.error) {
+                    const awsCost = metrics.aws.cost_analysis?.total_cost_last_30_days || 0;
+                    const topServices = metrics.aws.cost_analysis?.top_services || {};
+                    const weeklyTrend = metrics.aws.cost_analysis?.cto_insights?.cost_trend?.weekly_trend || 'unknown';
+                    
                     html += '<div class="bg-orange-50 border border-orange-200 rounded mb-4">';
                     html += '<div class="cursor-pointer p-4 hover:bg-orange-100" onclick="toggleSection(' + "'aws-section'" + ')">';
                     html += '<h4 class="text-lg font-semibold text-orange-800 flex items-center">';
                     html += '<span id="aws-section-icon" class="mr-2">▶️</span>';
-                    html += '☁️ AWS Infrastructure';
-                    html += '</h4></div>';
+                    html += '☁️ AWS Infrastructure ($' + awsCost.toFixed(2) + '/month)';
+                    html += '</h4>';
+                    
+                    // AWS Synopsis - Always visible summary
+                    html += '<div class="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">';
+                    html += '<div class="bg-white rounded p-2 text-center">';
+                    html += '<div class="font-bold text-green-600">$' + awsCost.toFixed(2) + '</div>';
+                    html += '<div class="text-xs text-gray-600">Monthly Cost</div>';
+                    html += '</div>';
+                    html += '<div class="bg-white rounded p-2 text-center">';
+                    html += '<div class="font-bold text-blue-600">' + Object.keys(topServices).length + '</div>';
+                    html += '<div class="text-xs text-gray-600">Active Services</div>';
+                    html += '</div>';
+                    html += '<div class="bg-white rounded p-2 text-center">';
+                    const trendIcon = weeklyTrend === 'increasing' ? '📈' : weeklyTrend === 'decreasing' ? '📉' : '➡️';
+                    const trendColor = weeklyTrend === 'increasing' ? 'text-red-600' : 'text-green-600';
+                    html += '<div class="font-bold ' + trendColor + '">' + trendIcon + '</div>';
+                    html += '<div class="text-xs text-gray-600">Cost Trend</div>';
+                    html += '</div>';
+                    html += '<div class="bg-white rounded p-2 text-center">';
+                    html += '<div class="font-bold text-purple-600">Click ▶️</div>';
+                    html += '<div class="text-xs text-gray-600">Expand Details</div>';
+                    html += '</div>';
+                    html += '</div>';
+                    html += '</div>';
+                    
+                    // Expandable detailed sections
                     html += '<div id="aws-section" class="hidden p-4 pt-0">';
                     
-                    // Cost Summary
-                    html += '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">';
-                    html += '<div class="bg-white p-3 rounded border">';
-                    html += '<div class="text-sm text-gray-600">30-Day Total Cost</div>';
-                    html += '<div class="text-xl font-bold text-green-600">$' + (metrics.aws.total_cost_last_30_days || 0) + '</div>';
-                    html += '<div class="text-xs text-gray-500">' + (metrics.aws.currency || 'USD') + '</div>';
-                    html += '</div>';
-                    
-                    html += '<div class="bg-white p-3 rounded border">';
-                    html += '<div class="text-sm text-gray-600">Weekly Trend</div>';
-                    html += '<div class="text-lg font-semibold ' + (metrics.aws.weekly_trend === 'increasing' ? 'text-red-600' : 'text-green-600') + '">';
-                    html += metrics.aws.weekly_trend === 'increasing' ? '📈 Up' : '📉 Down';
-                    html += '</div>';
-                    html += '<div class="text-xs text-gray-500">Avg: $' + (metrics.aws.daily_average || 0) + '/day</div>';
-                    html += '</div>';
-                    
-                    html += '<div class="bg-white p-3 rounded border">';
-                    html += '<div class="text-sm text-gray-600">Resources</div>';
-                    let resourceCount = 0;
-                    if (metrics.aws.inventory) {
-                        if (metrics.aws.inventory.ec2) resourceCount += metrics.aws.inventory.ec2.total_instances || 0;
-                        if (metrics.aws.inventory.rds) resourceCount += metrics.aws.inventory.rds.total_databases || 0;
-                        if (metrics.aws.inventory.s3) resourceCount += metrics.aws.inventory.s3.total_buckets || 0;
-                        if (metrics.aws.inventory.lightsail) resourceCount += metrics.aws.inventory.lightsail.total_instances || 0;
-                    }
-                    html += '<div class="text-xl font-bold text-blue-600">' + resourceCount + '</div>';
-                    html += '<div class="text-xs text-gray-500">Total resources</div>';
-                    html += '</div>';
-                    html += '</div>';
-                    
-                    // Top Services
-                    if (metrics.aws.top_services && Object.keys(metrics.aws.top_services).length > 0) {
-                        html += '<div class="bg-white p-3 rounded border mb-3">';
-                        html += '<h5 class="font-medium text-gray-800 mb-2">Top Services by Cost</h5>';
-                        html += '<div class="space-y-1">';
+                    // 1. Top Services Breakdown (expandable)
+                    if (Object.keys(topServices).length > 0) {
+                        html += '<div class="mb-4">';
+                        html += '<div class="cursor-pointer bg-white border border-orange-200 rounded p-3 hover:bg-orange-50" onclick="toggleSection(' + "'aws-services-section'" + ')">';
+                        html += '<h5 class="font-semibold text-orange-800 flex items-center">';
+                        html += '<span id="aws-services-section-icon" class="mr-2">▶️</span>';
+                        html += '💰 Top Services by Cost (' + Object.keys(topServices).length + ' services)';
+                        html += '</h5></div>';
+                        html += '<div id="aws-services-section" class="hidden p-3 bg-gray-50 rounded-b">';
                         
-                        for (const [service, cost] of Object.entries(metrics.aws.top_services)) {
-                            if (cost > 0) {
-                                html += '<div class="flex justify-between text-sm">';
-                                html += '<span class="text-gray-700">' + service + '</span>';
-                                html += '<span class="font-medium">$' + parseFloat(cost).toFixed(2) + '</span>';
-                                html += '</div>';
-                            }
+                        // Service breakdown with percentages
+                        Object.entries(topServices).slice(0, 8).forEach(([service, cost]) => {
+                            const percentage = ((cost / awsCost) * 100).toFixed(1);
+                            const shortName = service.replace('Amazon ', '').replace('AWS ', '');
+                            html += '<div class="flex justify-between items-center mb-2 p-2 bg-white rounded">';
+                            html += '<div>';
+                            html += '<div class="text-sm font-medium text-gray-800">' + shortName + '</div>';
+                            html += '<div class="text-xs text-gray-600">' + service + '</div>';
+                            html += '</div>';
+                            html += '<div class="text-right">';
+                            html += '<div class="text-sm font-bold text-green-600">$' + parseFloat(cost).toFixed(4) + '</div>';
+                            html += '<div class="text-xs text-gray-500">' + percentage + '%</div>';
+                            html += '</div>';
+                            html += '</div>';
+                        });
+                        
+                        html += '</div>';
+                        html += '</div>';
+                    }
+                    
+                    // 2. Resource Inventory (expandable)
+                    html += '<div class="mb-4">';
+                    html += '<div class="cursor-pointer bg-white border border-orange-200 rounded p-3 hover:bg-orange-50" onclick="toggleSection(' + "'aws-resources-section'" + ')">';
+                    html += '<h5 class="font-semibold text-orange-800 flex items-center">';
+                    html += '<span id="aws-resources-section-icon" class="mr-2">▶️</span>';
+                    html += '🖥️ Resource Inventory & Details';
+                    html += '</h5></div>';
+                    html += '<div id="aws-resources-section" class="hidden p-3 bg-gray-50 rounded-b">';
+                    
+                    // Resource summary cards and detailed information
+                    if (metrics.aws.resources?.inventory) {
+                        const inventory = metrics.aws.resources.inventory;
+                        html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">';
+                        
+                        if (inventory.ec2?.total_instances) {
+                            html += '<div class="bg-white rounded p-3 text-center">';
+                            html += '<div class="text-lg font-bold text-blue-600">' + inventory.ec2.total_instances + '</div>';
+                            html += '<div class="text-xs text-gray-600">EC2 Instances</div>';
+                            html += '</div>';
                         }
-                        html += '</div></div>';
+                        if (inventory.lightsail?.total_instances) {
+                            html += '<div class="bg-white rounded p-3 text-center">';
+                            html += '<div class="text-lg font-bold text-purple-600">' + inventory.lightsail.total_instances + '</div>';
+                            html += '<div class="text-xs text-gray-600">Lightsail</div>';
+                            html += '</div>';
+                        }
+                        if (inventory.rds?.total_databases) {
+                            html += '<div class="bg-white rounded p-3 text-center">';
+                            html += '<div class="text-lg font-bold text-green-600">' + inventory.rds.total_databases + '</div>';
+                            html += '<div class="text-xs text-gray-600">RDS Databases</div>';
+                            html += '</div>';
+                        }
+                        if (inventory.s3?.total_buckets) {
+                            html += '<div class="bg-white rounded p-3 text-center">';
+                            html += '<div class="text-lg font-bold text-yellow-600">' + inventory.s3.total_buckets + '</div>';
+                            html += '<div class="text-xs text-gray-600">S3 Buckets</div>';
+                            html += '</div>';
+                        }
+                        
+                        html += '</div>';
+                        
+                        // Detailed resource information
+                        if (inventory.lightsail?.details?.length > 0) {
+                            html += '<div class="mt-4">';
+                            html += '<h6 class="font-medium text-gray-800 mb-2">💡 Lightsail Instance Details</h6>';
+                            html += '<div class="space-y-2">';
+                            inventory.lightsail.details.forEach(instance => {
+                                html += '<div class="bg-purple-50 border border-purple-100 rounded p-2 text-xs">';
+                                html += '<div class="flex justify-between items-center">';
+                                html += '<div>';
+                                html += '<div class="font-medium">' + instance.name + ' (' + instance.instance_type + ')</div>';
+                                html += '<div class="text-gray-600">State: ' + instance.state + '</div>';
+                                html += '</div>';
+                                html += '<div class="text-right">';
+                                html += '<div class="font-bold text-purple-600">$' + (instance.bundle_details?.monthly_price || 0) + '/mo</div>';
+                                html += '<div class="text-gray-500">' + instance.location + '</div>';
+                                html += '</div>';
+                                html += '</div>';
+                                html += '</div>';
+                            });
+                            html += '</div>';
+                            html += '</div>';
+                        }
+                        
+                        if (inventory.ec2?.details?.length > 0) {
+                            html += '<div class="mt-4">';
+                            html += '<h6 class="font-medium text-gray-800 mb-2">🖥️ EC2 Instance Details</h6>';
+                            html += '<div class="space-y-2">';
+                            inventory.ec2.details.forEach(instance => {
+                                html += '<div class="bg-blue-50 border border-blue-100 rounded p-2 text-xs">';
+                                html += '<div class="flex justify-between items-center">';
+                                html += '<div>';
+                                html += '<div class="font-medium">' + instance.instance_id + '</div>';
+                                html += '<div class="text-gray-600">' + instance.instance_type + ' - ' + instance.state + '</div>';
+                                html += '</div>';
+                                html += '<div class="text-right">';
+                                html += '<div class="text-blue-600">' + (instance.availability_zone || 'N/A') + '</div>';
+                                html += '<div class="text-gray-500">' + (instance.launch_time ? new Date(instance.launch_time).toLocaleDateString() : 'N/A') + '</div>';
+                                html += '</div>';
+                                html += '</div>';
+                                html += '</div>';
+                            });
+                            html += '</div>';
+                            html += '</div>';
+                        }
+                        
+                        if (inventory.s3?.details?.length > 0) {
+                            html += '<div class="mt-4">';
+                            html += '<h6 class="font-medium text-gray-800 mb-2">🪣 S3 Bucket Details</h6>';
+                            html += '<div class="space-y-2">';
+                            inventory.s3.details.forEach(bucket => {
+                                html += '<div class="bg-yellow-50 border border-yellow-100 rounded p-2 text-xs">';
+                                html += '<div class="flex justify-between items-center">';
+                                html += '<div>';
+                                html += '<div class="font-medium">' + bucket.name + '</div>';
+                                html += '<div class="text-gray-600">' + bucket.location + '</div>';
+                                html += '</div>';
+                                html += '<div class="text-right">';
+                                html += '<div class="text-yellow-600">' + (bucket.size_readable || '0 B') + '</div>';
+                                html += '<div class="text-gray-500">' + (bucket.creation_date ? new Date(bucket.creation_date).toLocaleDateString() : 'N/A') + '</div>';
+                                html += '</div>';
+                                html += '</div>';
+                                html += '</div>';
+                            });
+                            html += '</div>';
+                            html += '</div>';
+                        }
+                        
+                        // Resource optimization suggestions
+                        const allSuggestions = [
+                            ...(inventory.lightsail?.optimization_suggestions || []),
+                            ...(inventory.ec2?.suggestions || []),
+                            ...(inventory.s3?.suggestions || [])
+                        ];
+                        
+                        if (allSuggestions.length > 0) {
+                            html += '<div class="mt-4 bg-blue-50 border border-blue-200 rounded p-3">';
+                            html += '<h6 class="font-medium text-blue-800 mb-2">💡 Optimization Recommendations</h6>';
+                            html += '<ul class="text-xs text-blue-700 space-y-1">';
+                            allSuggestions.slice(0, 4).forEach(suggestion => {
+                                html += '<li>' + suggestion + '</li>';
+                            });
+                            html += '</ul>';
+                            html += '</div>';
+                        }
                     }
+                    html += '</div>';
+                    html += '</div>';
                     
-                    // AWS Recommendations
-                    html += '<div class="bg-orange-100 p-3 rounded mt-3">';
-                    html += '<h5 class="font-medium text-orange-800 mb-2">☁️ Infrastructure Optimization</h5>';
-                    html += '<ul class="space-y-1 text-xs text-orange-700">';
+                    // 3. CTO Recommendations (expandable)
+                    html += '<div class="mb-4">';
+                    html += '<div class="cursor-pointer bg-white border border-orange-200 rounded p-3 hover:bg-orange-50" onclick="toggleSection(' + "'aws-cto-section'" + ')">';
+                    html += '<h5 class="font-semibold text-orange-800 flex items-center">';
+                    html += '<span id="aws-cto-section-icon" class="mr-2">▶️</span>';
+                    html += '🎯 CTO Strategic Recommendations';
+                    html += '</h5></div>';
+                    html += '<div id="aws-cto-section" class="hidden p-3 bg-gray-50 rounded-b">';
                     
-                    const monthlyCost = metrics.aws.total_cost_last_30_days || 0;
-                    const trend = metrics.aws.weekly_trend;
+                    // Smart recommendations based on actual cost
+                    html += '<div class="space-y-3">';
                     
-                    if (monthlyCost > 1000) {
-                        html += '<li>• 💰 High monthly spend ($' + monthlyCost + ') - prioritize cost optimization</li>';
-                    } else if (monthlyCost > 100) {
-                        html += '<li>• 💡 Moderate spend ($' + monthlyCost + ') - monitor for efficiency gains</li>';
+                    if (awsCost > 1000) {
+                        html += '<div class="bg-red-50 border border-red-200 p-3 rounded">';
+                        html += '<div class="font-medium text-red-800 mb-2">🚨 High Cost Alert</div>';
+                        html += '<ul class="text-sm text-red-700 space-y-1">';
+                        html += '<li>• Monthly spend of $' + awsCost.toFixed(2) + ' requires immediate optimization</li>';
+                        html += '<li>• Prioritize Reserved Instance analysis for steady workloads</li>';
+                        html += '<li>• Implement aggressive cost controls and monitoring</li>';
+                        html += '</ul>';
+                        html += '</div>';
+                    } else if (awsCost > 100) {
+                        html += '<div class="bg-yellow-50 border border-yellow-200 p-3 rounded">';
+                        html += '<div class="font-medium text-yellow-800 mb-2">⚠️ Moderate Spend</div>';
+                        html += '<ul class="text-sm text-yellow-700 space-y-1">';
+                        html += '<li>• Monthly spend of $' + awsCost.toFixed(2) + ' - monitor for efficiency opportunities</li>';
+                        html += '<li>• Review Resource utilization quarterly</li>';
+                        html += '<li>• Consider cost allocation tags for better tracking</li>';
+                        html += '</ul>';
+                        html += '</div>';
                     } else {
-                        html += '<li>• ✅ Cost-effective infrastructure ($' + monthlyCost + '/month)</li>';
+                        html += '<div class="bg-green-50 border border-green-200 p-3 rounded">';
+                        html += '<div class="font-medium text-green-800 mb-2">✅ Cost Effective</div>';
+                        html += '<ul class="text-sm text-green-700 space-y-1">';
+                        html += '<li>• Excellent cost management at $' + awsCost.toFixed(2) + '/month</li>';
+                        html += '<li>• Maintain current optimization practices</li>';
+                        html += '<li>• Monitor for any cost trend changes</li>';
+                        html += '</ul>';
+                        html += '</div>';
                     }
                     
-                    if (trend === 'increasing') {
-                        html += '<li>• 📈 Rising costs - implement immediate cost controls and monitoring</li>';
-                    } else {
-                        html += '<li>• 📉 Cost trend stable/decreasing - maintain optimization practices</li>';
-                    }
-                    
-                    html += '<li>• 🔧 Review unutilized resources and consider Reserved Instance savings</li>';
-                    html += '<li>• 📊 Set up billing alerts and automated cost anomaly detection</li>';
-                    html += '<li>• 🏷️ Implement comprehensive resource tagging for cost allocation</li>';
+                    // General recommendations
+                    html += '<div class="bg-blue-50 border border-blue-200 p-3 rounded">';
+                    html += '<div class="font-medium text-blue-800 mb-2">📊 General Recommendations</div>';
+                    html += '<ul class="text-sm text-blue-700 space-y-1">';
+                    html += '<li>• Set up AWS Budget alerts for anomaly detection</li>';
+                    html += '<li>• Review top services: ' + Object.keys(topServices).slice(0, 3).join(', ') + '</li>';
+                    html += '<li>• Implement comprehensive resource tagging strategy</li>';
+                    html += '<li>• Schedule quarterly cost optimization reviews</li>';
                     html += '</ul>';
                     html += '</div>';
                     
                     html += '</div>';
                     html += '</div>';
+                    html += '</div>';
+                    
+                    html += '</div>'; // Close expandable section
+                    html += '</div>'; // Close AWS container
                 } else if (metrics.aws && metrics.aws.error) {
                     html += '<div class="bg-red-100 border border-red-300 text-red-700 p-3 rounded mb-4">';
                     html += '☁️ AWS Error: ' + metrics.aws.error;
@@ -2800,7 +2969,26 @@
                     html += '<div><a href="' + metrics.openai.billing_url + '" target="_blank" class="text-green-600 hover:underline text-sm">💰 Check Account Balance →</a></div>';
                     html += '</div></div>';
                     
-                    // Note about account balance
+                    // Personal Account Notice
+                    if (metrics.openai.account_type === 'personal') {
+                        html += '<div class="bg-blue-100 border border-blue-300 p-3 rounded mb-3">';
+                        html += '<div class="text-sm text-blue-800">';
+                        html += '<div class="font-medium mb-1">📱 Personal Account Detected</div>';
+                        if (metrics.openai.usage_notice) {
+                            html += '<div class="mb-2">' + metrics.openai.usage_notice + '</div>';
+                        }
+                        if (metrics.openai.cto_insights && metrics.openai.cto_insights.optimization_recommendations) {
+                            html += '<div class="font-medium mb-1">Recommendations:</div>';
+                            html += '<ul class="list-disc list-inside space-y-1">';
+                            metrics.openai.cto_insights.optimization_recommendations.slice(0, 3).forEach(rec => {
+                                html += '<li>' + rec + '</li>';
+                            });
+                            html += '</ul>';
+                        }
+                        html += '</div></div>';
+                    }
+                    
+                    // Note about account balance (legacy)
                     if (metrics.openai.note) {
                         html += '<div class="bg-orange-100 p-3 rounded">';
                         html += '<div class="text-sm text-orange-700">ℹ️ ' + metrics.openai.note + '</div>';
