@@ -19,37 +19,31 @@ def create_auth_decorators(user_service):
         """
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            # Check for Authorization header
+            # FIRST: Check session (session cookie is sufficient auth)
+            if 'user_email' in session and 'auth_token' in session:
+                verification = user_service.verify_token(session['auth_token'])
+                if verification.get("valid"):
+                    g.current_user = verification["user"]
+                    return f(*args, **kwargs)
+            
+            # THEN: Check for Authorization header (fallback for back-compat)
             auth_header = request.headers.get('Authorization')
-            if not auth_header:
-                return jsonify({
-                    "error": "Authentication required",
-                    "message": "Please provide Authorization header with Bearer token"
-                }), 401
+            if auth_header:
+                try:
+                    scheme, token = auth_header.split(' ')
+                    if scheme.lower() == 'bearer':
+                        verification = user_service.verify_token(token)
+                        if verification.get("valid"):
+                            g.current_user = verification["user"]
+                            return f(*args, **kwargs)
+                except ValueError:
+                    pass
             
-            # Extract token
-            try:
-                scheme, token = auth_header.split(' ')
-                if scheme.lower() != 'bearer':
-                    raise ValueError("Invalid scheme")
-            except ValueError:
-                return jsonify({
-                    "error": "Invalid authorization format",
-                    "message": "Authorization header must be 'Bearer <token>'"
-                }), 401
-            
-            # Verify token
-            verification = user_service.verify_token(token)
-            if not verification.get("valid"):
-                return jsonify({
-                    "error": "Invalid token",
-                    "message": verification.get("error", "Token verification failed")
-                }), 401
-            
-            # Store user info in Flask's g object for use in the endpoint
-            g.current_user = verification["user"]
-            
-            return f(*args, **kwargs)
+            # No valid session or Bearer token found
+            return jsonify({
+                "error": "Authentication required",
+                "message": "Please log in to access this resource"
+            }), 401
         
         return decorated_function
 
@@ -60,35 +54,36 @@ def create_auth_decorators(user_service):
         """
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            # STEP 1: Check authentication (inline the require_auth logic)
-            auth_header = request.headers.get('Authorization')
-            if not auth_header:
+            # STEP 1: Check authentication (session-first, then header fallback)
+            user_authenticated = False
+            
+            # FIRST: Check session (session cookie is sufficient auth)
+            if 'user_email' in session and 'auth_token' in session:
+                verification = user_service.verify_token(session['auth_token'])
+                if verification.get("valid"):
+                    g.current_user = verification["user"]
+                    user_authenticated = True
+            
+            # THEN: Check for Authorization header (fallback for back-compat)
+            if not user_authenticated:
+                auth_header = request.headers.get('Authorization')
+                if auth_header:
+                    try:
+                        scheme, token = auth_header.split(' ')
+                        if scheme.lower() == 'bearer':
+                            verification = user_service.verify_token(token)
+                            if verification.get("valid"):
+                                g.current_user = verification["user"]
+                                user_authenticated = True
+                    except ValueError:
+                        pass
+            
+            # No valid authentication found
+            if not user_authenticated:
                 return jsonify({
                     "error": "Authentication required",
-                    "message": "Please provide Authorization header with Bearer token"
+                    "message": "Please log in to access this resource"
                 }), 401
-            
-            # Extract token
-            try:
-                scheme, token = auth_header.split(' ')
-                if scheme.lower() != 'bearer':
-                    raise ValueError("Invalid scheme")
-            except ValueError:
-                return jsonify({
-                    "error": "Invalid authorization format",
-                    "message": "Authorization header must be 'Bearer <token>'"
-                }), 401
-            
-            # Verify token
-            verification = user_service.verify_token(token)
-            if not verification.get("valid"):
-                return jsonify({
-                    "error": "Invalid token",
-                    "message": verification.get("error", "Token verification failed")
-                }), 401
-            
-            # Store user info in Flask's g object for use in the endpoint
-            g.current_user = verification["user"]
             
             # STEP 2: Check workspace access
             workspace_id = kwargs.get('workspace_id') or request.view_args.get('workspace_id')
