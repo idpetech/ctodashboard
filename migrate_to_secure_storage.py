@@ -14,8 +14,17 @@ import os
 import sys
 import json
 import argparse
+import logging
 from pathlib import Path
 from typing import Dict, Any, List
+
+# Configure logging for migration script
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger(__name__)
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -43,23 +52,23 @@ class SecurityMigrationTool:
         """
         Run complete security migration
         """
-        print("🔒 CTO Dashboard Security Migration")
-        print("===================================")
+        logger.info("🔒 CTO Dashboard Security Migration")
+        logger.info("===================================")
         
         if not force:
-            print("\n⚠️  WARNING: This migration will:")
-            print("   • Move all credentials to encrypted SQLite database")
-            print("   • Remove plain-text credentials from JSON files")
-            print("   • Clean git-tracked files of sensitive data")
-            print("   • Add secure database file to .gitignore")
+            logger.warning("This migration will:")
+            logger.warning("   • Move all credentials to encrypted SQLite database")
+            logger.warning("   • Remove plain-text credentials from JSON files")
+            logger.warning("   • Clean git-tracked files of sensitive data")
+            logger.warning("   • Add secure database file to .gitignore")
             
             if not self.dry_run:
                 confirm = input("\nContinue with migration? [y/N]: ")
                 if confirm.lower() != 'y':
-                    print("Migration cancelled.")
+                    logger.info("Migration cancelled.")
                     return {"cancelled": True}
         
-        print(f"\n🚀 Starting migration {'(DRY RUN)' if self.dry_run else '(LIVE)'}")
+        logger.info("🚀 Starting migration %s", '(DRY RUN)' if self.dry_run else '(LIVE)')
         
         # Step 1: Migrate users
         self._migrate_users()
@@ -78,11 +87,11 @@ class SecurityMigrationTool:
     
     def _migrate_users(self):
         """Migrate user data from JSON files to secure database"""
-        print("\n📁 Migrating user data...")
+        logger.info("📁 Migrating user data...")
         
         users_dir = Path("config/users")
         if not users_dir.exists():
-            print("   No users directory found - skipping")
+            logger.info("   No users directory found - skipping")
             return
         
         for user_file in users_dir.glob("*.json"):
@@ -98,7 +107,7 @@ class SecurityMigrationTool:
                     self.migration_report["warnings"].append(f"No email in {user_file.name}")
                     continue
                 
-                print(f"   Migrating user: {email}")
+                logger.info("   Migrating user: %s", email)
                 
                 if not self.dry_run:
                     audit_info = {
@@ -113,20 +122,20 @@ class SecurityMigrationTool:
                         self.migration_report["errors"].append(f"Failed to migrate user {email}")
                 else:
                     self.migration_report["users_migrated"] += 1
-                    print(f"   [DRY RUN] Would migrate user: {email}")
+                    logger.info("   [DRY RUN] Would migrate user: %s", email)
             
             except Exception as e:
                 error_msg = f"Error migrating user {user_file.name}: {str(e)}"
                 self.migration_report["errors"].append(error_msg)
-                print(f"   ❌ {error_msg}")
+                logger.error("   ❌ %s", error_msg)
     
     def _migrate_workspaces_and_assignments(self):
         """Migrate workspace and assignment data"""
-        print("\n🏢 Migrating workspaces and assignments...")
+        logger.info("🏢 Migrating workspaces and assignments...")
         
         workspaces_dir = Path("config/workspaces")
         if not workspaces_dir.exists():
-            print("   No workspaces directory found - skipping")
+            logger.info("   No workspaces directory found - skipping")
             return
         
         for item in workspaces_dir.iterdir():
@@ -139,7 +148,7 @@ class SecurityMigrationTool:
     def _migrate_workspace(self, workspace_dir: Path):
         """Migrate a single workspace"""
         workspace_id = workspace_dir.name
-        print(f"   Migrating workspace: {workspace_id}")
+        logger.info("   Migrating workspace: %s", workspace_id)
         
         assignments_dir = workspace_dir / "assignments"
         if assignments_dir.exists():
@@ -157,7 +166,7 @@ class SecurityMigrationTool:
                 self.migration_report["warnings"].append(f"No ID in {assignment_file.name}")
                 return
             
-            print(f"     Assignment: {assignment_id}")
+            logger.info("     Assignment: %s", assignment_id)
             
             # Store assignment metadata (without credentials)
             if not self.dry_run:
@@ -174,7 +183,7 @@ class SecurityMigrationTool:
                 
                 # Check if there are actual credentials (not empty strings)
                 if credentials and any(v for v in credentials.values() if v):
-                    print(f"       🔑 Migrating {connector_type} credentials")
+                    logger.info("       🔑 Migrating %s credentials", connector_type)
                     
                     if not self.dry_run:
                         audit_info = {
@@ -189,21 +198,21 @@ class SecurityMigrationTool:
                             self.migration_report["errors"].append(f"Failed to migrate {connector_type} credentials for {assignment_id}")
                     else:
                         self.migration_report["credentials_migrated"] += 1
-                        print(f"       [DRY RUN] Would migrate {connector_type} credentials")
+                        logger.info("       [DRY RUN] Would migrate %s credentials", connector_type)
         
         except Exception as e:
             error_msg = f"Error migrating assignment {assignment_file.name}: {str(e)}"
             self.migration_report["errors"].append(error_msg)
-            print(f"     ❌ {error_msg}")
+            logger.error("     ❌ %s", error_msg)
     
     def _clean_and_secure_files(self):
         """Clean credential data from files and secure repository"""
-        print("\n🧹 Cleaning credential data from files...")
+        logger.info("🧹 Cleaning credential data from files...")
         
         if self.dry_run:
-            print("   [DRY RUN] Would clean all credential data from JSON files")
-            print("   [DRY RUN] Would update .gitignore to exclude sensitive files")
-            print("   [DRY RUN] Would add database file to .gitignore")
+            logger.info("   [DRY RUN] Would clean all credential data from JSON files")
+            logger.info("   [DRY RUN] Would update .gitignore to exclude sensitive files")
+            logger.info("   [DRY RUN] Would add database file to .gitignore")
             return
         
         # Clean user files
@@ -246,12 +255,12 @@ class SecurityMigrationTool:
                     json.dump(cleaned_data, f, indent=2)
                 
                 self.migration_report["files_cleaned"] += 1
-                print(f"   Cleaned: {user_file.name}")
+                logger.info("   Cleaned: %s", user_file.name)
             
             except Exception as e:
                 error_msg = f"Error cleaning user file {user_file.name}: {str(e)}"
                 self.migration_report["errors"].append(error_msg)
-                print(f"   ❌ {error_msg}")
+                logger.error("   ❌ %s", error_msg)
     
     def _clean_assignment_files(self):
         """Remove credential data from assignment JSON files"""
@@ -286,12 +295,12 @@ class SecurityMigrationTool:
                 json.dump(assignment_data, f, indent=2)
             
             self.migration_report["files_cleaned"] += 1
-            print(f"   Cleaned: {assignment_file.name}")
+            logger.info("   Cleaned: %s", assignment_file.name)
         
         except Exception as e:
             error_msg = f"Error cleaning assignment file {assignment_file.name}: {str(e)}"
             self.migration_report["errors"].append(error_msg)
-            print(f"   ❌ {error_msg}")
+            logger.error("   ❌ %s", error_msg)
     
     def _update_gitignore(self):
         """Update .gitignore to exclude secure database"""
@@ -316,57 +325,57 @@ class SecurityMigrationTool:
             with open(gitignore_path, 'w') as f:
                 f.write(content)
             
-            print("   Updated .gitignore with secure database exclusions")
+            logger.info("   Updated .gitignore with secure database exclusions")
     
     def _verify_migration(self):
         """Verify migration was successful"""
-        print("\n✅ Verifying migration...")
+        logger.info("✅ Verifying migration...")
         
         if self.dry_run:
-            print("   [DRY RUN] Would verify database connectivity and data integrity")
+            logger.info("   [DRY RUN] Would verify database connectivity and data integrity")
             return
         
         # Test database health
         health = secure_db.health_check()
         if health["database_connected"]:
-            print("   ✅ Database connected successfully")
-            print(f"   📊 Users: {health['statistics']['users']}")
-            print(f"   📊 Assignments: {health['statistics']['assignments']}")
-            print(f"   📊 Credentials: {health['statistics']['credentials']}")
+            logger.info("   ✅ Database connected successfully")
+            logger.info("   📊 Users: %s", health['statistics']['users'])
+            logger.info("   📊 Assignments: %s", health['statistics']['assignments'])
+            logger.info("   📊 Credentials: %s", health['statistics']['credentials'])
         else:
             error_msg = f"Database connection failed: {health.get('error')}"
             self.migration_report["errors"].append(error_msg)
-            print(f"   ❌ {error_msg}")
+            logger.error("   ❌ %s", error_msg)
     
     def _generate_report(self) -> Dict[str, Any]:
         """Generate migration report"""
-        print("\n📋 Migration Report")
-        print("==================")
-        print(f"Users migrated: {self.migration_report['users_migrated']}")
-        print(f"Assignments migrated: {self.migration_report['assignments_migrated']}")
-        print(f"Credentials migrated: {self.migration_report['credentials_migrated']}")
-        print(f"Files cleaned: {self.migration_report['files_cleaned']}")
+        logger.info("📋 Migration Report")
+        logger.info("==================")
+        logger.info("Users migrated: %s", self.migration_report['users_migrated'])
+        logger.info(f"Assignments migrated: {self.migration_report['assignments_migrated']}")
+        logger.info(f"Credentials migrated: {self.migration_report['credentials_migrated']}")
+        logger.info(f"Files cleaned: {self.migration_report['files_cleaned']}")
         
         if self.migration_report["warnings"]:
-            print(f"\n⚠️  Warnings ({len(self.migration_report['warnings'])}):")
+            logger.warning("Warnings (%s):", len(self.migration_report['warnings']))
             for warning in self.migration_report["warnings"]:
-                print(f"   • {warning}")
+                logger.info(f"   • {warning}")
         
         if self.migration_report["errors"]:
-            print(f"\n❌ Errors ({len(self.migration_report['errors'])}):")
+            logger.info(f"\n❌ Errors ({len(self.migration_report['errors'])}):")
             for error in self.migration_report["errors"]:
-                print(f"   • {error}")
+                logger.info(f"   • {error}")
         else:
-            print("\n🎉 Migration completed successfully!")
+            logger.info("\n🎉 Migration completed successfully!")
             
             if not self.dry_run:
-                print("\n🔒 SECURITY IMPROVEMENTS:")
-                print("   ✅ All credentials now encrypted with AES")
-                print("   ✅ Master key required via environment variable")
-                print("   ✅ Database transactions ensure data integrity")
-                print("   ✅ Audit logging for all credential access")
-                print("   ✅ No more plain-text credentials in git repository")
-                print("\n🚨 IMPORTANT: Set CREDENTIAL_MASTER_KEY environment variable for production!")
+                logger.info("\n🔒 SECURITY IMPROVEMENTS:")
+                logger.info("   ✅ All credentials now encrypted with AES")
+                logger.info("   ✅ Master key required via environment variable")
+                logger.info("   ✅ Database transactions ensure data integrity")
+                logger.info("   ✅ Audit logging for all credential access")
+                logger.info("   ✅ No more plain-text credentials in git repository")
+                logger.info("\n🚨 IMPORTANT: Set CREDENTIAL_MASTER_KEY environment variable for production!")
         
         return self.migration_report
 
@@ -382,8 +391,8 @@ def main():
     try:
         import cryptography
     except ImportError:
-        print("❌ Error: cryptography library not installed")
-        print("   Run: pip install cryptography>=3.4.8")
+        logger.info("❌ Error: cryptography library not installed")
+        logger.info("   Run: pip install cryptography>=3.4.8")
         sys.exit(1)
     
     migration_tool = SecurityMigrationTool(dry_run=args.dry_run)

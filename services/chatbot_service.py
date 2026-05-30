@@ -5,8 +5,11 @@ Provides intelligent responses using LangChain and OpenAI
 
 import os
 import json
+import logging
 from datetime import datetime
 from typing import Dict, List, Any
+
+logger = logging.getLogger(__name__)
 
 # LangChain imports
 try:
@@ -91,7 +94,15 @@ def get_assignment_data() -> Dict[str, Any]:
                             # GitHub
                             if config.get('github', {}).get('enabled'):
                                 try:
-                                    metrics['github'] = workspace_connectors['github'].get_metrics(config['github'])
+                                    # Transform the config format for the metrics service
+                                    github_metrics_config = {
+                                        'org': config['github'].get('auth_instance', {}).get('credentials', {}).get('github_org', ''),
+                                        'repos': config['github'].get('auth_instance', {}).get('credentials', {}).get('github_repos', '').split(',') if config['github'].get('auth_instance', {}).get('credentials', {}).get('github_repos') else []
+                                    }
+                                    # Clean up empty repositories
+                                    github_metrics_config['repos'] = [repo.strip() for repo in github_metrics_config['repos'] if repo.strip()]
+                                    
+                                    metrics['github'] = workspace_connectors['github'].get_metrics(github_metrics_config)
                                 except Exception as e:
                                     metrics['github'] = {'error': str(e)}
                             
@@ -116,7 +127,7 @@ def get_assignment_data() -> Dict[str, Any]:
                         
                     assignments.extend(result["assignments"])
     except Exception as e:
-        print(f"Error loading workspace assignments: {e}")
+        logger.error("Error loading workspace assignments: %s", e, exc_info=True)
     
     return {"assignments": assignments}
 
@@ -131,7 +142,7 @@ def process_question(question: str, user_id: str = "default") -> Dict[str, Any]:
         try:
             return _process_with_ai(question, user_id, assignment_data)
         except Exception as e:
-            print(f"AI processing failed: {e}")
+            logger.error("AI processing failed: %s", e, exc_info=True)
             # Fall through to rule-based
     
     # Fallback to rule-based response
@@ -323,7 +334,7 @@ def process_question_stream(question: str, user_id: str = "default"):
         yield f"data: {json.dumps({'done': True, 'full_response': full_response})}\n\n"
         
     except Exception as e:
-        print(f"❌ Streaming failed: {e}")
+        logger.error("❌ Streaming failed: %s", e, exc_info=True)
         import traceback
         traceback.print_exc()
         # Return error

@@ -48,7 +48,10 @@ CORS(app, origins=["*"], supports_credentials=True)
 
 # Import and register routes
 from routes.api_routes import register_routes
+from routes.database_admin import register_database_admin_routes
+
 register_routes(app)
+register_database_admin_routes(app)
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8520))  # Use allocated CTO Dashboard port

@@ -2,8 +2,11 @@
 # Extracted from integrated_dashboard.py
 
 import os
+import logging
 import requests
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 class EmbeddedGitHubMetrics:
     """GitHub metrics embedded directly in the Flask app"""
@@ -27,7 +30,7 @@ class EmbeddedGitHubMetrics:
                 self.token = credentials.get("token") or os.getenv("GITHUB_TOKEN")
                 self.org = credentials.get("org") or os.getenv("GITHUB_ORG")
             except Exception as e:
-                print(f"Warning: Could not load workspace credentials, falling back to env vars: {e}")
+                logger.warning("Could not load workspace credentials, falling back to env vars: %s", e)
                 self.token = os.getenv("GITHUB_TOKEN")
                 self.org = os.getenv("GITHUB_ORG")
         else:

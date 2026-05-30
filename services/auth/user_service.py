@@ -7,10 +7,13 @@ import os
 import json
 import hashlib
 import secrets
+import logging
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 from datetime import datetime, timedelta
 import jwt
+
+logger = logging.getLogger(__name__)
 
 class UserService:
     """
@@ -84,8 +87,8 @@ class UserService:
         # Hash password
         password_hash, salt = self._hash_password(password)
         
-        # Create user record
-        user_data = {
+        # Create user record (sensitive data)
+        user_data_with_password = {
             "email": email,
             "display_name": display_name or email.split("@")[0],
             "password_hash": password_hash,
@@ -102,19 +105,50 @@ class UserService:
             }
         }
         
+        # Create user record (non-sensitive data for JSON file)
+        user_data_public = {
+            "email": email,
+            "display_name": display_name or email.split("@")[0],
+            "created_at": datetime.now().isoformat(),
+            "last_login": None,
+            "workspaces": [],  # List of workspace IDs user has access to
+            "role": "user",  # user, admin
+            "status": "active",  # active, disabled
+            "preferences": {
+                "default_workspace": None,
+                "theme": "light",
+                "timezone": "UTC"
+            }
+        }
+        
         try:
+            # Store sensitive data in secure database
+            from services.security.secure_database import secure_db
+            audit_info = {
+                "user_email": "system_registration",
+                "ip_address": "127.0.0.1",
+                "user_agent": "user_registration"
+            }
+            
+            if not secure_db.store_user_credentials(email, user_data_with_password, audit_info):
+                return {
+                    "success": False,
+                    "error": "Failed to store user credentials"
+                }
+            
+            # Store non-sensitive data in JSON file
             with open(user_file, 'w') as f:
-                json.dump(user_data, f, indent=2)
+                json.dump(user_data_public, f, indent=2)
             
             # Auto-create default workspace for new user
-            self._create_user_workspace(email, user_data["display_name"])
+            self._create_user_workspace(email, user_data_public["display_name"])
             
             return {
                 "success": True,
                 "user": {
                     "email": email,
-                    "display_name": user_data["display_name"],
-                    "created_at": user_data["created_at"]
+                    "display_name": user_data_public["display_name"],
+                    "created_at": user_data_public["created_at"]
                 },
                 "message": "User registered successfully"
             }
@@ -127,7 +161,7 @@ class UserService:
     def authenticate_user(self, email: str, password: str) -> Dict[str, Any]:
         """
         Authenticate user and return session token.
-        Phase 3: Replace env-var auth with user sessions.
+        Phase 3: Replace env-var auth with user sessions + secure database.
         """
         user_file = self.users_dir / f"{email}.json"
         
@@ -138,6 +172,7 @@ class UserService:
             }
         
         try:
+            # Load user data from JSON file (non-sensitive data)
             with open(user_file, 'r') as f:
                 user_data = json.load(f)
             
@@ -148,8 +183,18 @@ class UserService:
                     "error": "Account is disabled"
                 }
             
-            # Verify password
-            if not self._verify_password(password, user_data["password_hash"], user_data["salt"]):
+            # Get password hash from secure database
+            from services.security.secure_database import secure_db
+            secure_user_data = secure_db.get_user_credentials(email)
+            
+            if not secure_user_data or "password_hash" not in secure_user_data:
+                return {
+                    "success": False,
+                    "error": "Invalid credentials"
+                }
+            
+            # Verify password using secure database data
+            if not self._verify_password(password, secure_user_data["password_hash"], secure_user_data["salt"]):
                 return {
                     "success": False,
                     "error": "Invalid credentials"
@@ -312,7 +357,7 @@ class UserService:
                     "workspace_count": len(user_data.get("workspaces", []))
                 })
             except Exception as e:
-                print(f"Warning: Could not read user file {user_file}: {e}")
+                logger.warning("Could not read user file %s: %s", user_file, e)
         
         return users
     
@@ -349,10 +394,10 @@ class UserService:
                 with open(admin_file, 'w') as f:
                     json.dump(admin_user, f, indent=2)
                     
-                print(f"Created default admin user: {admin_email} / admin123")
+                logger.info("Created default admin user: %s / admin123", admin_email)
                 
             except Exception as e:
-                print(f"Warning: Could not create default admin user: {e}")
+                logger.warning("Could not create default admin user: %s", e)
     
     def update_user(self, user_email: str, updates: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -437,8 +482,16 @@ class UserService:
             workspace_name = f"{display_name}'s Workspace"
             workspace_description = f"Personal workspace for {email}"
             
-            # Create workspace
-            result = workspace_service.create_workspace(workspace_id, workspace_name, workspace_description)
+            # Check if workspace already exists
+            existing_workspace = workspace_service.get_workspace(workspace_id)
+            
+            if existing_workspace:
+                # Workspace exists, just add user to it
+                logger.info("Workspace %s already exists, adding user to it", workspace_id)
+                result = {"success": True}
+            else:
+                # Create new workspace
+                result = workspace_service.create_workspace(workspace_id, workspace_name, workspace_description)
             
             if result.get("success"):
                 # Add workspace to user's record
@@ -455,7 +508,7 @@ class UserService:
             
         except Exception as e:
             # Log error but don't fail user registration
-            print(f"Warning: Could not create workspace for {email}: {e}")
+            logger.warning("Could not create workspace for %s: %s", email, e)
     
     def get_user_profile(self, email: str) -> Dict[str, Any]:
         """Get user profile including preferences and workspaces"""

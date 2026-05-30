@@ -8,9 +8,12 @@ functionality without touching existing working code.
 
 import os
 import json
+import logging
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 class WorkspaceService:
     """
@@ -46,7 +49,7 @@ class WorkspaceService:
                     assignments[assignment_file.stem] = assignment_data
             except Exception as e:
                 # Log but don't break - defensive programming
-                print(f"Warning: Could not read assignment {assignment_file}: {e}")
+                logger.warning("Could not read assignment %s: %s", assignment_file, e)
                 
         return assignments
     
@@ -344,7 +347,7 @@ class WorkspaceService:
                     })
             except Exception as e:
                 # Log error but continue with other workspaces
-                print(f"Warning: Could not read workspace {workspace_file}: {e}")
+                logger.warning("Could not read workspace %s: %s", workspace_file, e)
         
         return {"workspaces": workspaces}
     
@@ -435,7 +438,7 @@ class WorkspaceService:
                         assignment_data = json.load(f)
                         assignments.append(assignment_data)
                 except Exception as e:
-                    print(f"Warning: Could not read assignment {assignment_file}: {e}")
+                    logger.warning("Could not read assignment %s: %s", assignment_file, e)
         
         return {"assignments": assignments}
     
@@ -741,7 +744,7 @@ class WorkspaceService:
             with open(config_file, 'r') as f:
                 return json.load(f)
         except Exception as e:
-            print(f"Warning: Could not load connector config for {connector_type}: {e}")
+            logger.warning("Could not load connector config for %s: %s", connector_type, e)
             return None
     
     def _generate_env_mapping(self, credential_fields: Dict[str, Any], workspace_id: str) -> Dict[str, str]:
@@ -949,7 +952,7 @@ class WorkspaceService:
                 return assignment
                 
         except Exception as e:
-            print(f"Error reading assignment {workspace_id}/{assignment_id}: {e}")
+            logger.error("Error reading assignment %s/%s: %s", workspace_id, assignment_id, e, exc_info=True)
             return None
     
     def find_assignment(self, assignment_id: str, workspace_id: Optional[str] = None) -> Dict[str, Any]:

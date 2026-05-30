@@ -1,6 +1,9 @@
 import os
+import logging
 import requests
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 class EmbeddedJiraMetrics:
     """Jira metrics embedded directly in the Flask app"""
@@ -24,7 +27,7 @@ class EmbeddedJiraMetrics:
                 self.email = credentials.get("email") or os.getenv("JIRA_EMAIL") 
                 self.token = credentials.get("token") or os.getenv("JIRA_TOKEN")
             except Exception as e:
-                print(f"Warning: Could not load workspace credentials, falling back to env vars: {e}")
+                logger.warning("Could not load workspace credentials, falling back to env vars: %s", e)
                 self.base_url = os.getenv("JIRA_URL")
                 self.email = os.getenv("JIRA_EMAIL")
                 self.token = os.getenv("JIRA_TOKEN")

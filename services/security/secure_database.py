@@ -8,6 +8,7 @@ import json
 import sqlite3
 import hashlib
 import base64
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional, List
@@ -15,6 +16,9 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import threading
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 class SecureDatabaseManager:
@@ -65,7 +69,7 @@ class SecureDatabaseManager:
             import platform
             machine_info = f"{platform.node()}{platform.machine()}{platform.processor()}"
             master_key = hashlib.sha256(machine_info.encode()).hexdigest()
-            print("⚠️  WARNING: Using development credential key. Set CREDENTIAL_MASTER_KEY environment variable for production!")
+            logger.warning("Using development credential key. Set CREDENTIAL_MASTER_KEY environment variable for production!")
         
         # Derive encryption key from master key
         salt = b"ctodashboard_salt_v1"  # Fixed salt for consistency
@@ -220,7 +224,7 @@ class SecureDatabaseManager:
             
             return True
         except Exception as e:
-            print(f"Error storing user credentials: {e}")
+            logger.error("Error storing user credentials: %s", e, exc_info=True)
             self._audit_log("create", "user", email, audit_info, success=False, error=str(e))
             return False
     
@@ -259,7 +263,7 @@ class SecureDatabaseManager:
             
             return user_data
         except Exception as e:
-            print(f"Error retrieving user credentials: {e}")
+            logger.error("Error retrieving user credentials: %s", e, exc_info=True)
             self._audit_log("read", "user", email, audit_info, success=False, error=str(e))
             return None
     
@@ -284,7 +288,7 @@ class SecureDatabaseManager:
             
             return True
         except Exception as e:
-            print(f"Error storing assignment credentials: {e}")
+            logger.error("Error storing assignment credentials: %s", e, exc_info=True)
             self._audit_log("create", "credential", f"{workspace_id}:{assignment_id}:{connector_type}", 
                           audit_info, success=False, error=str(e))
             return False

@@ -4,8 +4,11 @@ Composes embedded metrics services for MCP consumption using workspace store
 """
 
 import asyncio
+import logging
 from datetime import datetime
 from typing import Dict
+
+logger = logging.getLogger(__name__)
 
 from .workspace.workspace_service import WorkspaceService
 from .embedded.aws_metrics import EmbeddedAWSMetrics
@@ -66,7 +69,15 @@ class MetricsAggregator:
         github_config = metrics_config.get("github", {})
         if github_config.get("enabled", False):
             try:
-                metrics["github"] = connectors["github"].get_metrics(github_config)
+                # Transform the config format for the metrics service
+                github_metrics_config = {
+                    'org': github_config.get('auth_instance', {}).get('credentials', {}).get('github_org', ''),
+                    'repos': github_config.get('auth_instance', {}).get('credentials', {}).get('github_repos', '').split(',') if github_config.get('auth_instance', {}).get('credentials', {}).get('github_repos') else []
+                }
+                # Clean up empty repositories
+                github_metrics_config['repos'] = [repo.strip() for repo in github_metrics_config['repos'] if repo.strip()]
+                
+                metrics["github"] = connectors["github"].get_metrics(github_metrics_config)
             except Exception as e:
                 metrics["github"] = {"error": str(e)}
         
@@ -118,6 +129,6 @@ class MetricsAggregator:
                     if "assignments" in result:
                         all_assignments.extend(result["assignments"])
         except Exception as e:
-            print(f"Error aggregating assignments: {e}")
+            logger.error("Error aggregating assignments: %s", e, exc_info=True)
         
         return all_assignments

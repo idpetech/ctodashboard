@@ -1,10 +1,13 @@
 # AWS Metrics V2 - Comprehensive AWS metrics service
 # Copied from backend/metrics_service.py::AWSMetrics
 import os
+import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 import boto3
 from botocore.exceptions import ClientError
+
+logger = logging.getLogger(__name__)
 
 class EmbeddedAWSMetrics:
     """AWS Cost Explorer and Resource Management integration for CTO insights"""
@@ -27,14 +30,21 @@ class EmbeddedAWSMetrics:
         """Initialize AWS credentials with workspace support and env var fallback"""
         if self.workspace_id and self.assignment_id:
             try:
-                from services.auth.credential_service import CredentialService
-                credential_service = CredentialService()
-                credentials = credential_service.get_aws_credentials(self.workspace_id, self.assignment_id)
-                self.access_key = credentials.get("access_key") or os.getenv("AWS_ACCESS_KEY_ID")
-                self.secret_key = credentials.get("secret_key") or os.getenv("AWS_SECRET_ACCESS_KEY")
-                self.region = credentials.get("region") or os.getenv("AWS_REGION", "us-east-1")
+                # Load credentials directly from workspace assignment JSON
+                from services.workspace.workspace_service import WorkspaceService
+                workspace_service = WorkspaceService()
+                assignment = workspace_service.get_assignment(self.workspace_id, self.assignment_id)
+                
+                if assignment and assignment.get('metrics_config', {}).get('aws', {}).get('auth_instance', {}).get('credentials'):
+                    aws_creds = assignment['metrics_config']['aws']['auth_instance']['credentials']
+                    self.access_key = aws_creds.get("aws_access_key") or os.getenv("AWS_ACCESS_KEY_ID")
+                    self.secret_key = aws_creds.get("aws_secret_key") or os.getenv("AWS_SECRET_ACCESS_KEY")
+                    self.region = aws_creds.get("aws_region") or os.getenv("AWS_REGION", "us-east-1")
+                    logger.info("Loaded AWS credentials from workspace assignment")
+                else:
+                    raise ValueError("No AWS credentials in assignment")
             except Exception as e:
-                print(f"Warning: Could not load workspace credentials, falling back to env vars: {e}")
+                logger.warning("Could not load workspace credentials, falling back to env vars: %s", e)
                 # AWS credentials from environment variables (never hardcode!)
                 self.access_key = os.getenv("AWS_ACCESS_KEY_ID")
                 self.secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
@@ -56,7 +66,7 @@ class EmbeddedAWSMetrics:
                 region_name=self.region
             )
         except Exception as e:
-            print(f"Error creating {service_name} client: {e}")
+            logger.error("Error creating %s client: %s", service_name, e, exc_info=True)
             return None
     
     def get_comprehensive_aws_report(self) -> Dict:

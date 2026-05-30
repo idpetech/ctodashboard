@@ -264,8 +264,13 @@ def register_routes(app):
     def get_github_metrics(assignment_id):
         """Get GitHub metrics for specific assignment"""
         try:
-            # Load assignment configuration
-            assignment = assignment_service.get_assignment(assignment_id)
+            # Load assignment configuration - need to find workspace first
+            assignment = None
+            for workspace_id in ['admin_workspace', 'test_workspace']:  # Try common workspaces
+                assignment = workspace_service.get_assignment(workspace_id, assignment_id)
+                if assignment:
+                    break
+            
             if not assignment:
                 return jsonify({"error": "Assignment not found"}), 404
             
@@ -273,7 +278,15 @@ def register_routes(app):
             if not github_config.get('enabled', False):
                 return jsonify({"error": "GitHub not enabled for this assignment"}), 400
             
-            metrics = github_metrics.get_metrics(github_config)
+            # Transform the config format for the metrics service
+            github_metrics_config = {
+                'org': github_config.get('auth_instance', {}).get('credentials', {}).get('github_org', ''),
+                'repos': github_config.get('auth_instance', {}).get('credentials', {}).get('github_repos', '').split(',') if github_config.get('auth_instance', {}).get('credentials', {}).get('github_repos') else []
+            }
+            # Clean up empty repositories
+            github_metrics_config['repos'] = [repo.strip() for repo in github_metrics_config['repos'] if repo.strip()]
+            
+            metrics = github_metrics.get_metrics(github_metrics_config)
             return jsonify(metrics)
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -368,7 +381,15 @@ def register_routes(app):
             github_config = assignment.get('metrics_config', {}).get('github', {})
             if github_config.get('enabled', False):
                 try:
-                    metrics['github'] = connectors['github'].get_metrics(github_config)
+                    # Transform the config format for the metrics service
+                    github_metrics_config = {
+                        'org': github_config.get('auth_instance', {}).get('credentials', {}).get('github_org', ''),
+                        'repos': github_config.get('auth_instance', {}).get('credentials', {}).get('github_repos', '').split(',') if github_config.get('auth_instance', {}).get('credentials', {}).get('github_repos') else []
+                    }
+                    # Clean up empty repositories
+                    github_metrics_config['repos'] = [repo.strip() for repo in github_metrics_config['repos'] if repo.strip()]
+                    
+                    metrics['github'] = connectors['github'].get_metrics(github_metrics_config)
                 except Exception as e:
                     metrics['github'] = {"error": str(e)}
             
@@ -425,9 +446,18 @@ def register_routes(app):
                     metrics['aws'] = {"error": str(e)}
             
             # GitHub metrics
-            if assignment.get('github', {}).get('enabled', False):
+            github_config = assignment.get('metrics_config', {}).get('github', {})
+            if github_config.get('enabled', False):
                 try:
-                    metrics['github'] = github_metrics.get_metrics(assignment['github'])
+                    # Transform the config format for the metrics service
+                    github_metrics_config = {
+                        'org': github_config.get('auth_instance', {}).get('credentials', {}).get('github_org', ''),
+                        'repos': github_config.get('auth_instance', {}).get('credentials', {}).get('github_repos', '').split(',') if github_config.get('auth_instance', {}).get('credentials', {}).get('github_repos') else []
+                    }
+                    # Clean up empty repositories
+                    github_metrics_config['repos'] = [repo.strip() for repo in github_metrics_config['repos'] if repo.strip()]
+                    
+                    metrics['github'] = github_metrics.get_metrics(github_metrics_config)
                 except Exception as e:
                     metrics['github'] = {"error": str(e)}
             

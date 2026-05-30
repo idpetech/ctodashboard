@@ -6,12 +6,15 @@ Encrypts and stores sensitive credentials separately from git repository
 import os
 import json
 import base64
+import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import hashlib
+
+logger = logging.getLogger(__name__)
 
 
 class SecureCredentialManager:
@@ -43,7 +46,7 @@ class SecureCredentialManager:
             import platform
             machine_info = f"{platform.node()}{platform.machine()}{platform.processor()}"
             master_key = hashlib.sha256(machine_info.encode()).hexdigest()
-            print("⚠️  WARNING: Using development credential key. Set CREDENTIAL_MASTER_KEY environment variable for production!")
+            logger.warning("Using development credential key. Set CREDENTIAL_MASTER_KEY environment variable for production!")
         
         # Derive encryption key from master key
         salt = b"ctodashboard_salt_v1"  # Fixed salt for consistency
@@ -93,7 +96,7 @@ class SecureCredentialManager:
             
             return True
         except Exception as e:
-            print(f"Error storing user credentials: {e}")
+            logger.error("Error storing user credentials: %s", e, exc_info=True)
             return False
     
     def get_user_credentials(self, user_email: str) -> Optional[Dict[str, Any]]:
@@ -121,7 +124,7 @@ class SecureCredentialManager:
             
             return user_data
         except Exception as e:
-            print(f"Error retrieving user credentials: {e}")
+            logger.error("Error retrieving user credentials: %s", e, exc_info=True)
             return None
     
     def store_assignment_credentials(self, workspace_id: str, assignment_id: str, connector_type: str, credentials: Dict[str, Any]) -> bool:
@@ -137,7 +140,7 @@ class SecureCredentialManager:
             
             return True
         except Exception as e:
-            print(f"Error storing assignment credentials: {e}")
+            logger.error("Error storing assignment credentials: %s", e, exc_info=True)
             return False
     
     def get_assignment_credentials(self, workspace_id: str, assignment_id: str, connector_type: str) -> Optional[Dict[str, Any]]:
@@ -154,7 +157,7 @@ class SecureCredentialManager:
             decrypted_data = self._fernet.decrypt(encrypted_data)
             return json.loads(decrypted_data.decode())
         except Exception as e:
-            print(f"Error retrieving assignment credentials: {e}")
+            logger.error("Error retrieving assignment credentials: %s", e, exc_info=True)
             return None
     
     def delete_assignment_credentials(self, workspace_id: str, assignment_id: str, connector_type: str) -> bool:
@@ -167,7 +170,7 @@ class SecureCredentialManager:
             
             return True
         except Exception as e:
-            print(f"Error deleting assignment credentials: {e}")
+            logger.error("Error deleting assignment credentials: %s", e, exc_info=True)
             return False
     
     def list_assignment_credentials(self, workspace_id: str, assignment_id: str) -> Dict[str, bool]:
