@@ -1,0 +1,43 @@
+{
+  "id": "IDPETECH",
+  "workspace_id": "admin_workspace",
+  "created_at": "2026-05-30T02:33:53.538Z",
+  "name": "Idpetech",
+  "description": "IDPE: Innovate, Design, Plan, Execute\u2014IDPETech transforms timeless principles into modern tech solutions. We bridge the gap between legacy wisdom and cutting-edge innovation, creating tools and insights for the next generation of builders.",
+  "team_size": 1,
+  "monthly_burn_rate": 150,
+  "status": "active",
+  "metrics_config": {
+    "github": {
+      "enabled": true,
+      "track_deployments": true,
+      "track_issues": true,
+      "track_pull_requests": true,
+      "default_branch": "main",
+      "auth_instance": {
+        "credentials": {
+          "github_token": "",
+          "github_org": "IDPETECH",
+          "github_repos": "ctodashboard,InsightVault,Khursheed"
+        },
+        "auth_configured": true,
+        "last_updated": "2026-05-29T22:35:13.117866"
+      }
+    },
+    "aws": {
+      "enabled": true,
+      "track_costs": true,
+      "track_resources": true,
+      "cost_alert_threshold": 100,
+      "auth_instance": {
+        "credentials": {
+          "aws_access_key": "",
+          "aws_secret_key": "", 
+          "aws_region": "us-east-1"
+        },
+        "auth_configured": true,
+        "last_updated": "2026-05-29T22:35:56.743057"
+      }
+    }
+  }
+}

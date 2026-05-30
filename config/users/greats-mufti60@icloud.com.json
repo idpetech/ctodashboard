@@ -1,0 +1,18 @@
+{
+  "email": "greats-mufti60@icloud.com",
+  "display_name": "greats-mufti60",
+  "password_hash": "f38bbef0d33d43febc129842bb6ba79e87b4063963db6085c55c5e1d2d15fb33",
+  "salt": "3kja4w3W6D_vwWv0OehUTHXTXcHFxvqIWZzw0XA_Wwk",
+  "created_at": "2026-05-29T22:10:53.907450",
+  "last_login": null,
+  "workspaces": [
+    "greats-mufti60_workspace"
+  ],
+  "role": "user",
+  "status": "active",
+  "preferences": {
+    "default_workspace": "greats-mufti60_workspace",
+    "theme": "light",
+    "timezone": "UTC"
+  }
+}
