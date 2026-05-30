@@ -46,55 +46,77 @@ def get_system_context() -> str:
 Provide concise, actionable insights. When asked about specific data, reference the actual metrics provided."""
 
 def get_assignment_data() -> Dict[str, Any]:
-    """Load assignment data with REAL metrics"""
-    assignments_dir = "config/assignments"
+    """Load assignment data from workspace store with REAL metrics"""
+    from .workspace.workspace_service import WorkspaceService
+    
+    workspace_service = WorkspaceService()
     assignments = []
     
-    if os.path.exists(assignments_dir):
-        for filename in os.listdir(assignments_dir):
-            if filename.endswith('.json'):
-                try:
-                    with open(os.path.join(assignments_dir, filename), 'r') as f:
-                        assignment = json.load(f)
-                        assignment['id'] = filename[:-5]
+    # Load assignments from all workspaces
+    try:
+        for workspace_path in workspace_service.workspace_dir.glob("*"):
+            if workspace_path.is_dir():
+                workspace_id = workspace_path.name
+                result = workspace_service.get_workspace_assignments(workspace_id)
+                if "assignments" in result:
+                    # Add workspace context to each assignment
+                    for assignment in result["assignments"]:
+                        assignment["workspace_id"] = workspace_id
                         
-                        # Fetch REAL metrics
+                        # Fetch REAL metrics using workspace connectors
                         metrics = {}
                         config = assignment.get('metrics_config', {})
+                        assignment_id = assignment.get('id')
                         
-                        # AWS
-                        if config.get('aws', {}).get('enabled'):
-                            try:
-                                metrics['aws'] = aws_metrics.get_metrics()
-                            except Exception as e:
-                                metrics['aws'] = {'error': str(e)}
-                        
-                        # GitHub
-                        if config.get('github', {}).get('enabled'):
-                            try:
-                                metrics['github'] = github_metrics.get_metrics(config['github'])
-                            except Exception as e:
-                                metrics['github'] = {'error': str(e)}
-                        
-                        # Jira
-                        if config.get('jira', {}).get('enabled'):
-                            try:
-                                metrics['jira'] = jira_metrics.get_metrics(config['jira'])
-                            except Exception as e:
-                                metrics['jira'] = {'error': str(e)}
-                        
-                        # OpenAI
-                        if config.get('openai', {}).get('enabled'):
-                            try:
-                                metrics['openai'] = openai_metrics.get_usage_metrics(config['openai'])
-                            except Exception as e:
-                                metrics['openai'] = {'error': str(e)}
+                        if assignment_id:
+                            # Import connectors locally to use workspace context
+                            from .embedded.aws_metrics import EmbeddedAWSMetrics
+                            from .embedded.github_metrics import EmbeddedGitHubMetrics
+                            from .embedded.jira_metrics import EmbeddedJiraMetrics
+                            
+                            # Create workspace-scoped connectors
+                            workspace_connectors = {
+                                'aws': EmbeddedAWSMetrics(workspace_id=workspace_id, assignment_id=assignment_id),
+                                'github': EmbeddedGitHubMetrics(workspace_id=workspace_id, assignment_id=assignment_id),
+                                'jira': EmbeddedJiraMetrics(workspace_id=workspace_id, assignment_id=assignment_id)
+                            }
+                            
+                            # AWS
+                            if config.get('aws', {}).get('enabled'):
+                                try:
+                                    metrics['aws'] = workspace_connectors['aws'].get_metrics()
+                                except Exception as e:
+                                    metrics['aws'] = {'error': str(e)}
+                            
+                            # GitHub
+                            if config.get('github', {}).get('enabled'):
+                                try:
+                                    metrics['github'] = workspace_connectors['github'].get_metrics(config['github'])
+                                except Exception as e:
+                                    metrics['github'] = {'error': str(e)}
+                            
+                            # Jira
+                            if config.get('jira', {}).get('enabled'):
+                                try:
+                                    metrics['jira'] = workspace_connectors['jira'].get_metrics(config['jira'])
+                                except Exception as e:
+                                    metrics['jira'] = {'error': str(e)}
+                            
+                            # OpenAI
+                            if config.get('openai', {}).get('enabled'):
+                                try:
+                                    from .embedded.openai_metrics import OpenAIMetrics
+                                    openai_metrics = OpenAIMetrics()
+                                    metrics['openai'] = openai_metrics.get_usage_metrics(config['openai'])
+                                except Exception as e:
+                                    metrics['openai'] = {'error': str(e)}
                         
                         assignment['live_metrics'] = metrics
                         assignments.append(assignment)
                         
-                except Exception as e:
-                    print(f"Error loading {filename}: {e}")
+                    assignments.extend(result["assignments"])
+    except Exception as e:
+        print(f"Error loading workspace assignments: {e}")
     
     return {"assignments": assignments}
 

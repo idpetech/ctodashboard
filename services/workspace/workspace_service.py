@@ -23,7 +23,7 @@ class WorkspaceService:
     def __init__(self):
         self.workspace_dir = Path("config/workspaces")
         self.assignments_dir = Path("config/assignments") 
-        self.feature_enabled = os.getenv("ENABLE_WORKSPACES", "false").lower() == "true"
+        self.feature_enabled = os.getenv("ENABLE_WORKSPACES", "true").lower() == "true"
         
     def is_workspace_enabled(self) -> bool:
         """Check if workspace functionality is enabled via feature flag"""
@@ -261,16 +261,9 @@ class WorkspaceService:
         
         workspace_file = self.workspace_dir / f"{workspace_id}.json"
         
-        # Auto-create default workspace if it doesn't exist
+        # Return error if workspace doesn't exist (no auto-creation)
         if not workspace_file.exists():
-            # Check if this is a request for a default workspace (common names)
-            if workspace_id in ["default", "main", "primary"] or workspace_id.endswith("_workspace"):
-                result = self._create_default_workspace(workspace_id)
-                if "error" in result:
-                    return result
-                # Workspace was created, continue to read it
-            else:
-                return {"error": f"Workspace '{workspace_id}' not found"}
+            return {"error": f"Workspace '{workspace_id}' not found"}
         
         try:
             with open(workspace_file, 'r') as f:
@@ -298,6 +291,7 @@ class WorkspaceService:
                 "name": workspace_id.replace("_", " ").title(),
                 "description": "Default workspace for Railway deployment",
                 "created_at": datetime.utcnow().isoformat(),
+                "assignments": [],
                 "owner": "admin",
                 "members": ["admin"],
                 "settings": {
@@ -931,5 +925,196 @@ class WorkspaceService:
             return {
                 "success": False,
                 "error": f"Failed to clear auth credentials: {str(e)}"
+            }
+    
+    # ===== WORKSPACE-ONLY CRUD METHODS (Phase 1) =====
+    # These methods provide workspace store as single source of truth
+    
+    def get_assignment(self, workspace_id: str, assignment_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a specific assignment from workspace store (single file read).
+        Phase 1: Workspace-only, no legacy fallback.
+        """
+        if not self.feature_enabled:
+            return None
+            
+        try:
+            assignment_file = self.workspace_dir / workspace_id / "assignments" / f"{assignment_id}.json"
+            if not assignment_file.exists():
+                return None
+                
+            with open(assignment_file, 'r') as f:
+                assignment = json.load(f)
+                assignment["workspace_id"] = workspace_id  # Ensure workspace context
+                return assignment
+                
+        except Exception as e:
+            print(f"Error reading assignment {workspace_id}/{assignment_id}: {e}")
+            return None
+    
+    def find_assignment(self, assignment_id: str, workspace_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Defensive resolver for assignment lookup across workspaces.
+        
+        Returns:
+        - If workspace_id given: read that workspace only
+        - If not given: scan all workspaces
+          - Exactly one match: return it
+          - Zero matches: return clear "not found" (404)
+          - Multiple matches: return "ambiguous, specify workspace_id" (409)
+        
+        Never silently guess, never read legacy.
+        """
+        if not self.feature_enabled:
+            return {
+                "error": "Workspace functionality is disabled",
+                "status": 500
+            }
+        
+        if workspace_id:
+            # Single workspace lookup
+            assignment = self.get_assignment(workspace_id, assignment_id)
+            if assignment:
+                return {
+                    "workspace_id": workspace_id,
+                    "assignment": assignment,
+                    "status": 200
+                }
+            else:
+                return {
+                    "error": f"Assignment '{assignment_id}' not found in workspace '{workspace_id}'",
+                    "status": 404
+                }
+        
+        # Scan all workspaces
+        matches = []
+        try:
+            for workspace_path in self.workspace_dir.glob("*"):
+                if workspace_path.is_dir():
+                    ws_id = workspace_path.name
+                    assignment = self.get_assignment(ws_id, assignment_id)
+                    if assignment:
+                        matches.append({
+                            "workspace_id": ws_id,
+                            "assignment": assignment
+                        })
+            
+            if len(matches) == 0:
+                return {
+                    "error": f"Assignment '{assignment_id}' not found in any workspace",
+                    "status": 404
+                }
+            elif len(matches) == 1:
+                return {
+                    "workspace_id": matches[0]["workspace_id"],
+                    "assignment": matches[0]["assignment"],
+                    "status": 200
+                }
+            else:
+                workspace_ids = [m["workspace_id"] for m in matches]
+                return {
+                    "error": f"Assignment '{assignment_id}' found in multiple workspaces: {workspace_ids}. Please specify workspace_id parameter.",
+                    "ambiguous_workspaces": workspace_ids,
+                    "status": 409  # Conflict
+                }
+                
+        except Exception as e:
+            return {
+                "error": f"Error scanning workspaces: {str(e)}",
+                "status": 500
+            }
+    
+    def update_assignment(self, workspace_id: str, assignment_id: str, assignment_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Update an existing assignment in workspace store.
+        Phase 1: Workspace-only, no legacy interaction.
+        """
+        if not self.feature_enabled:
+            return {
+                "success": False,
+                "error": "Workspace functionality is disabled"
+            }
+        
+        try:
+            # Load existing assignment
+            existing_assignment = self.get_assignment(workspace_id, assignment_id)
+            if not existing_assignment:
+                return {
+                    "success": False,
+                    "error": f"Assignment '{assignment_id}' not found in workspace '{workspace_id}'"
+                }
+            
+            # Merge new data with existing (preserve unmodified fields)
+            updated_assignment = {**existing_assignment, **assignment_data}
+            
+            # Ensure workspace context and update timestamp
+            updated_assignment["workspace_id"] = workspace_id
+            updated_assignment["updated_at"] = datetime.now().isoformat()
+            
+            # Write updated assignment
+            assignment_file = self.workspace_dir / workspace_id / "assignments" / f"{assignment_id}.json"
+            with open(assignment_file, 'w') as f:
+                json.dump(updated_assignment, f, indent=2)
+            
+            return {
+                "success": True,
+                "assignment": updated_assignment,
+                "message": f"Assignment '{assignment_id}' updated successfully"
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to update assignment: {str(e)}"
+            }
+    
+    def archive_assignment(self, workspace_id: str, assignment_id: str) -> Dict[str, Any]:
+        """
+        Archive assignment within workspace folder.
+        Move to config/workspaces/<ws>/assignments/archived/
+        """
+        if not self.feature_enabled:
+            return {
+                "success": False,
+                "error": "Workspace functionality is disabled"
+            }
+        
+        try:
+            # Check if assignment exists
+            assignment = self.get_assignment(workspace_id, assignment_id)
+            if not assignment:
+                return {
+                    "success": False,
+                    "error": f"Assignment '{assignment_id}' not found in workspace '{workspace_id}'"
+                }
+            
+            # Create archived directory if it doesn't exist
+            archived_dir = self.workspace_dir / workspace_id / "assignments" / "archived"
+            archived_dir.mkdir(exist_ok=True)
+            
+            # Move from active to archived
+            active_path = self.workspace_dir / workspace_id / "assignments" / f"{assignment_id}.json"
+            archived_path = archived_dir / f"{assignment_id}.json"
+            
+            # Update assignment with archive status
+            assignment["status"] = "archived"
+            assignment["archived_date"] = datetime.now().isoformat()
+            
+            # Write to archived location
+            with open(archived_path, 'w') as f:
+                json.dump(assignment, f, indent=2)
+            
+            # Remove from active location
+            active_path.unlink()
+            
+            return {
+                "success": True,
+                "message": f"Assignment '{assignment_id}' archived successfully"
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to archive assignment: {str(e)}"
             }
     

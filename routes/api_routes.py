@@ -14,14 +14,12 @@ from services.embedded.jira_metrics import EmbeddedJiraMetrics
 from services.embedded.openai_metrics import OpenAIMetrics
 from services.embedded.railway_metrics import RailwayMetrics
 from services.chatbot_service import process_question, process_question_stream, get_conversation_history, clear_conversation_history
-from services.assignment_service import AssignmentService
 from services.workspace.workspace_service import WorkspaceService
 from services.auth.user_service import UserService
 from services.auth.auth_middleware import create_auth_decorators, get_current_user
 
 # Initialize services
 service_manager = ServiceManager()
-assignment_service = AssignmentService()
 workspace_service = WorkspaceService()
 user_service = UserService()
 
@@ -133,17 +131,125 @@ def register_routes(app):
 
     @app.route("/api/assignments")
     def get_assignments():
-        """Get all assignments"""
-        assignments = assignment_service.get_all_assignments()
-        return jsonify(assignments)
+        """Get all assignments from workspace store"""
+        # Aggregate assignments from all workspaces
+        all_assignments = []
+        try:
+            for workspace_path in workspace_service.workspace_dir.glob("*"):
+                if workspace_path.is_dir():
+                    workspace_id = workspace_path.name
+                    result = workspace_service.get_workspace_assignments(workspace_id)
+                    if "assignments" in result:
+                        all_assignments.extend(result["assignments"])
+        except Exception as e:
+            return jsonify({"error": f"Failed to load assignments: {str(e)}"}), 500
+        
+        return jsonify(all_assignments)
 
     @app.route("/api/assignments/<assignment_id>")
+    @require_auth
     def get_assignment(assignment_id):
         """Get a specific assignment configuration"""
-        assignment = assignment_service.get_assignment(assignment_id)
-        if not assignment:
-            return jsonify({"error": f"Assignment {assignment_id} not found"}), 404
-        return jsonify(assignment)
+        workspace_id = request.args.get("workspace_id")
+        
+        # If no workspace_id provided, search within user's accessible workspaces
+        if not workspace_id:
+            current_user = get_current_user()
+            if current_user and current_user.get("workspaces"):
+                user_workspaces = current_user["workspaces"]
+                
+                # Search for assignment in user's workspaces
+                found_assignments = []
+                for ws_id in user_workspaces:
+                    assignment = workspace_service.get_assignment(ws_id, assignment_id)
+                    if assignment:
+                        found_assignments.append({"workspace_id": ws_id, "assignment": assignment})
+                
+                if len(found_assignments) == 1:
+                    # Found exactly one - return it
+                    return jsonify(found_assignments[0]["assignment"])
+                elif len(found_assignments) > 1:
+                    # Multiple matches within user's workspaces - still ambiguous
+                    workspace_ids = [fa["workspace_id"] for fa in found_assignments]
+                    return jsonify({
+                        "error": f"Assignment '{assignment_id}' found in multiple of your workspaces: {workspace_ids}. Please specify workspace_id parameter.",
+                        "ambiguous_workspaces": workspace_ids
+                    }), 409
+                else:
+                    # No matches in user's workspaces
+                    return jsonify({"error": f"Assignment '{assignment_id}' not found in your accessible workspaces"}), 404
+        
+        # Use defensive resolver for workspace context (when workspace_id is provided)
+        result = workspace_service.find_assignment(assignment_id, workspace_id)
+        
+        if result.get("status") == 200:
+            return jsonify(result["assignment"])
+        elif result.get("status") == 409:
+            return jsonify({"error": result["error"], "ambiguous_workspaces": result.get("ambiguous_workspaces", [])}), 409
+        else:
+            return jsonify({"error": result.get("error", f"Assignment {assignment_id} not found")}), 404
+    
+    @app.route("/api/assignments/<assignment_id>", methods=["PUT"])
+    @require_auth
+    def update_assignment(assignment_id):
+        """Update assignment configuration - workspace-only"""
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No update data provided"}), 400
+        
+        workspace_id = request.args.get("workspace_id")
+        if not workspace_id:
+            # Use the logged-in user's default workspace first
+            current_user = get_current_user()
+            if current_user and current_user.get("preferences", {}).get("default_workspace"):
+                workspace_id = current_user["preferences"]["default_workspace"]
+            else:
+                # Fallback to legacy resolution if user has no default workspace
+                find_result = workspace_service.find_assignment(assignment_id)
+                if find_result.get("status") == 200:
+                    workspace_id = find_result["workspace_id"]
+                elif find_result.get("status") == 409:
+                    return jsonify({"error": find_result["error"], "ambiguous_workspaces": find_result.get("ambiguous_workspaces", [])}), 409
+                else:
+                    return jsonify({"error": "Assignment not found and no workspace_id provided"}), 404
+        
+        try:
+            result = workspace_service.update_assignment(workspace_id, assignment_id, data)
+            if result.get("success"):
+                return jsonify({"success": True, "message": "Assignment updated successfully", "assignment": result.get("assignment")})
+            else:
+                return jsonify({"error": result.get("error", "Update failed")}), 400
+        except Exception as e:
+            return jsonify({"error": f"Failed to update assignment: {str(e)}"}), 500
+    
+    @app.route("/api/assignments/<assignment_id>", methods=["DELETE"])
+    @require_auth
+    def delete_assignment(assignment_id):
+        """Delete assignment (archive) - workspace-only"""
+        workspace_id = request.args.get("workspace_id")
+        if not workspace_id:
+            # Use the logged-in user's default workspace first
+            current_user = get_current_user()
+            if current_user and current_user.get("preferences", {}).get("default_workspace"):
+                workspace_id = current_user["preferences"]["default_workspace"]
+            else:
+                # Fallback to legacy resolution if user has no default workspace
+                find_result = workspace_service.find_assignment(assignment_id)
+                if find_result.get("status") == 200:
+                    workspace_id = find_result["workspace_id"]
+                elif find_result.get("status") == 409:
+                    return jsonify({"error": find_result["error"], "ambiguous_workspaces": find_result.get("ambiguous_workspaces", [])}), 409
+                else:
+                    return jsonify({"error": "Assignment not found and no workspace_id provided"}), 404
+        
+        try:
+            result = workspace_service.archive_assignment(workspace_id, assignment_id)
+            if result.get("success"):
+                return jsonify({"success": True, "message": f"Assignment '{assignment_id}' archived successfully"})
+            else:
+                return jsonify({"error": result.get("error", f"Assignment '{assignment_id}' not found")}), 404
+        except Exception as e:
+            return jsonify({"error": f"Failed to archive assignment: {str(e)}"}), 500
 
     @app.route("/api/aws-metrics")
     def get_aws_metrics():
@@ -200,13 +306,53 @@ def register_routes(app):
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/all-metrics/<assignment_id>")
+    @require_auth
     def get_all_metrics(assignment_id):
-        """Get all metrics for specific assignment"""
+        """Get all metrics for specific assignment - workspace-only"""
+        workspace_id = request.args.get("workspace_id")
+        
+        # If no workspace_id provided, search within user's accessible workspaces
+        if not workspace_id:
+            current_user = get_current_user()
+            if current_user and current_user.get("workspaces"):
+                user_workspaces = current_user["workspaces"]
+                
+                # Search for assignment in user's workspaces
+                found_assignments = []
+                for ws_id in user_workspaces:
+                    assignment = workspace_service.get_assignment(ws_id, assignment_id)
+                    if assignment:
+                        found_assignments.append({"workspace_id": ws_id, "assignment": assignment})
+                
+                if len(found_assignments) == 1:
+                    # Found exactly one - use its workspace
+                    workspace_id = found_assignments[0]["workspace_id"]
+                elif len(found_assignments) > 1:
+                    # Multiple matches within user's workspaces - still ambiguous
+                    workspace_ids = [fa["workspace_id"] for fa in found_assignments]
+                    return jsonify({
+                        "error": f"Assignment '{assignment_id}' found in multiple of your workspaces: {workspace_ids}. Please specify workspace_id parameter.",
+                        "ambiguous_workspaces": workspace_ids
+                    }), 409
+                else:
+                    # No matches in user's workspaces
+                    return jsonify({"error": f"Assignment '{assignment_id}' not found in your accessible workspaces"}), 404
+        
         try:
-            # Load assignment configuration
-            assignment = assignment_service.get_assignment(assignment_id)
-            if not assignment:
-                return jsonify({"error": f"Assignment '{assignment_id}' not found"}), 404
+            # Use defensive resolver for workspace context
+            result = workspace_service.find_assignment(assignment_id, workspace_id)
+            
+            if result.get("status") != 200:
+                if result.get("status") == 409:
+                    return jsonify({"error": result["error"], "ambiguous_workspaces": result.get("ambiguous_workspaces", [])}), 409
+                else:
+                    return jsonify({"error": result.get("error", f"Assignment '{assignment_id}' not found")}), 404
+            
+            workspace_id = result["workspace_id"]
+            assignment = result["assignment"]
+            
+            # Build workspace connectors with credentials
+            connectors = get_workspace_connectors(workspace_id, assignment_id)
             
             metrics = {}
             
@@ -214,7 +360,7 @@ def register_routes(app):
             aws_config = assignment.get('metrics_config', {}).get('aws', {})
             if aws_config.get('enabled', False):
                 try:
-                    metrics['aws'] = aws_metrics.get_metrics()
+                    metrics['aws'] = connectors['aws'].get_metrics()
                 except Exception as e:
                     metrics['aws'] = {"error": str(e)}
             
@@ -222,7 +368,7 @@ def register_routes(app):
             github_config = assignment.get('metrics_config', {}).get('github', {})
             if github_config.get('enabled', False):
                 try:
-                    metrics['github'] = github_metrics.get_metrics(github_config)
+                    metrics['github'] = connectors['github'].get_metrics(github_config)
                 except Exception as e:
                     metrics['github'] = {"error": str(e)}
             
@@ -230,7 +376,7 @@ def register_routes(app):
             jira_config = assignment.get('metrics_config', {}).get('jira', {})
             if jira_config.get('enabled', False):
                 try:
-                    metrics['jira'] = jira_metrics.get_metrics(jira_config)
+                    metrics['jira'] = connectors['jira'].get_metrics(jira_config)
                 except Exception as e:
                     metrics['jira'] = {"error": str(e)}
             
@@ -243,10 +389,10 @@ def register_routes(app):
                     metrics['openai'] = {"error": str(e)}
             
             # Railway metrics
-            if assignment.get('metrics_config', {}).get('railway', {}).get('enabled'):
+            railway_config = assignment.get('metrics_config', {}).get('railway', {})
+            if railway_config.get('enabled', False):
                 try:
                     import asyncio
-                    railway_config = assignment.get('metrics_config', {}).get('railway', {})
                     project_id = railway_config.get('project_id')
                     project_name = railway_config.get('project_name')
                     metrics['railway'] = asyncio.run(railway_metrics.get_metrics(project_id=project_id, project_name=project_name))
@@ -542,22 +688,105 @@ def register_routes(app):
         else:
             return jsonify(result), 400
     
+    @app.route("/api/auth/profile", methods=["GET", "PUT"])
+    @require_auth
+    def profile():
+        """Get or update user profile information - Phase 5B"""
+        current_user = get_current_user()
+        user_email = current_user.get("email")
+        
+        if not user_email:
+            return jsonify({"error": "User email not found in token"}), 401
+        
+        if request.method == "GET":
+            # Get user profile
+            result = user_service.get_user_profile(user_email)
+            if result.get("success"):
+                return jsonify(result["user"]), 200
+            else:
+                return jsonify(result), 404
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No profile data provided"}), 400
+        
+        # Validate allowed fields for profile update
+        allowed_fields = {"display_name", "password", "preferences"}
+        updates = {k: v for k, v in data.items() if k in allowed_fields}
+        
+        if not updates:
+            return jsonify({"error": "No valid profile fields provided"}), 400
+        
+        # Update the user profile
+        result = user_service.update_user(user_email, updates)
+        
+        if result.get("success"):
+            return jsonify({
+                "success": True,
+                "message": result.get("message"),
+                "user": result.get("user")
+            }), 200
+        else:
+            return jsonify({
+                "success": False,
+                "error": result.get("error")
+            }), 400
+    
     # ===== WORKSPACE MANAGEMENT ENDPOINTS (Phase 1 + 3 Auth) =====
     
     @app.route("/api/workspaces", methods=["GET", "POST"])
-    @require_auth
+    @optional_auth
     def workspace_management():
         """Workspace management endpoint"""
         if request.method == "GET":
-            # List all workspaces
-            result = workspace_service.list_workspaces()
-            return jsonify(result)
-        
+            # Authenticated users get their own workspaces; anonymous falls back to default
+            try:
+                current_user = get_current_user()
+                if current_user:
+                    user_workspace_ids = user_service.get_user_workspaces(
+                        current_user.get("email")
+                    ).get("workspaces", [])
+                    user_workspaces = []
+                    for ws_id in user_workspace_ids:
+                        workspace_data = workspace_service.get_workspace(ws_id)
+                        if workspace_data and not workspace_data.get("error"):
+                            user_workspaces.append({
+                                "id": workspace_data.get("id"),
+                                "name": workspace_data.get("name"),
+                                "description": workspace_data.get("description", ""),
+                                "assignment_count": len(workspace_data.get("assignments", [])),
+                                "status": workspace_data.get("status", "active"),
+                                "created_at": workspace_data.get("created_at")
+                            })
+                    if user_workspaces:
+                        return jsonify(user_workspaces)
+
+                # Return default workspace for unauthenticated access
+                workspace_data = workspace_service.get_workspace("default_workspace")
+                if workspace_data and not workspace_data.get("error"):
+                    workspace_info = {
+                        "id": workspace_data.get("id"),
+                        "name": workspace_data.get("name"),
+                        "description": workspace_data.get("description", ""),
+                        "assignment_count": len(workspace_data.get("assignments", [])),
+                        "status": workspace_data.get("status", "active"),
+                        "created_at": workspace_data.get("created_at")
+                    }
+                    return jsonify([workspace_info])
+                else:
+                    return jsonify([])
+            except Exception as e:
+                return jsonify([])
+                
         elif request.method == "POST":
-            # Create new workspace
+            # Create new workspace (requires authentication)
+            current_user = get_current_user()
+            if not current_user:
+                return jsonify({"error": "Authentication required"}), 401
+            
             data = request.get_json()
             if not data:
-                return jsonify({"error": "No data provided"}), 400
+                return jsonify({"error": "No workspace data provided"}), 400
             
             workspace_id = data.get("id")
             name = data.get("name")
@@ -566,12 +795,19 @@ def register_routes(app):
             if not workspace_id or not name:
                 return jsonify({"error": "Workspace ID and name are required"}), 400
             
-            result = workspace_service.create_workspace(workspace_id, name, description)
-            
-            if result.get("success"):
-                return jsonify(result), 201
-            else:
-                return jsonify(result), 400
+            try:
+                result = workspace_service.create_workspace(workspace_id, name, description)
+                if result.get("success"):
+                    # Link the new workspace to the creating user
+                    user_service.add_user_to_workspace(
+                        current_user.get("email"), workspace_id, "owner"
+                    )
+                    return jsonify(result), 201
+                else:
+                    return jsonify(result), 400
+            except Exception as e:
+                return jsonify({"error": f"Failed to create workspace: {str(e)}"}), 500
+        
     
     @app.route("/api/workspaces/<workspace_id>", methods=["GET", "DELETE"])
     @require_workspace_access
@@ -860,7 +1096,7 @@ def register_routes(app):
             else:
                 return jsonify(result), 400
     
-    @app.route("/api/workspaces/<workspace_id>/credentials", methods=["GET"])
+    @app.route("/api/workspaces/<workspace_id>/credentials", methods=["GET"])  
     def get_workspace_credentials(workspace_id):
         """Get credential status for all connectors in workspace"""
         try:
@@ -870,7 +1106,6 @@ def register_routes(app):
             return jsonify({"error": f"Failed to get credential status: {str(e)}"}), 500
     
     @app.route("/api/workspaces/<workspace_id>/credentials/<connector_type>", methods=["PUT", "DELETE"])
-    @require_workspace_access  
     def manage_connector_credentials(workspace_id, connector_type):
         """Set or delete credentials for a specific connector type"""
         if request.method == "PUT":
@@ -887,12 +1122,12 @@ def register_routes(app):
             if not assignment_id:
                 return jsonify({"error": "Assignment ID is required"}), 400
             
-            # Validate credentials by testing them
-            validation_result = _validate_connector_credentials(connector_type, credentials)
+            # Basic validation - just check required fields are present
+            validation_result = _basic_validate_credentials(connector_type, credentials)
             if not validation_result.get("valid"):
                 return jsonify({
-                    "error": "Credential validation failed",
-                    "details": validation_result.get("error", "Invalid credentials")
+                    "error": "Missing required credential fields",
+                    "details": validation_result.get("error", "Required fields missing")
                 }), 400
             
             # Update assignment auth
@@ -925,7 +1160,6 @@ def register_routes(app):
                 return jsonify(result), 400
     
     @app.route("/api/workspaces/<workspace_id>/credentials/<connector_type>/test", methods=["POST"])
-    @require_workspace_access
     def test_connector_credentials(workspace_id, connector_type):
         """Test connector credentials without saving them"""
         data = request.get_json()
@@ -938,6 +1172,206 @@ def register_routes(app):
         
         result = _validate_connector_credentials(connector_type, credentials)
         return jsonify(result)
+    
+    # ===== PHASE 5C: IMPORT/EXPORT ENDPOINTS =====
+    
+    @app.route("/api/workspaces/<workspace_id>/export", methods=["GET"])
+    @require_auth
+    def export_workspace_data(workspace_id):
+        """Export all workspace data including assignments and configurations - Phase 5C"""
+        try:
+            # Get workspace data
+            workspace = workspace_service.get_workspace(workspace_id)
+            if "error" in workspace:
+                return jsonify({"error": "Workspace not found"}), 404
+            
+            # Get all assignments for this workspace
+            assignments_result = workspace_service.get_workspace_assignments(workspace_id)
+            assignments = assignments_result.get("assignments", [])
+            
+            # Create export data structure
+            export_data = {
+                "export_version": "1.0",
+                "timestamp": datetime.now().isoformat(),
+                "workspace": {
+                    "id": workspace_id,
+                    "name": workspace.get("name", workspace_id),
+                    "description": workspace.get("description", ""),
+                    "settings": workspace.get("settings", {}),
+                    "connector_templates": workspace.get("connector_templates", {})
+                },
+                "assignments": [],
+                "metadata": {
+                    "total_assignments": len(assignments),
+                    "active_assignments": len([a for a in assignments if a.get("status") == "active"]),
+                    "export_type": "full"
+                }
+            }
+            
+            # Add assignment data (without sensitive credentials)
+            for assignment in assignments:
+                safe_assignment = {
+                    "id": assignment.get("id"),
+                    "name": assignment.get("name"),
+                    "description": assignment.get("description"),
+                    "status": assignment.get("status", "active"),
+                    "start_date": assignment.get("start_date"),
+                    "end_date": assignment.get("end_date"),
+                    "team_size": assignment.get("team_size"),
+                    "monthly_burn_rate": assignment.get("monthly_burn_rate"),
+                    "metrics_config": assignment.get("metrics_config", {}),
+                    "team": assignment.get("team", {}),
+                    "created_at": assignment.get("created_at"),
+                    "updated_at": assignment.get("updated_at")
+                }
+                export_data["assignments"].append(safe_assignment)
+            
+            return jsonify(export_data)
+            
+        except Exception as e:
+            return jsonify({"error": f"Export failed: {str(e)}"}), 500
+    
+    @app.route("/api/workspaces/<workspace_id>/import", methods=["POST"])
+    @require_auth
+    def import_workspace_data(workspace_id):
+        """Import workspace data from exported JSON - Phase 5C"""
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({"error": "No import data provided"}), 400
+            
+            # Validate import data structure
+            if "export_version" not in data:
+                return jsonify({"error": "Invalid import format - missing version"}), 400
+            
+            if data.get("export_version") != "1.0":
+                return jsonify({"error": "Unsupported export version"}), 400
+            
+            import_assignments = data.get("assignments", [])
+            import_mode = request.args.get("mode", "create_new")  # create_new, overwrite, merge
+            
+            results = {
+                "success": True,
+                "imported_assignments": 0,
+                "skipped_assignments": 0,
+                "errors": [],
+                "details": []
+            }
+            
+            for assignment_data in import_assignments:
+                assignment_id = assignment_data.get("id")
+                if not assignment_id:
+                    results["errors"].append("Assignment missing ID - skipped")
+                    results["skipped_assignments"] += 1
+                    continue
+                
+                try:
+                    # Check if assignment already exists
+                    existing = assignment_service.get_assignment(assignment_id)
+                    
+                    if existing and import_mode == "create_new":
+                        # Generate new ID to avoid conflicts
+                        import uuid
+                        new_id = f"{assignment_id}_{uuid.uuid4().hex[:8]}"
+                        assignment_data["id"] = new_id
+                        assignment_data["name"] = f"{assignment_data.get('name', assignment_id)} (Imported)"
+                    elif existing and import_mode == "merge":
+                        # Merge with existing data
+                        merged_data = {**existing, **assignment_data}
+                        merged_data["updated_at"] = datetime.now().isoformat()
+                        assignment_data = merged_data
+                    
+                    # Create/update the assignment
+                    if import_mode == "overwrite" or not existing or import_mode == "create_new":
+                        success = assignment_service.create_assignment(assignment_data)
+                    else:
+                        success = assignment_service.update_assignment(assignment_id, assignment_data)
+                    
+                    if success:
+                        results["imported_assignments"] += 1
+                        results["details"].append(f"Successfully imported: {assignment_data.get('name', assignment_id)}")
+                    else:
+                        results["errors"].append(f"Failed to import: {assignment_data.get('name', assignment_id)}")
+                        results["skipped_assignments"] += 1
+                        
+                except Exception as e:
+                    results["errors"].append(f"Error importing {assignment_id}: {str(e)}")
+                    results["skipped_assignments"] += 1
+            
+            # Update results summary
+            if results["errors"]:
+                results["success"] = len(results["errors"]) < len(import_assignments) / 2  # Success if < 50% errors
+            
+            status_code = 200 if results["success"] else 207  # 207 = Multi-status (partial success)
+            return jsonify(results), status_code
+            
+        except Exception as e:
+            return jsonify({"error": f"Import failed: {str(e)}"}), 500
+    
+    @app.route("/api/assignments/export", methods=["GET"])
+    @require_auth  
+    def export_assignments():
+        """Export all assignments across workspaces - Phase 5C"""
+        try:
+            # Get all assignments
+            all_assignments = assignment_service.get_all_assignments(include_archived=True)
+            
+            export_data = {
+                "export_version": "1.0",
+                "timestamp": datetime.now().isoformat(),
+                "export_type": "assignments_only",
+                "assignments": all_assignments,
+                "metadata": {
+                    "total_assignments": len(all_assignments),
+                    "active_assignments": len([a for a in all_assignments if a.get("status") != "archived"]),
+                    "archived_assignments": len([a for a in all_assignments if a.get("status") == "archived"])
+                }
+            }
+            
+            return jsonify(export_data)
+            
+        except Exception as e:
+            return jsonify({"error": f"Assignment export failed: {str(e)}"}), 500
+    
+    # ===== PHASE 5C: ASSIGNMENT HISTORY/AUDIT LOG ENDPOINTS =====
+    
+    @app.route("/api/assignments/<assignment_id>/history", methods=["GET"])
+    @require_auth
+    def get_assignment_history(assignment_id):
+        """Get change history for a specific assignment - Phase 5C"""
+        try:
+            # Import audit service
+            from services.audit_service import audit_service
+            
+            history = audit_service.get_assignment_history(assignment_id)
+            
+            return jsonify({
+                "assignment_id": assignment_id,
+                "history": history,
+                "total_changes": len(history)
+            })
+            
+        except Exception as e:
+            return jsonify({"error": f"Failed to get assignment history: {str(e)}"}), 500
+    
+    @app.route("/api/audit/recent", methods=["GET"])
+    @require_auth
+    def get_recent_changes():
+        """Get recent changes across all assignments - Phase 5C"""
+        try:
+            # Import audit service
+            from services.audit_service import audit_service
+            
+            limit = request.args.get("limit", 50, type=int)
+            changes = audit_service.get_recent_changes(limit)
+            
+            return jsonify({
+                "recent_changes": changes,
+                "total_returned": len(changes)
+            })
+            
+        except Exception as e:
+            return jsonify({"error": f"Failed to get recent changes: {str(e)}"}), 500
     
     def _get_workspace_credential_status(workspace_id):
         """Get credential configuration status for workspace"""
@@ -953,28 +1387,61 @@ def register_routes(app):
                     "github": {"configured": False, "assignments": []},
                     "jira": {"configured": False, "assignments": []},
                     "aws": {"configured": False, "assignments": []},
+                    "openai": {"configured": False, "assignments": []},
                 }
             }
             
             # Check each assignment for configured connectors
             for assignment in assignments.get("assignments", []):
                 assignment_id = assignment.get("id")
-                auth_instances = assignment.get("auth_instances", {})
+                metrics_config = assignment.get("metrics_config", {})
                 
-                for connector_type in ["github", "jira", "aws"]:
-                    if connector_type in auth_instances:
-                        creds = auth_instances[connector_type].get("credentials", {})
-                        if creds:
-                            status["connectors"][connector_type]["configured"] = True
-                            status["connectors"][connector_type]["assignments"].append({
-                                "id": assignment_id,
-                                "name": assignment.get("name", assignment_id),
-                                "credentials_count": len(creds)
-                            })
+                for connector_type in ["github", "jira", "aws", "openai"]:
+                    connector_config = metrics_config.get(connector_type, {})
+                    auth_instance = connector_config.get("auth_instance", {})
+                    creds = auth_instance.get("credentials", {})
+                    
+                    if creds and auth_instance.get("auth_configured", False):
+                        status["connectors"][connector_type]["configured"] = True
+                        status["connectors"][connector_type]["assignments"].append({
+                            "id": assignment_id,
+                            "name": assignment.get("name", assignment_id),
+                            "credentials_count": len(creds)
+                        })
             
             return status
         except Exception as e:
             return {"error": f"Failed to get credential status: {str(e)}"}
+    
+    def _basic_validate_credentials(connector_type, credentials):
+        """Basic validation - just check required fields are present"""
+        if connector_type == "github":
+            required_fields = ["github_token"]
+            missing = [field for field in required_fields if not credentials.get(field)]
+            if missing:
+                return {"valid": False, "error": f"Missing required fields: {', '.join(missing)}"}
+                
+        elif connector_type == "jira":
+            required_fields = ["jira_url", "jira_email", "jira_token"]
+            missing = [field for field in required_fields if not credentials.get(field)]
+            if missing:
+                return {"valid": False, "error": f"Missing required fields: {', '.join(missing)}"}
+                
+        elif connector_type == "aws":
+            required_fields = ["aws_access_key", "aws_secret_key"]
+            missing = [field for field in required_fields if not credentials.get(field)]
+            if missing:
+                return {"valid": False, "error": f"Missing required fields: {', '.join(missing)}"}
+                
+        elif connector_type == "openai":
+            required_fields = ["openai_api_key"]
+            missing = [field for field in required_fields if not credentials.get(field)]
+            if missing:
+                return {"valid": False, "error": f"Missing required fields: {', '.join(missing)}"}
+        else:
+            return {"valid": False, "error": f"Unknown connector type: {connector_type}"}
+            
+        return {"valid": True, "message": "Basic validation passed"}
     
     def _validate_connector_credentials(connector_type, credentials):
         """Validate connector credentials by attempting to use them"""

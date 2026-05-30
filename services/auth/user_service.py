@@ -106,6 +106,9 @@ class UserService:
             with open(user_file, 'w') as f:
                 json.dump(user_data, f, indent=2)
             
+            # Auto-create default workspace for new user
+            self._create_user_workspace(email, user_data["display_name"])
+            
             return {
                 "success": True,
                 "user": {
@@ -350,3 +353,179 @@ class UserService:
                 
             except Exception as e:
                 print(f"Warning: Could not create default admin user: {e}")
+    
+    def update_user(self, user_email: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Update user profile information.
+        Phase 5B: Enhanced profile management.
+        """
+        user_file = self.users_dir / f"{user_email}.json"
+        
+        if not user_file.exists():
+            return {
+                "success": False,
+                "error": "User not found"
+            }
+        
+        try:
+            with open(user_file, 'r') as f:
+                user_data = json.load(f)
+            
+            # Handle display name update
+            if "display_name" in updates:
+                if not updates["display_name"].strip():
+                    return {
+                        "success": False,
+                        "error": "Display name cannot be empty"
+                    }
+                user_data["display_name"] = updates["display_name"].strip()
+            
+            # Handle password update
+            if "password" in updates:
+                if len(updates["password"]) < 6:
+                    return {
+                        "success": False,
+                        "error": "Password must be at least 6 characters"
+                    }
+                password_hash, salt = self._hash_password(updates["password"])
+                user_data["password_hash"] = password_hash
+                user_data["salt"] = salt
+            
+            # Handle preferences update
+            if "preferences" in updates:
+                if "preferences" not in user_data:
+                    user_data["preferences"] = {}
+                user_data["preferences"].update(updates["preferences"])
+            
+            # Add update timestamp
+            user_data["updated_at"] = datetime.now().isoformat()
+            
+            # Save updated user data
+            with open(user_file, 'w') as f:
+                json.dump(user_data, f, indent=2)
+            
+            return {
+                "success": True,
+                "user": {
+                    "email": user_data["email"],
+                    "display_name": user_data["display_name"],
+                    "workspaces": user_data["workspaces"],
+                    "role": user_data["role"],
+                    "preferences": user_data["preferences"]
+                },
+                "message": "Profile updated successfully"
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to update profile: {str(e)}"
+            }
+    
+    def _create_user_workspace(self, email: str, display_name: str):
+        """
+        Auto-create default workspace for new user.
+        Defensive implementation - failures don't break user registration.
+        """
+        try:
+            from services.workspace.workspace_service import WorkspaceService
+            workspace_service = WorkspaceService()
+            
+            # Generate workspace details
+            username = email.split("@")[0]
+            workspace_id = f"{username}_workspace"
+            workspace_name = f"{display_name}'s Workspace"
+            workspace_description = f"Personal workspace for {email}"
+            
+            # Create workspace
+            result = workspace_service.create_workspace(workspace_id, workspace_name, workspace_description)
+            
+            if result.get("success"):
+                # Add workspace to user's record
+                user_file = self.users_dir / f"{email}.json"
+                if user_file.exists():
+                    with open(user_file, 'r') as f:
+                        user_data = json.load(f)
+                    
+                    user_data["workspaces"] = [workspace_id]
+                    user_data["preferences"]["default_workspace"] = workspace_id
+                    
+                    with open(user_file, 'w') as f:
+                        json.dump(user_data, f, indent=2)
+            
+        except Exception as e:
+            # Log error but don't fail user registration
+            print(f"Warning: Could not create workspace for {email}: {e}")
+    
+    def get_user_profile(self, email: str) -> Dict[str, Any]:
+        """Get user profile including preferences and workspaces"""
+        user_file = self.users_dir / f"{email}.json"
+        if not user_file.exists():
+            return {
+                "success": False,
+                "error": "User not found"
+            }
+        
+        try:
+            with open(user_file, 'r') as f:
+                user_data = json.load(f)
+            
+            return {
+                "success": True,
+                "user": {
+                    "email": user_data["email"],
+                    "display_name": user_data["display_name"],
+                    "workspaces": user_data.get("workspaces", []),
+                    "role": user_data["role"],
+                    "preferences": user_data.get("preferences", {}),
+                    "created_at": user_data["created_at"]
+                }
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to get profile: {str(e)}"
+            }
+    
+    def ensure_user_has_workspace(self, email: str) -> Dict[str, Any]:
+        """
+        Ensure user has a workspace. Create one if missing.
+        This is a repair function for existing users.
+        """
+        user_file = self.users_dir / f"{email}.json"
+        if not user_file.exists():
+            return {
+                "success": False,
+                "error": "User not found"
+            }
+        
+        try:
+            with open(user_file, 'r') as f:
+                user_data = json.load(f)
+            
+            # Check if user already has workspaces
+            if user_data.get("workspaces") and len(user_data["workspaces"]) > 0:
+                return {
+                    "success": True,
+                    "message": "User already has workspace",
+                    "workspace_id": user_data["workspaces"][0]
+                }
+            
+            # Create workspace for user (repair missing workspace)
+            self._create_user_workspace(email, user_data["display_name"])
+            
+            # Re-read user data to get updated workspace
+            with open(user_file, 'r') as f:
+                updated_user_data = json.load(f)
+            
+            return {
+                "success": True,
+                "message": "Workspace created for user",
+                "workspace_id": updated_user_data.get("workspaces", [None])[0]
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Failed to ensure workspace: {str(e)}"
+            }

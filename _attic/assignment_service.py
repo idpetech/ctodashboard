@@ -5,6 +5,13 @@ from datetime import datetime
 from typing import Dict, List, Optional
 from pathlib import Path
 
+# Phase 5C: Import audit service for assignment history
+try:
+    from .audit_service import audit_service
+except ImportError:
+    # Fallback if audit service not available
+    audit_service = None
+
 
 class AssignmentService:
     """Service to manage assignment configurations"""
@@ -84,25 +91,55 @@ class AssignmentService:
             with open(json_path, 'w') as f:
                 json.dump(assignment_data, f, indent=2)
             
+            # Phase 5C: Log assignment creation
+            if audit_service:
+                audit_service.log_assignment_change(
+                    assignment_id=assignment_id,
+                    action="create",
+                    new_data=assignment_data,
+                    user_email="system"  # TODO: Get from session
+                )
+            
             return True
         except Exception as e:
             print(f"Error creating assignment: {e}")
             return False
     
-    def update_assignment(self, assignment_id: str, assignment_data: Dict) -> bool:
-        """Update an existing assignment configuration"""
+    def update_assignment(self, assignment_id: str, assignment_data: Dict) -> Dict:
+        """Update an existing assignment configuration - Phase 5B enhanced"""
         try:
             json_path = Path(self.assignments_dir) / f"{assignment_id}.json"
             if not json_path.exists():
-                return False
+                return {"success": False, "error": f"Assignment '{assignment_id}' not found"}
             
+            # Load existing assignment first
+            with open(json_path, 'r') as f:
+                existing_assignment = json.load(f)
+            
+            # Merge new data with existing data (preserve unmodified fields)
+            updated_assignment = {**existing_assignment, **assignment_data}
+            
+            # Add update timestamp
+            updated_assignment["updated_at"] = datetime.now().isoformat()
+            
+            # Write updated assignment
             with open(json_path, 'w') as f:
-                json.dump(assignment_data, f, indent=2)
+                json.dump(updated_assignment, f, indent=2)
             
-            return True
+            # Phase 5C: Log assignment update
+            if audit_service:
+                audit_service.log_assignment_change(
+                    assignment_id=assignment_id,
+                    action="update",
+                    old_data=existing_assignment,
+                    new_data=updated_assignment,
+                    user_email="system"  # TODO: Get from session
+                )
+            
+            return {"success": True, "assignment": updated_assignment}
         except Exception as e:
             print(f"Error updating assignment: {e}")
-            return False
+            return {"success": False, "error": f"Failed to update assignment: {str(e)}"}
     
     def archive_assignment(self, assignment_id: str) -> bool:
         """Move assignment to archived folder"""
@@ -125,6 +162,16 @@ class AssignmentService:
             
             with open(archived_path, 'w') as f:
                 json.dump(assignment, f, indent=2)
+            
+            # Phase 5C: Log assignment archive
+            if audit_service:
+                audit_service.log_assignment_change(
+                    assignment_id=assignment_id,
+                    action="archive",
+                    old_data=assignment,  # before archiving
+                    new_data=assignment,  # after archiving (same, but marked as archived)
+                    user_email="system"
+                )
             
             return True
         except Exception as e:

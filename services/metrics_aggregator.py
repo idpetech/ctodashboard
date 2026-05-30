@@ -1,13 +1,13 @@
 """
-Metrics Aggregator Service
-Composes embedded metrics services for MCP consumption
+Metrics Aggregator Service - Phase 2 Workspace-Only
+Composes embedded metrics services for MCP consumption using workspace store
 """
 
 import asyncio
 from datetime import datetime
 from typing import Dict
 
-from .assignment_service import AssignmentService
+from .workspace.workspace_service import WorkspaceService
 from .embedded.aws_metrics import EmbeddedAWSMetrics
 from .embedded.github_metrics import EmbeddedGitHubMetrics
 from .embedded.jira_metrics import EmbeddedJiraMetrics
@@ -16,63 +16,85 @@ from .embedded.railway_metrics import RailwayMetrics
 
 
 class MetricsAggregator:
-    """Aggregates metrics from all embedded services"""
+    """Aggregates metrics from all embedded services - workspace-only"""
     
     def __init__(self):
-        self.assignment_service = AssignmentService()
-        self.aws_metrics = EmbeddedAWSMetrics()
-        self.github_metrics = EmbeddedGitHubMetrics()
-        self.jira_metrics = EmbeddedJiraMetrics()
-        self.openai_metrics = OpenAIMetrics()
-        self.railway_metrics = RailwayMetrics()
+        self.workspace_service = WorkspaceService()
     
-    async def get_all_metrics(self, assignment_config: Dict) -> Dict:
-        """Get metrics for an assignment from all configured services"""
+    def _get_workspace_connectors(self, workspace_id: str, assignment_id: str) -> Dict:
+        """Create workspace-scoped connector instances with credentials"""
+        return {
+            'aws': EmbeddedAWSMetrics(workspace_id=workspace_id, assignment_id=assignment_id),
+            'github': EmbeddedGitHubMetrics(workspace_id=workspace_id, assignment_id=assignment_id),
+            'jira': EmbeddedJiraMetrics(workspace_id=workspace_id, assignment_id=assignment_id)
+        }
+    
+    async def get_all_metrics(self, workspace_id: str, assignment_id: str) -> Dict:
+        """
+        Get metrics for an assignment from all configured services.
+        Phase 2: Uses workspace store and workspace connectors.
+        """
+        # Load assignment from workspace store
+        assignment = self.workspace_service.get_assignment(workspace_id, assignment_id)
+        if not assignment:
+            return {
+                "error": f"Assignment '{assignment_id}' not found in workspace '{workspace_id}'",
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        # Create workspace connectors with credentials
+        connectors = self._get_workspace_connectors(workspace_id, assignment_id)
         
         metrics = {
             "timestamp": datetime.now().isoformat(),
-            "assignment_id": assignment_config.get("id", "unknown")
+            "assignment_id": assignment_id,
+            "workspace_id": workspace_id
         }
         
+        # Get metrics using correct schema: metrics_config.<connector>
+        metrics_config = assignment.get("metrics_config", {})
+        
         # Get AWS metrics if configured
-        aws_config = assignment_config.get("aws", {})
+        aws_config = metrics_config.get("aws", {})
         if aws_config.get("enabled", False):
             try:
-                metrics["aws"] = self.aws_metrics.get_metrics()
+                metrics["aws"] = connectors["aws"].get_metrics()
             except Exception as e:
                 metrics["aws"] = {"error": str(e)}
         
         # Get GitHub metrics if configured
-        github_config = assignment_config.get("github", {})
+        github_config = metrics_config.get("github", {})
         if github_config.get("enabled", False):
             try:
-                metrics["github"] = self.github_metrics.get_metrics(github_config)
+                metrics["github"] = connectors["github"].get_metrics(github_config)
             except Exception as e:
                 metrics["github"] = {"error": str(e)}
         
         # Get Jira metrics if configured
-        jira_config = assignment_config.get("jira", {})
+        jira_config = metrics_config.get("jira", {})
         if jira_config.get("enabled", False):
             try:
-                metrics["jira"] = self.jira_metrics.get_metrics(jira_config)
+                metrics["jira"] = connectors["jira"].get_metrics(jira_config)
             except Exception as e:
                 metrics["jira"] = {"error": str(e)}
         
         # Get OpenAI metrics if configured
-        openai_config = assignment_config.get("openai", {})
+        openai_config = metrics_config.get("openai", {})
         if openai_config.get("enabled", False):
             try:
-                metrics["openai"] = self.openai_metrics.get_usage_metrics(openai_config)
+                openai_metrics = OpenAIMetrics()
+                metrics["openai"] = openai_metrics.get_usage_metrics(openai_config)
             except Exception as e:
                 metrics["openai"] = {"error": str(e)}
         
         # Get Railway metrics if configured
-        railway_config = assignment_config.get("metrics_config", {}).get("railway", {})
+        railway_config = metrics_config.get("railway", {})
         if railway_config.get("enabled", False):
             try:
                 project_id = railway_config.get("project_id")
                 project_name = railway_config.get("project_name")
-                metrics["railway"] = await self.railway_metrics.get_metrics(
+                railway_metrics = RailwayMetrics()
+                metrics["railway"] = await railway_metrics.get_metrics(
                     project_id=project_id, 
                     project_name=project_name
                 )
@@ -81,10 +103,21 @@ class MetricsAggregator:
         
         return metrics
     
-    def get_assignment(self, assignment_id: str) -> Dict:
-        """Get assignment configuration"""
-        return self.assignment_service.get_assignment(assignment_id)
+    def find_assignment(self, assignment_id: str, workspace_id: str = None) -> Dict:
+        """Find assignment using workspace store"""
+        return self.workspace_service.find_assignment(assignment_id, workspace_id)
     
     def get_all_assignments(self) -> list:
-        """Get all assignments"""
-        return self.assignment_service.get_all_assignments()
+        """Get all assignments from workspace store"""
+        all_assignments = []
+        try:
+            for workspace_path in self.workspace_service.workspace_dir.glob("*"):
+                if workspace_path.is_dir():
+                    workspace_id = workspace_path.name
+                    result = self.workspace_service.get_workspace_assignments(workspace_id)
+                    if "assignments" in result:
+                        all_assignments.extend(result["assignments"])
+        except Exception as e:
+            print(f"Error aggregating assignments: {e}")
+        
+        return all_assignments
