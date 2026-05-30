@@ -11,8 +11,9 @@ from services.service_manager import ServiceManager
 from services.embedded.aws_metrics import EmbeddedAWSMetrics
 from services.embedded.github_metrics import EmbeddedGitHubMetrics
 from services.embedded.jira_metrics import EmbeddedJiraMetrics
-from services.embedded.openai_metrics import OpenAIMetrics
 from services.embedded.railway_metrics import RailwayMetrics
+from connectors.registry import ConnectorRegistry
+from connectors.base.exceptions import UnknownConnectorError
 from services.chatbot_service import process_question, process_question_stream, get_conversation_history, clear_conversation_history
 from services.workspace.workspace_service import WorkspaceService
 from services.auth.user_service import UserService
@@ -32,7 +33,6 @@ require_web_auth, require_web_workspace_access = auth_decorators[3:5] if len(aut
 aws_metrics = EmbeddedAWSMetrics()
 github_metrics = EmbeddedGitHubMetrics()
 jira_metrics = EmbeddedJiraMetrics()
-openai_metrics = OpenAIMetrics()
 railway_metrics = RailwayMetrics()
 
 def get_workspace_connectors(workspace_id, assignment_id):
@@ -43,7 +43,8 @@ def get_workspace_connectors(workspace_id, assignment_id):
     return {
         'github': EmbeddedGitHubMetrics(workspace_id=workspace_id, assignment_id=assignment_id),
         'jira': EmbeddedJiraMetrics(workspace_id=workspace_id, assignment_id=assignment_id),
-        'aws': EmbeddedAWSMetrics(workspace_id=workspace_id, assignment_id=assignment_id)
+        'aws': EmbeddedAWSMetrics(workspace_id=workspace_id, assignment_id=assignment_id),
+        'openai': ConnectorRegistry.get_connector('openai', workspace_id, assignment_id)
     }
 
 def register_routes(app):
@@ -405,7 +406,8 @@ def register_routes(app):
             openai_config = assignment.get('metrics_config', {}).get('openai', {})
             if openai_config.get('enabled', False):
                 try:
-                    metrics['openai'] = openai_metrics.get_usage_metrics(openai_config)
+                    openai_connector = ConnectorRegistry.get_connector('openai', workspace_id, assignment_id)
+                    metrics['openai'] = openai_connector.get_metrics(openai_config)
                 except Exception as e:
                     metrics['openai'] = {"error": str(e)}
             
@@ -424,12 +426,12 @@ def register_routes(app):
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-    @app.route("/api/assignments/<assignment_id>/metrics")
-    def get_assignment_metrics(assignment_id):
-        """Get metrics for specific assignment"""
+    @app.route("/api/workspaces/<workspace_id>/assignments/<assignment_id>/metrics")
+    def get_workspace_assignment_metrics(workspace_id, assignment_id):
+        """Get metrics for specific assignment in workspace context"""
         try:
-            # Load assignment configuration
-            assignment_file = f"config/assignments/{assignment_id}.json"
+            # Load assignment from workspace
+            assignment_file = f"config/workspaces/{workspace_id}/assignments/{assignment_id}.json"
             if not os.path.exists(assignment_file):
                 return jsonify({"error": "Assignment not found"}), 404
             
@@ -438,14 +440,19 @@ def register_routes(app):
             
             metrics = {}
             
-            # AWS metrics
-            if assignment.get('aws', {}).get('enabled', False):
+            # Use workspace-aware connectors where available
+            # Get workspace-scoped connector instances
+            connectors = get_workspace_connectors(workspace_id, assignment_id)
+            
+            # AWS metrics (still using monolithic until extracted)
+            aws_config = assignment.get('metrics_config', {}).get('aws', {})
+            if aws_config.get('enabled', False):
                 try:
-                    metrics['aws'] = aws_metrics.get_metrics()
+                    metrics['aws'] = connectors['aws'].get_metrics()
                 except Exception as e:
                     metrics['aws'] = {"error": str(e)}
             
-            # GitHub metrics
+            # GitHub metrics (still using monolithic until extracted) 
             github_config = assignment.get('metrics_config', {}).get('github', {})
             if github_config.get('enabled', False):
                 try:
@@ -457,21 +464,23 @@ def register_routes(app):
                     # Clean up empty repositories
                     github_metrics_config['repos'] = [repo.strip() for repo in github_metrics_config['repos'] if repo.strip()]
                     
-                    metrics['github'] = github_metrics.get_metrics(github_metrics_config)
+                    metrics['github'] = connectors['github'].get_metrics(github_metrics_config)
                 except Exception as e:
                     metrics['github'] = {"error": str(e)}
             
-            # Jira metrics
-            if assignment.get('jira', {}).get('enabled', False):
+            # Jira metrics (still using monolithic until extracted)
+            jira_config = assignment.get('metrics_config', {}).get('jira', {}) 
+            if jira_config.get('enabled', False):
                 try:
-                    metrics['jira'] = jira_metrics.get_metrics(assignment['jira'])
+                    metrics['jira'] = connectors['jira'].get_metrics(jira_config)
                 except Exception as e:
                     metrics['jira'] = {"error": str(e)}
             
-            # OpenAI metrics
-            if assignment.get('openai', {}).get('enabled', False):
+            # OpenAI metrics (using modular connector)
+            openai_config = assignment.get('metrics_config', {}).get('openai', {})
+            if openai_config.get('enabled', False):
                 try:
-                    metrics['openai'] = openai_metrics.get_usage_metrics(assignment['openai'])
+                    metrics['openai'] = connectors['openai'].get_metrics(openai_config)
                 except Exception as e:
                     metrics['openai'] = {"error": str(e)}
             
@@ -1496,6 +1505,8 @@ def register_routes(app):
                 return _validate_jira_credentials(credentials)  
             elif connector_type == "aws":
                 return _validate_aws_credentials(credentials)
+            elif connector_type == "openai":
+                return _validate_openai_credentials(credentials)
             else:
                 return {"valid": False, "error": f"Unknown connector type: {connector_type}"}
         except Exception as e:
@@ -1636,6 +1647,13 @@ def register_routes(app):
             return {"valid": False, "error": "AWS credentials not provided correctly"}
         except Exception as e:
             return {"valid": False, "error": f"AWS connection failed: {str(e)}"}
+    
+    def _validate_openai_credentials(credentials):
+        """Test OpenAI credentials using modular connector"""
+        try:
+            return ConnectorRegistry.validate_credentials('openai', credentials)
+        except Exception as e:
+            return {"valid": False, "error": f"OpenAI validation failed: {str(e)}"}
 
     @app.route("/static/<path:filename>")
     def serve_static(filename):
