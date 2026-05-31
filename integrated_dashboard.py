@@ -53,6 +53,30 @@ from routes.database_admin import register_database_admin_routes
 register_routes(app)
 register_database_admin_routes(app)
 
+# Debug route for Railway 401 issues
+@app.route('/debug/auth')
+def debug_auth():
+    """Debug endpoint to check authentication status"""
+    try:
+        from services.security.secure_database import secure_db
+        health = secure_db.health_check()
+        
+        return {
+            "database_connected": health.get("database_connected", False),
+            "user_count": health.get('statistics', {}).get('users', 0),
+            "encryption_available": health.get('encryption_available', False),
+            "master_key_configured": health.get('master_key_configured', False),
+            "environment": os.getenv("RAILWAY_ENVIRONMENT", "local"),
+            "debug": True
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "database_connected": False,
+            "environment": os.getenv("RAILWAY_ENVIRONMENT", "local"),
+            "debug": True
+        }, 500
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8520))  # Use allocated CTO Dashboard port
     app.run(host="0.0.0.0", port=port, debug=True)
