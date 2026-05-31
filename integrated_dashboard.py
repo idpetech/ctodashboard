@@ -53,7 +53,7 @@ from routes.database_admin import register_database_admin_routes
 register_routes(app)
 register_database_admin_routes(app)
 
-# Debug route for Railway 401 issues
+# Debug routes for Railway issues
 @app.route('/debug/auth')
 def debug_auth():
     """Debug endpoint to check authentication status"""
@@ -75,6 +75,32 @@ def debug_auth():
             "database_connected": False,
             "environment": os.getenv("RAILWAY_ENVIRONMENT", "local"),
             "debug": True
+        }, 500
+
+@app.route('/debug/force-init')
+def force_init():
+    """Force database initialization - emergency endpoint"""
+    try:
+        from services.security.secure_database import secure_db
+        
+        # Force auto-initialization
+        secure_db._auto_initialize_if_empty()
+        
+        # Check result
+        health = secure_db.health_check()
+        
+        return {
+            "forced_initialization": True,
+            "user_count": health.get('statistics', {}).get('users', 0),
+            "database_connected": health.get("database_connected", False),
+            "message": "Force initialization completed",
+            "environment": os.getenv("RAILWAY_ENVIRONMENT", "local")
+        }
+    except Exception as e:
+        return {
+            "forced_initialization": False,
+            "error": str(e),
+            "message": "Force initialization failed"
         }, 500
 
 if __name__ == "__main__":
