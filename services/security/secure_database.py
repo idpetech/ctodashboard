@@ -27,11 +27,11 @@ class SecureDatabaseManager:
     """
     
     def __init__(self, db_path: str = None):
-        # Railway-aware database path
+        # Railway-aware database path with proper volume mounting
         if db_path is None:
             if os.getenv("RAILWAY_ENVIRONMENT"):
-                # On Railway, use the volume mount path
-                db_path = "config/secure_credentials.db"  # Railway mounts volume at /app/config -> config/
+                # On Railway, use the persistent volume mount path
+                db_path = "/app/config/secure_credentials.db"
             else:
                 db_path = "config/secure_credentials.db"
         self.db_path = Path(db_path)
@@ -191,6 +191,50 @@ class SecureDatabaseManager:
         """)
         
         conn.commit()
+        
+        # Auto-initialize with default user if empty database
+        self._auto_initialize_if_empty()
+    
+    def _auto_initialize_if_empty(self):
+        """Automatically create default user if database is empty"""
+        try:
+            conn = self._get_connection()
+            cursor = conn.execute("SELECT COUNT(*) FROM secure_users")
+            user_count = cursor.fetchone()[0]
+            
+            if user_count == 0:
+                logger.info("Database is empty - creating default admin user")
+                
+                # Create default admin user
+                admin_data = {
+                    "email": "admin@ctodashboard.app",
+                    "display_name": "Admin User",
+                    "password_hash": "change_on_first_login",
+                    "salt": "default_salt",
+                    "workspaces": ["admin_workspace"],
+                    "role": "admin",
+                    "status": "active",
+                    "preferences": {
+                        "theme": "light",
+                        "timezone": "UTC"
+                    }
+                }
+                
+                audit_info = {
+                    "user_email": "system",
+                    "ip_address": "127.0.0.1",
+                    "user_agent": "auto_initialization"
+                }
+                
+                if self.store_user_credentials("admin@ctodashboard.app", admin_data, audit_info):
+                    logger.info("✅ Default admin user created automatically")
+                else:
+                    logger.error("❌ Failed to create default admin user")
+            else:
+                logger.info(f"Database has {user_count} existing users - no auto-initialization needed")
+                
+        except Exception as e:
+            logger.error(f"Auto-initialization failed: {e}")
     
     def _encrypt_data(self, data: Dict[str, Any]) -> bytes:
         """Encrypt dictionary data"""
