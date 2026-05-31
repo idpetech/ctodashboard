@@ -56,7 +56,7 @@ register_database_admin_routes(app)
 # Debug routes for Railway issues
 @app.route('/debug/auth')
 def debug_auth():
-    """Debug endpoint to check authentication status"""
+    """Debug endpoint to check authentication status - v2"""
     try:
         from services.security.secure_database import secure_db
         health = secure_db.health_check()
