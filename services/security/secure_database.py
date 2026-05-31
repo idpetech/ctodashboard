@@ -26,7 +26,13 @@ class SecureDatabaseManager:
     ACID compliant, thread-safe, with proper indexing and querying.
     """
     
-    def __init__(self, db_path: str = "config/secure_credentials.db"):
+    def __init__(self, db_path: str = None):
+        # Railway-aware database path
+        if db_path is None:
+            if os.getenv("RAILWAY_ENVIRONMENT"):
+                db_path = "/app/config/secure_credentials.db"
+            else:
+                db_path = "config/secure_credentials.db"
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(exist_ok=True)
         
