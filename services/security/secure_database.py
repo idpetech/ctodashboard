@@ -34,9 +34,9 @@ class SecureDatabaseManager:
                 # Explicit override via environment variable
                 db_path = os.getenv("DB_PATH")
             elif os.getenv("RAILWAY_ENVIRONMENT"):
-                # On Railway, use relative config directory (proven to work and persist)
-                db_path = "config/secure_credentials.db"
-                logger.info(f"🚂 Railway environment - using persistent config path: {db_path}")
+                # On Railway, use the mounted volume for persistence across deploys
+                db_path = "/data/config/secure_credentials.db"
+                logger.info(f"🚂 Railway environment - using volume-backed path: {db_path}")
             else:
                 db_path = "config/secure_credentials.db"
         self.db_path = Path(db_path)
