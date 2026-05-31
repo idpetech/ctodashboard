@@ -9,6 +9,7 @@ import sqlite3
 import hashlib
 import base64
 import logging
+import time
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from cryptography.fernet import Fernet
@@ -37,6 +38,9 @@ class SecureDatabaseManager:
                 # otherwise fall back to /data (common writable volume mount)
                 volume_mount = os.getenv("RAILWAY_VOLUME_MOUNT_PATH", "/data")
                 db_path = f"{volume_mount}/config/secure_credentials.db"
+                logger.info(f"🚂 Railway environment detected")
+                logger.info(f"🗄️ Volume mount path: {volume_mount}")
+                logger.info(f"📁 Database path: {db_path}")
             else:
                 db_path = "config/secure_credentials.db"
         self.db_path = Path(db_path)
@@ -63,19 +67,36 @@ class SecureDatabaseManager:
         self._init_database()
     
     def _get_connection(self) -> sqlite3.Connection:
-        """Get thread-local database connection"""
+        """Get thread-local database connection with lock handling"""
         if not hasattr(self._local, 'connection'):
-            self._local.connection = sqlite3.connect(
-                str(self.db_path),
-                timeout=30.0,
-                check_same_thread=False
-            )
-            self._local.connection.row_factory = sqlite3.Row
-            # Enable WAL mode for better concurrency
-            self._local.connection.execute("PRAGMA journal_mode=WAL")
-            self._local.connection.execute("PRAGMA synchronous=NORMAL")
-            self._local.connection.execute("PRAGMA temp_store=MEMORY")
-            self._local.connection.execute("PRAGMA foreign_keys=ON")
+            max_retries = 3
+            retry_delay = 0.1
+            
+            for attempt in range(max_retries):
+                try:
+                    self._local.connection = sqlite3.connect(
+                        str(self.db_path),
+                        timeout=10.0,  # Shorter timeout with retries
+                        check_same_thread=False
+                    )
+                    self._local.connection.row_factory = sqlite3.Row
+                    
+                    # Enable WAL mode for better concurrency
+                    self._local.connection.execute("PRAGMA journal_mode=WAL")
+                    self._local.connection.execute("PRAGMA synchronous=NORMAL")
+                    self._local.connection.execute("PRAGMA temp_store=MEMORY")
+                    self._local.connection.execute("PRAGMA foreign_keys=ON")
+                    self._local.connection.execute("PRAGMA busy_timeout=5000")  # 5 second busy timeout
+                    break
+                    
+                except sqlite3.OperationalError as e:
+                    if "database is locked" in str(e) and attempt < max_retries - 1:
+                        logger.warning(f"Database locked, retrying in {retry_delay}s (attempt {attempt + 1}/{max_retries})")
+                        time.sleep(retry_delay)
+                        retry_delay *= 2
+                    else:
+                        logger.error(f"Database connection failed after {max_retries} attempts: {e}")
+                        raise
         
         return self._local.connection
     
@@ -197,8 +218,8 @@ class SecureDatabaseManager:
         
         conn.commit()
         
-        # Auto-initialize with default user if empty database
-        self._auto_initialize_if_empty()
+        # REMOVED: Auto-initialization on startup to prevent wiping users on Railway deployments
+        # Use manual initialization instead: railway run python railway_db_inspect.py reset
     
     def _auto_initialize_if_empty(self):
         """Automatically create default user if database is empty"""
@@ -595,5 +616,22 @@ class SecureDatabaseManager:
             }
 
 
-# Global instance
-secure_db = SecureDatabaseManager()
+# Singleton instance - lazy initialization to prevent import-time database locks
+_secure_db_instance = None
+_secure_db_lock = threading.Lock()
+
+def get_secure_db() -> SecureDatabaseManager:
+    """Get singleton instance of SecureDatabaseManager with thread safety"""
+    global _secure_db_instance
+    if _secure_db_instance is None:
+        with _secure_db_lock:
+            if _secure_db_instance is None:  # Double-check locking
+                _secure_db_instance = SecureDatabaseManager()
+    return _secure_db_instance
+
+# Lazy property for backward compatibility
+class _SecureDbProxy:
+    def __getattr__(self, name):
+        return getattr(get_secure_db(), name)
+
+secure_db = _SecureDbProxy()
