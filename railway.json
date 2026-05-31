@@ -8,12 +8,6 @@
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300
   },
-  "volumes": [
-    {
-      "mountPath": "/data/config",
-      "name": "database-storage"
-    }
-  ],
   "variables": {
     "DATABASE_PERSISTENCE": "true",
     "CONFIG_BACKUP": "true"
