@@ -131,7 +131,8 @@ def create_auth_decorators(user_service):
                             g.current_user = None
                     else:
                         g.current_user = None
-                except:
+                except (KeyError, ValueError, Exception) as e:
+                    logging.warning(f"Authentication failed: {e}")
                     g.current_user = None
             else:
                 g.current_user = None
@@ -166,7 +167,8 @@ def create_auth_decorators(user_service):
                             verification = user_service.verify_token(token)
                             if verification.get("valid"):
                                 user = verification["user"]
-                    except:
+                    except (ValueError, KeyError) as e:
+                        logging.warning(f"Token verification failed: {e}")
                         pass
             
             # If no valid authentication found, redirect to login
@@ -219,7 +221,8 @@ def create_auth_decorators(user_service):
                                 # Restore session if header auth worked (helpful for hostname switches)
                                 session['user_email'] = user['email']
                                 session['auth_token'] = token
-                    except:
+                    except (ValueError, KeyError) as e:
+                        logging.warning(f"Session restoration failed: {e}")
                         pass
             
             # Final fallback: Check localStorage token via cookie

@@ -202,7 +202,8 @@ class RailwayMetrics:
                         if response.status == 200:
                             data = await response.json()
                             return self._process_deployment_data(data, project_id, project_name)
-                except:
+                except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as e:
+                    logging.warning(f"Railway API endpoint {url} failed: {e}")
                     continue
         
         return {"status": "api_unavailable", "method": "legacy", "error": "All legacy endpoints failed"}
@@ -259,7 +260,8 @@ class RailwayMetrics:
                         end = datetime.fromisoformat(finished_at.replace('Z', '+00:00'))
                         duration = (end - start).total_seconds()
                         deployment_times.append(duration)
-                    except:
+                    except (ValueError, TypeError) as e:
+                        logging.warning(f"Failed to parse deployment timestamp: {e}")
                         pass
                 
                 # Track most recent deployment
