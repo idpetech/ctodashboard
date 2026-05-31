@@ -30,11 +30,20 @@ class SecureDatabaseManager:
         # Railway-aware database path
         if db_path is None:
             if os.getenv("RAILWAY_ENVIRONMENT"):
-                db_path = "/app/config/secure_credentials.db"
+                # On Railway, use the volume mount path
+                db_path = "config/secure_credentials.db"  # Railway mounts volume at /app/config -> config/
             else:
                 db_path = "config/secure_credentials.db"
         self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(exist_ok=True)
+        
+        # Create parent directory with proper permissions
+        try:
+            self.db_path.parent.mkdir(exist_ok=True, parents=True)
+        except PermissionError:
+            # Fallback to current directory if we can't create config/
+            if os.getenv("RAILWAY_ENVIRONMENT"):
+                self.db_path = Path("secure_credentials.db")
+                print(f"Warning: Using fallback database path: {self.db_path}")
         
         # Thread-local storage for database connections
         self._local = threading.local()

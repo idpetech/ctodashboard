@@ -35,15 +35,23 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 def ensure_config_directory():
     """Ensure config directory exists with proper permissions"""
-    config_dir = Path("/app/config") if os.path.exists("/app") else Path("config")
-    config_dir.mkdir(exist_ok=True, parents=True)
+    # Railway debugging - check current working directory and environment
+    logger.info("Current working directory: %s", os.getcwd())
+    logger.info("Contents of current directory: %s", os.listdir('.'))
+    logger.info("RAILWAY_ENVIRONMENT: %s", os.getenv("RAILWAY_ENVIRONMENT"))
     
-    # Set proper permissions
+    # Try Railway volume mount path first
+    config_dir = Path("config")
+    
+    # Create directory if it doesn't exist
     try:
-        os.chmod(config_dir, 0o755)
-        logger.info("Config directory ready: %s", config_dir)
+        config_dir.mkdir(exist_ok=True, parents=True)
+        logger.info("Config directory ready: %s", config_dir.absolute())
     except Exception as e:
-        logger.warning("Could not set directory permissions: %s", e)
+        logger.warning("Could not create config directory: %s", e)
+        # Fallback to current directory
+        config_dir = Path(".")
+        logger.info("Using current directory as fallback: %s", config_dir.absolute())
     
     return config_dir
 
