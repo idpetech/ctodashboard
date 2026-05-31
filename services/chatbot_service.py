@@ -25,13 +25,12 @@ sys.path.insert(0, '.')
 from services.embedded.aws_metrics import EmbeddedAWSMetrics
 from services.embedded.github_metrics import EmbeddedGitHubMetrics
 from services.embedded.jira_metrics import EmbeddedJiraMetrics
-from services.embedded.openai_metrics import OpenAIMetrics
+from connectors.registry import ConnectorRegistry
 
 # Initialize metrics services
 aws_metrics = EmbeddedAWSMetrics()
 github_metrics = EmbeddedGitHubMetrics()
 jira_metrics = EmbeddedJiraMetrics()
-openai_metrics = OpenAIMetrics()
 
 # Conversation history storage
 conversation_history = {}
@@ -116,9 +115,8 @@ def get_assignment_data() -> Dict[str, Any]:
                             # OpenAI
                             if config.get('openai', {}).get('enabled'):
                                 try:
-                                    from .embedded.openai_metrics import OpenAIMetrics
-                                    openai_metrics = OpenAIMetrics()
-                                    metrics['openai'] = openai_metrics.get_usage_metrics(config['openai'])
+                                    openai_connector = ConnectorRegistry.get_connector('openai')
+                                    metrics['openai'] = openai_connector.get_metrics(config['openai'])
                                 except Exception as e:
                                     metrics['openai'] = {'error': str(e)}
                         

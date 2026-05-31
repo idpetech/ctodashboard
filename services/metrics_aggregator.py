@@ -93,8 +93,7 @@ class MetricsAggregator:
         openai_config = metrics_config.get("openai", {})
         if openai_config.get("enabled", False):
             try:
-                openai_metrics = OpenAIMetrics()
-                metrics["openai"] = openai_metrics.get_usage_metrics(openai_config)
+                metrics["openai"] = connectors["openai"].get_usage_metrics(openai_config)
             except Exception as e:
                 metrics["openai"] = {"error": str(e)}
         
