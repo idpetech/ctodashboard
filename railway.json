@@ -10,7 +10,7 @@
   },
   "volumes": [
     {
-      "mountPath": "/data",
+      "mountPath": "/data/config",
       "name": "database-storage"
     }
   ],

@@ -34,13 +34,14 @@ class SecureDatabaseManager:
                 # Explicit override via environment variable
                 db_path = os.getenv("DB_PATH")
             elif os.getenv("RAILWAY_ENVIRONMENT"):
-                # On Railway, use the persistent volume mount path if available,
-                # otherwise fall back to /data (common writable volume mount)
-                volume_mount = os.getenv("RAILWAY_VOLUME_MOUNT_PATH", "/data")
-                db_path = f"{volume_mount}/config/secure_credentials.db"
-                logger.info(f"🚂 Railway environment detected")
-                logger.info(f"🗄️ Volume mount path: {volume_mount}")
-                logger.info(f"📁 Database path: {db_path}")
+                # On Railway, use mounted volume at /data/config
+                if Path("/data/config").exists():
+                    db_path = "/data/config/secure_credentials.db"
+                    logger.info(f"🚂 Railway environment - using volume mount: {db_path}")
+                else:
+                    # Fallback to relative config if volume not mounted
+                    db_path = "config/secure_credentials.db"
+                    logger.warning(f"🚂 Railway volume not found - using fallback: {db_path}")
             else:
                 db_path = "config/secure_credentials.db"
         self.db_path = Path(db_path)
