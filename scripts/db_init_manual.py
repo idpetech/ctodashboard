@@ -1,7 +1,18 @@
 #!/usr/bin/env python3
 """
-Railway Database Initialization
-Ensures secure database is properly created on Railway startup
+Manual Database Initialization Script
+⚠️  MANUAL USE ONLY - DO NOT RUN AUTOMATICALLY ON DEPLOYMENT ⚠️
+
+Run this script manually when:
+- Setting up database for the first time
+- Resetting database completely (destructive)
+- Initializing new environment
+
+Usage:
+    python scripts/db_init_manual.py
+    
+Railway usage:
+    railway run python scripts/db_init_manual.py
 """
 
 import os
@@ -107,7 +118,10 @@ def create_initial_user_if_needed():
         return False
 
 def main():
-    logger.info("🚄 Railway Database Initialization Starting")
+    logger.warning("⚠️  MANUAL DATABASE INITIALIZATION SCRIPT ⚠️")
+    logger.warning("This script should only be run manually!")
+    logger.warning("Do not include in automatic deployment processes!")
+    logger.info("🗄️  Manual Database Initialization Starting")
     
     # Step 1: Ensure directories exist
     ensure_config_directory()

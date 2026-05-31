@@ -1,2 +1,3 @@
-release: python railway_init_db.py
+# Database initialization disabled - run manually when needed:
+# railway run python railway_init_db.py
 web: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 300 integrated_dashboard:app
