@@ -5,7 +5,6 @@ Helps diagnose and fix GitHub API authentication issues in CTO Dashboard
 """
 
 import os
-import sys
 from dotenv import load_dotenv
 
 def main():
@@ -27,7 +26,7 @@ def main():
     # Check GITHUB_TOKEN
     token = os.getenv('GITHUB_TOKEN')
     
-    print(f"\n📋 Environment Variable Check:")
+    print("\n📋 Environment Variable Check:")
     if not token:
         print("❌ GITHUB_TOKEN not found in environment")
         print("💡 Add GITHUB_TOKEN to your .env file")
@@ -58,7 +57,7 @@ def main():
         print("⚠️  Unknown token format")
     
     # Test GitHub API connectivity
-    print(f"\n🌐 Testing GitHub API connectivity...")
+    print("\n🌐 Testing GitHub API connectivity...")
     
     try:
         from services.embedded.github_metrics import EmbeddedGitHubMetrics
@@ -73,7 +72,7 @@ def main():
             print(f"🔑 Token type: {validation['token_type']}")
             
             # Test basic repository access
-            print(f"\n📊 Testing repository metrics...")
+            print("\n📊 Testing repository metrics...")
             test_config = {
                 'org': validation['authenticated_user'],
                 'repos': []
@@ -117,7 +116,7 @@ def main():
     except Exception as e:
         print(f"❌ Unexpected error: {e}")
     
-    print(f"\n📋 Summary:")
+    print("\n📋 Summary:")
     print("   For HTTP 401 errors, the most common causes are:")
     print("   1. Using 'test_token' placeholder instead of real token")
     print("   2. Token expired or revoked")

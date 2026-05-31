@@ -11,7 +11,6 @@ import json
 import logging
 from typing import Dict, Any, List
 
-from mcp.client import Client
 from mcp.client.stdio import stdio_client
 
 # Configure logging

@@ -3,13 +3,11 @@ Secure User Service
 Integrates with encrypted database storage for user authentication
 """
 
-import os
 import jwt
 import hashlib
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, Any, Optional
-from pathlib import Path
 from flask import request
 
 from ..security.secure_database import secure_db

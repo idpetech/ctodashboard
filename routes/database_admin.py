@@ -3,9 +3,8 @@ Database Admin Routes for Railway
 Provides endpoints to monitor and manage the secure database
 """
 
-from flask import jsonify, request, render_template_string
+from flask import jsonify, render_template_string
 from services.security.secure_database import secure_db
-from services.auth.auth_middleware import get_current_user
 
 
 def register_database_admin_routes(app):

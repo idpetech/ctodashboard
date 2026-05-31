@@ -3,9 +3,8 @@
 import os
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List
 import boto3
-from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 

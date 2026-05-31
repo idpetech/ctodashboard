@@ -6,7 +6,6 @@ This script tests the chatbot functionality to ensure it's working correctly.
 """
 
 import asyncio
-import json
 import sys
 from pathlib import Path
 

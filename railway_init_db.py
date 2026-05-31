@@ -110,7 +110,7 @@ def main():
     logger.info("🚄 Railway Database Initialization Starting")
     
     # Step 1: Ensure directories exist
-    config_dir = ensure_config_directory()
+    ensure_config_directory()
     
     # Step 2: Initialize secure database
     if not initialize_secure_database():

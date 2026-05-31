@@ -6,7 +6,6 @@ This script tests the chatbot functionality with OpenAI LLM integration.
 """
 
 import asyncio
-import json
 import os
 import sys
 from pathlib import Path
@@ -109,7 +108,6 @@ def test_mcp_integration():
     
     try:
         # Import MCP server
-        from mcp_server import CTODashboardMCPServer
         
         print("✅ MCP server imported successfully")
         print("✅ Chatbot service integrated with MCP server")

@@ -1,16 +1,14 @@
 # Clean metrics service - each platform has its own class
 import os
-import asyncio
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List
 import aiohttp
 import requests
 import boto3
-from botocore.exceptions import ClientError
 
 
 class GitHubMetrics:

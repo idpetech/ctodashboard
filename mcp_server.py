@@ -14,7 +14,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict
 
 # Add backend to path for imports
 sys.path.append(str(Path(__file__).parent / "backend"))
@@ -23,13 +23,9 @@ from mcp.server import Server
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
 from mcp.types import (
-    CallToolRequest,
     CallToolResult,
-    ListResourcesRequest,
     ListResourcesResult,
-    ListToolsRequest,
     ListToolsResult,
-    ReadResourceRequest,
     ReadResourceResult,
     Resource,
     TextContent,

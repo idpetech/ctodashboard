@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 def debug_github_validation(token):
     """Debug GitHub credentials with detailed logging"""
     logger.info("🔍 Testing GitHub token validation")
-    logger.info(f"Token format: {'ghp_' if token.startswith('ghp_') else 'classic' if token.startswith('ghp_') == False and len(token) == 40 else 'unknown'}")
+    logger.info(f"Token format: {'ghp_' if token.startswith('ghp_') else 'classic' if not token.startswith('ghp_') and len(token) == 40 else 'unknown'}")
     logger.info(f"Token length: {len(token)}")
     logger.info(f"Token prefix: {token[:8]}...")
     
@@ -88,6 +88,6 @@ if __name__ == "__main__":
     
     if len(sys.argv) > 1:
         user_token = sys.argv[1]
-        print(f"Testing your token...")
+        print("Testing your token...")
         result = debug_github_validation(user_token)
         print(f"Final result: {result}")

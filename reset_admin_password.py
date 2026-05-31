@@ -44,8 +44,8 @@ def reset_admin_password(new_password: str = "admin123"):
     with open(user_file, 'w') as f:
         json.dump(user_data, f, indent=2)
     
-    print(f"✅ Password reset for admin@ideptech.com")
-    print(f"📧 Email: admin@ideptech.com")
+    print("✅ Password reset for admin@ideptech.com")
+    print("📧 Email: admin@ideptech.com")
     print(f"🔑 Password: {new_password}")
     print(f"🏢 Workspaces: {user_data.get('workspaces', [])}")
 

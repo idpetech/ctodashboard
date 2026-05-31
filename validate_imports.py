@@ -41,9 +41,9 @@ try:
     spec = importlib.util.spec_from_file_location("integrated_dashboard", "integrated_dashboard.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    print(f"✓ integrated_dashboard.py: OK")
+    print("✓ integrated_dashboard.py: OK")
 except Exception as e:
-    print(f"✗ integrated_dashboard.py: ERROR")
+    print("✗ integrated_dashboard.py: ERROR")
     print(f"  {type(e).__name__}: {e}")
     all_ok = False
 

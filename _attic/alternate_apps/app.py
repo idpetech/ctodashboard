@@ -1,9 +1,6 @@
 import os
-import asyncio
-import json
-from datetime import datetime
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, render_template_string
+from flask import Flask, render_template_string
 from routes.api_routes import register_routes
 
 # Load environment variables

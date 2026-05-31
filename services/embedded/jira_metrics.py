@@ -1,7 +1,6 @@
 import os
 import logging
 import requests
-from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 

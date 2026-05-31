@@ -8,9 +8,9 @@ import json
 import hashlib
 import secrets
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime
 import jwt
 
 logger = logging.getLogger(__name__)

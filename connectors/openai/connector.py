@@ -118,7 +118,7 @@ class OpenAIConnector(BaseConnector):
         try:
             response = self._make_request("GET", f"{self.base_url}/dashboard/billing/subscription", headers=headers)
             billing_info["subscription"] = response.json()
-        except Exception as e:
+        except Exception:
             logger.info("Subscription endpoint restricted for personal account")
             billing_info["subscription"] = {
                 "personal_account": True,
@@ -129,7 +129,7 @@ class OpenAIConnector(BaseConnector):
         try:
             response = self._make_request("GET", f"{self.base_url}/dashboard/billing/credit_grants", headers=headers)
             billing_info["credits"] = response.json()
-        except Exception as e:
+        except Exception:
             logger.info("Credit grants endpoint restricted for personal account") 
             billing_info["credits"] = {
                 "personal_account": True,

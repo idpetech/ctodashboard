@@ -3,7 +3,6 @@ Metrics Aggregator Service - Phase 2 Workspace-Only
 Composes embedded metrics services for MCP consumption using workspace store
 """
 
-import asyncio
 import logging
 from datetime import datetime
 from typing import Dict
@@ -14,7 +13,6 @@ from .workspace.workspace_service import WorkspaceService
 from .embedded.aws_metrics import EmbeddedAWSMetrics
 from .embedded.github_metrics import EmbeddedGitHubMetrics
 from .embedded.jira_metrics import EmbeddedJiraMetrics
-from .embedded.openai_metrics import OpenAIMetrics
 from .embedded.railway_metrics import RailwayMetrics
 
 

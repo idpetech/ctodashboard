@@ -9,7 +9,7 @@ functionality without touching existing working code.
 import os
 import json
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, Optional, Any
 from pathlib import Path
 from datetime import datetime
 

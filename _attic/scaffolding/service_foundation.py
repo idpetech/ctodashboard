@@ -2,8 +2,6 @@
 # KISS + DRY principles throughout
 
 from datetime import datetime
-import requests
-import os
 
 class BaseService:
     """Base service class with common functionality"""

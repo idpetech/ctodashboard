@@ -4,7 +4,6 @@ Test enhanced OpenAI metrics connector with workspace support
 """
 import sys
 import logging
-import json
 import os
 
 # Set up logging

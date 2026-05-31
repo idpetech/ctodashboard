@@ -1,10 +1,8 @@
 # Railway Metrics Service  
 # Extracted from backend/metrics_service.py::RailwayMetrics
 import os
-import asyncio
 import ssl
 import aiohttp
-import requests
 from typing import Dict
 
 
@@ -67,7 +65,7 @@ class RailwayMetrics:
                 if result.get("status") == "success":
                     return result
                 # If method returns api_unavailable, try next method
-            except Exception as e:
+            except Exception:
                 # Continue to next method
                 pass
         

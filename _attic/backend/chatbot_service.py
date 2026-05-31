@@ -6,14 +6,11 @@ This service provides AI-powered chatbot functionality that can answer questions
 about managed services, assignments, metrics, and provide insights using OpenAI LLM via LangChain.
 """
 
-import asyncio
-import json
 import logging
 import os
-import subprocess
 import sys
 from datetime import datetime
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from pathlib import Path
 
 # Add current directory to path for imports

@@ -207,7 +207,7 @@ class EmbeddedAWSMetrics:
         top_service = max(service_costs.items(), key=lambda x: x[1]) if service_costs else None
         if top_service and top_service[1] > total_cost * 0.3:
             service_name = top_service[0]
-            recommendations.append(f"")
+            recommendations.append("")
             recommendations.append(f"🔍 TOP SERVICE FOCUS: {service_name} accounts for {top_service[1]/total_cost*100:.1f}% of costs")
             recommendations.append(f"• Review {service_name} usage patterns and optimization opportunities")
         

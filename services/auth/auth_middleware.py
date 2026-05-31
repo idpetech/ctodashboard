@@ -195,18 +195,16 @@ def create_auth_decorators(user_service):
             print(f"DEBUG: Session keys: {list(session.keys())}")
             
             # Check session first
-            session_valid = False
             if 'user_email' in session and 'auth_token' in session:
                 print(f"DEBUG: Found session data for {session['user_email']}")
                 verification = user_service.verify_token(session['auth_token'])
                 if verification.get("valid"):
-                    print(f"DEBUG: Session token is valid")
+                    print("DEBUG: Session token is valid")
                     user = verification["user"]
-                    session_valid = True
                 else:
                     print(f"DEBUG: Session token invalid: {verification}")
             else:
-                print(f"DEBUG: No session data found")
+                print("DEBUG: No session data found")
             
             # Fall back to Authorization header (for cross-hostname access)
             if not user:

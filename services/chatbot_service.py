@@ -232,7 +232,7 @@ def _process_rule_based(question: str, assignment_data: Dict) -> Dict[str, Any]:
         response = f"I'm tracking {len(assignments)} assignment(s): {', '.join(names)}."
     
     else:
-        response = f"I can help you with questions about:\n• Assignments and projects\n• Metrics and costs\n• Team information\n• Technology stacks\n• Service status\n\nPlease ask me a specific question about your managed services!"
+        response = "I can help you with questions about:\n• Assignments and projects\n• Metrics and costs\n• Team information\n• Technology stacks\n• Service status\n\nPlease ask me a specific question about your managed services!"
     
     return {
         "response": response,

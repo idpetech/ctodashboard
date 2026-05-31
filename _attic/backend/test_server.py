@@ -126,7 +126,7 @@ def get_aws_data():
 def get_railway_data():
     """Simple Railway API call"""
     token = os.getenv("RAILWAY_TOKEN")
-    project_id = os.getenv("RAILWAY_PROJECT_ID")
+    os.getenv("RAILWAY_PROJECT_ID")
     
     if not token:
         return {"error": "Railway token missing"}

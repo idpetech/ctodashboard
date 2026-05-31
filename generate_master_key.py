@@ -7,10 +7,7 @@ Usage:
     python generate_master_key.py [--length 64] [--format hex|base64]
 """
 
-import os
-import sys
 import secrets
-import base64
 import argparse
 from pathlib import Path
 
@@ -125,7 +122,7 @@ def main():
         return
     
     if args.passphrase:
-        print(f"\n⚠️  WARNING: Generating key from passphrase is less secure!")
+        print("\n⚠️  WARNING: Generating key from passphrase is less secure!")
         print("🔒 For production, use randomly generated keys instead.")
         key = MasterKeyGenerator.generate_from_passphrase(args.passphrase)
     else:
@@ -135,18 +132,18 @@ def main():
         else:
             key = MasterKeyGenerator.generate_base64_key(args.length)
     
-    print(f"\n🔑 Generated Key:")
+    print("\n🔑 Generated Key:")
     print("=" * 50)
     print(key)
     
     # Validate strength
     validation = MasterKeyGenerator.validate_key_strength(key)
-    print(f"\n📊 Key Strength:")
+    print("\n📊 Key Strength:")
     print(f"Length: {validation['length']} characters")
     print(f"Entropy: ~{validation['entropy_bits']} bits")
     print(f"Status: {'✅ Strong' if validation['is_strong'] else '⚠️ Consider longer key'}")
     
-    print(f"\n🚀 Usage:")
+    print("\n🚀 Usage:")
     print("=" * 50)
     print("# For local development:")
     print(f"export CREDENTIAL_MASTER_KEY=\"{key}\"")
@@ -157,7 +154,7 @@ def main():
     print("# For Docker/production:")
     print(f"docker run -e CREDENTIAL_MASTER_KEY=\"{key}\" your-app")
     
-    print(f"\n⚠️  SECURITY WARNINGS:")
+    print("\n⚠️  SECURITY WARNINGS:")
     print("• Store this key securely (password manager, secure vault)")
     print("• Never commit this key to version control")
     print("• Use different keys for different environments")

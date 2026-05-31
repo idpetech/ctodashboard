@@ -4,7 +4,6 @@ Phase 5C: Backup/Restore Commands for CTO Dashboard
 CLI tool for backing up and restoring all dashboard data
 """
 
-import os
 import json
 import shutil
 import argparse
@@ -247,7 +246,7 @@ def main():
     backup_parser.add_argument('--include-services', action='store_true', help='Include service files')
     
     # List command
-    list_parser = subparsers.add_parser('list', help='List all backups')
+    subparsers.add_parser('list', help='List all backups')
     
     # Restore command
     restore_parser = subparsers.add_parser('restore', help='Restore from backup')
@@ -274,7 +273,7 @@ def main():
             include_services=args.include_services
         )
         if result:
-            print(f"\n💡 To restore this backup later, run:")
+            print("\n💡 To restore this backup later, run:")
             print(f"   python backup_restore.py restore {Path(result).name}")
     
     elif args.command == 'list':
@@ -287,7 +286,7 @@ def main():
             dry_run=args.dry_run
         )
         if success and not args.dry_run:
-            print(f"\n💡 Restart the dashboard application to use restored data")
+            print("\n💡 Restart the dashboard application to use restored data")
     
     elif args.command == 'delete':
         backup_manager.delete_backup(args.backup_file)

@@ -102,7 +102,7 @@ def test_base_connector():
     
     try:
         from connectors.base.base_connector import BaseConnector
-        from connectors.base.exceptions import ConnectorError, UnknownConnectorError
+        from connectors.base.exceptions import ConnectorError
         logger.info("✅ Base connector and exceptions imported successfully")
         
         # Test exception hierarchy
@@ -183,11 +183,11 @@ def test_architecture_benefits():
         validator = OpenAIValidator()
         
         # Can use validator independently
-        result = validator.validate_credentials({"openai_api_key": "test"})
+        validator.validate_credentials({"openai_api_key": "test"})
         logger.info("✅ Can use validator independently of connector")
         
         # Can use connector independently  
-        metrics = connector.get_metrics({})
+        connector.get_metrics({})
         logger.info("✅ Can use connector independently of validator")
         
     except Exception as e:
@@ -197,7 +197,6 @@ def test_architecture_benefits():
     # Test 2: Easy imports
     try:
         from connectors.openai import OpenAIConnector, OpenAIValidator
-        from connectors.base import BaseConnector, ConnectorError
         logger.info("✅ Clean, organized imports work")
     except Exception as e:
         logger.error(f"❌ Import test failed: {e}")

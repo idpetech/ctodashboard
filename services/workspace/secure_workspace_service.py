@@ -3,10 +3,9 @@ Secure Workspace Service Integration
 Extends workspace service with secure credential management
 """
 
-import os
 import json
 import copy
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 from pathlib import Path
 
 from .workspace_service import WorkspaceService

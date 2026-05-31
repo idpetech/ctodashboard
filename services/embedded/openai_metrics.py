@@ -1,8 +1,8 @@
 import os
 import requests
 import logging
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from datetime import datetime
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 
@@ -289,7 +289,7 @@ class OpenAIMetrics:
         usage = metrics.get("usage_this_month", {})
         total_cost = usage.get("estimated_cost", 0)
         total_tokens = usage.get("total_tokens", 0)
-        total_requests = usage.get("total_requests", 0)
+        usage.get("total_requests", 0)
         
         # Cost efficiency analysis
         if total_cost > 0:

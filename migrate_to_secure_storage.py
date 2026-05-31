@@ -10,13 +10,12 @@ Usage:
     python migrate_to_secure_storage.py [--dry-run] [--force]
 """
 
-import os
 import sys
 import json
 import argparse
 import logging
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 # Configure logging for migration script
 logging.basicConfig(

@@ -6,14 +6,13 @@ Extracted from integrated_dashboard.py for clean separation
 from flask import jsonify, render_template, request, send_from_directory
 import os
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from services.service_manager import ServiceManager
 from services.embedded.aws_metrics import EmbeddedAWSMetrics
 from services.embedded.github_metrics import EmbeddedGitHubMetrics
 from services.embedded.jira_metrics import EmbeddedJiraMetrics
 from services.embedded.railway_metrics import RailwayMetrics
 from connectors.registry import ConnectorRegistry
-from connectors.base.exceptions import UnknownConnectorError
 from services.chatbot_service import process_question, process_question_stream, get_conversation_history, clear_conversation_history
 from services.workspace.workspace_service import WorkspaceService
 from services.auth.user_service import UserService
@@ -814,7 +813,7 @@ def register_routes(app):
                     return jsonify([workspace_info])
                 else:
                     return jsonify([])
-            except Exception as e:
+            except Exception:
                 return jsonify([])
                 
         elif request.method == "POST":
