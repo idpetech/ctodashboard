@@ -103,6 +103,86 @@ def force_init():
             "message": "Force initialization failed"
         }, 500
 
+@app.route('/debug/db-location')
+def debug_db_location():
+    """Show exactly where database is being written"""
+    try:
+        from services.security.secure_database import secure_db
+        from pathlib import Path
+        
+        db_path = secure_db.db_path
+        abs_db_path = os.path.abspath(db_path)
+        
+        # Check if file exists and get info
+        if os.path.exists(db_path):
+            stat = os.stat(db_path)
+            file_size = stat.st_size
+            file_exists = True
+        else:
+            file_size = 0
+            file_exists = False
+            
+        return {
+            "database_path": db_path,
+            "absolute_path": abs_db_path,
+            "file_exists": file_exists,
+            "file_size_bytes": file_size,
+            "working_directory": os.getcwd(),
+            "railway_environment": os.getenv("RAILWAY_ENVIRONMENT", "local"),
+            "volume_mount": os.getenv("RAILWAY_VOLUME_MOUNT_PATH", "/data"),
+            "expected_railway_path": "/data/config/secure_credentials.db"
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "working_directory": os.getcwd(),
+            "railway_environment": os.getenv("RAILWAY_ENVIRONMENT", "local")
+        }, 500
+
+@app.route('/debug/test-write')
+def test_database_write():
+    """Test writing a record to verify database location"""
+    try:
+        from services.auth.user_service import UserService
+        import time
+        
+        # Get DB location first
+        from services.security.secure_database import secure_db
+        db_path = secure_db.db_path
+        
+        # Get file size before
+        if os.path.exists(db_path):
+            size_before = os.stat(db_path).st_size
+        else:
+            size_before = 0
+        
+        # Try to list users (this will create tables if needed)
+        user_service = UserService()
+        users = user_service.list_users()
+        
+        # Get file size after
+        if os.path.exists(db_path):
+            size_after = os.stat(db_path).st_size
+        else:
+            size_after = 0
+            
+        return {
+            "database_path": db_path,
+            "absolute_path": os.path.abspath(db_path),
+            "size_before": size_before,
+            "size_after": size_after,
+            "size_changed": size_after != size_before,
+            "user_count": len(users),
+            "file_exists": os.path.exists(db_path),
+            "timestamp": int(time.time()),
+            "railway_environment": os.getenv("RAILWAY_ENVIRONMENT", "local")
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "railway_environment": os.getenv("RAILWAY_ENVIRONMENT", "local")
+        }, 500
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8520))  # Use allocated CTO Dashboard port
     app.run(host="0.0.0.0", port=port, debug=True)
