@@ -143,11 +143,10 @@ def debug_db_location():
 def test_database_write():
     """Test writing a record to verify database location"""
     try:
-        from services.auth.user_service import UserService
         import time
+        from services.security.secure_database import secure_db
         
         # Get DB location first
-        from services.security.secure_database import secure_db
         db_path = secure_db.db_path
         
         # Get file size before
@@ -156,9 +155,9 @@ def test_database_write():
         else:
             size_before = 0
         
-        # Try to list users (this will create tables if needed)
-        user_service = UserService()
-        users = user_service.list_users()
+        # Test database health check instead of creating UserService
+        health = secure_db.health_check()
+        user_count = health.get('statistics', {}).get('users', 0)
         
         # Get file size after
         if os.path.exists(db_path):
@@ -172,14 +171,17 @@ def test_database_write():
             "size_before": size_before,
             "size_after": size_after,
             "size_changed": size_after != size_before,
-            "user_count": len(users),
+            "user_count": user_count,
             "file_exists": os.path.exists(db_path),
+            "database_connected": health.get("database_connected", False),
             "timestamp": int(time.time()),
             "railway_environment": os.getenv("RAILWAY_ENVIRONMENT", "local")
         }
     except Exception as e:
+        import traceback
         return {
             "error": str(e),
+            "traceback": traceback.format_exc(),
             "railway_environment": os.getenv("RAILWAY_ENVIRONMENT", "local")
         }, 500
 
