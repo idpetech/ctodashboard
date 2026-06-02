@@ -374,9 +374,17 @@
             <div class="bg-white rounded-lg shadow p-3 min-w-64">
                 <div class="flex justify-between items-center mb-2">
                     <div class="text-sm font-medium text-gray-700">Workspace:</div>
-                    <button onclick="openWorkspaceSettings()" class="text-blue-600 hover:text-blue-700 text-sm font-medium" title="Configure Workspace Settings">
-                        🛠️ Setup
-                    </button>
+                    <div class="flex space-x-2">
+                        <button onclick="showImportMenu()" class="text-purple-600 hover:text-purple-700 text-sm font-medium" title="Import Workspace Data">
+                            📥 Import
+                        </button>
+                        <button onclick="showExportMenu()" class="text-green-600 hover:text-green-700 text-sm font-medium" title="Export Workspace Data">
+                            📤 Export
+                        </button>
+                        <button onclick="openWorkspaceSettings()" class="text-blue-600 hover:text-blue-700 text-sm font-medium" title="Configure Workspace Settings">
+                            🛠️ Setup
+                        </button>
+                    </div>
                 </div>
                 <select id="workspace-select" onchange="handleWorkspaceChange()" class="text-sm border border-gray-300 rounded px-2 py-1 w-full focus:outline-none focus:border-blue-500">
                     <option value="">Select Workspace...</option>
@@ -1319,18 +1327,12 @@
             }
             
             function showSingleWorkspaceUI(workspace) {
-                // Show single workspace with direct setup button
+                // Show single workspace with minimal UI
                 const selector = document.getElementById('workspace-selector');
                 selector.innerHTML = `
                     <div class="workspace-selector">
                         <div class="text-sm font-medium text-gray-700 mb-2">
                             👨‍💼 ${workspace.name || workspace.id}
-                        </div>
-                        <button onclick="openWorkspaceSettings()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-3 rounded">
-                            🛠️ Setup Workspace & Connectors
-                        </button>
-                        <div class="text-xs text-gray-500 mt-1">
-                            💡 Configure GitHub, Jira, AWS & other connectors and manage assignments
                         </div>
                     </div>
                 `;
@@ -2164,23 +2166,24 @@
             
             function displayAssignments(assignments) {
                 if (assignments.length === 0) {
-                    document.getElementById('dashboard-content').innerHTML = `
+                    // Show welcome message with "+" tab for creating first assignment
+                    let html = '<div class="bg-white rounded-lg shadow-lg mb-6">';
+                    html += '<div class="flex border-b border-gray-200">';
+                    html += '<button onclick="createNewAssignment()" id="tab-add-new" class="px-6 py-4 text-sm font-medium text-blue-600 hover:text-blue-800 hover:border-b-2 hover:border-blue-600 tab-button">';
+                    html += '➕ Create Your First Assignment';
+                    html += '</button>';
+                    html += '</div></div>';
+                    
+                    html += `
                         <div class="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
                             <div class="text-6xl mb-4">🚀</div>
                             <h2 class="text-2xl font-bold text-gray-800 mb-4">Welcome to CTO Dashboard!</h2>
                             <p class="text-gray-600 mb-6 max-w-md mx-auto">
-                                Get started by configuring your workspace with GitHub, Jira, AWS, Railway, and OpenAI connectors to track your projects.
+                                Get started by creating your first assignment. Click the "Create Your First Assignment" tab above to add projects and configure integrations.
                             </p>
-                            <div class="space-y-3">
-                                <button onclick="openWorkspaceSettings()" 
-                                        class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium text-lg">
-                                    🛠️ Setup Workspace & Connectors
-                                </button>
-                                <div class="text-sm text-gray-500 mt-2">
-                                    Configure GitHub repos → Jira projects → AWS costs → Railway deployments → OpenAI usage
-                                </div>
-                            </div>
                         </div>`;
+                    
+                    document.getElementById('dashboard-content').innerHTML = html;
                     return;
                 }
                 
@@ -2205,6 +2208,11 @@
                     html += '</button>';
                 });
                 
+                // Add "+" tab for creating new assignments
+                html += '<button onclick="createNewAssignment()" id="tab-add-new" class="px-6 py-4 text-sm font-medium text-gray-500 hover:text-blue-600 hover:border-b-2 hover:border-blue-600 tab-button border-l border-gray-200">';
+                html += '➕ New Assignment';
+                html += '</button>';
+                
                 html += '</div>';
                 html += '</div>';
                 
@@ -2227,12 +2235,24 @@
                 
                 document.getElementById('dashboard-content').innerHTML = html;
                 
-                // Phase 5B: Auto-load basic metrics for each assignment
-                assignments.forEach(assignment => {
-                    if (assignment.metrics_config) {
-                        loadBasicMetrics(assignment.id);
-                    }
-                });
+                // Initialize metrics after displaying assignments
+                initializeAssignmentMetrics();
+            }
+            
+            // Modern UI: Handle "+" tab click for creating new assignments
+            function createNewAssignment() {
+                showCreateAssignmentModal();
+            }
+                
+            // Phase 5B: Auto-load basic metrics for each assignment after displaying assignments
+            function initializeAssignmentMetrics() {
+                if (typeof assignments !== 'undefined' && assignments) {
+                    assignments.forEach(assignment => {
+                        if (assignment.metrics_config) {
+                            loadBasicMetrics(assignment.id);
+                        }
+                    });
+                }
             }
             
             function generateOverviewContent(assignments) {
@@ -4222,7 +4242,8 @@
             // Phase 5C: Import/Export Functions
             async function exportAssignments() {
                 try {
-                    const response = await fetch('/api/assignments/export', {
+                    const workspaceId = currentWorkspace || 'default_workspace';
+                    const response = await fetch(`/api/assignments/export?workspace_id=${workspaceId}`, {
                         credentials: 'include'
                     });
                     
@@ -4250,7 +4271,8 @@
                     URL.revokeObjectURL(url);
                     
                     // Show success notification
-                    showNotification(`Exported ${exportData.metadata.total_assignments} assignments to ${filename}`, 'success');
+                    const totalRecords = exportData.records_exported || exportData.export_metadata?.records_exported || 0;
+                    showNotification(`Exported ${totalRecords} assignments to ${filename}`, 'success');
                     
                 } catch (error) {
                     console.error('Export failed:', error);
@@ -5642,6 +5664,461 @@ Backups are stored in: ./backups/
             display: block;
         }
     </style>
+
+    <!-- Export Modal - Phase 1 Simple Implementation -->
+    <div id="export-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-800">📤 Export Data</h2>
+                    <button onclick="hideExportModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                
+                <div id="export-message" class="hidden mb-4 p-3 rounded"></div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Export Type</label>
+                        <select id="export-type" class="w-full border rounded px-3 py-2">
+                            <option value="workspace">Workspace (All Assignments)</option>
+                            <option value="assignment">Current Assignment Only</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Format</label>
+                        <select id="export-format" class="w-full border rounded px-3 py-2">
+                            <option value="json">JSON (Structured Data)</option>
+                            <option value="csv">CSV (Spreadsheet)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="text-xs text-gray-500">
+                        ⚠️ Note: Credentials and sensitive data are never exported for security.
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button onclick="hideExportModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                    <button onclick="executeExport()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700" id="export-btn">
+                        📤 Export
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal - Phase 2 Simple Implementation -->
+    <div id="import-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-800">📥 Import Data</h2>
+                    <button onclick="hideImportModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                
+                <div id="import-message" class="hidden mb-4 p-3 rounded"></div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Import Source</label>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="radio" name="import-source" value="file" checked class="mr-2">
+                                <span>Upload File (JSON/CSV)</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="import-source" value="template" class="mr-2">
+                                <span>Use Template</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- File Upload Section -->
+                    <div id="file-import-section">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Select File</label>
+                        <input type="file" id="import-file" accept=".json,.csv" class="w-full border rounded px-3 py-2" onchange="handleFileSelect()">
+                        <div class="text-xs text-gray-500 mt-1">
+                            Accepts JSON exports from this dashboard or CSV files
+                        </div>
+                    </div>
+                    
+                    <!-- Template Section -->
+                    <div id="template-import-section" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Select Template</label>
+                        <select id="import-template" class="w-full border rounded px-3 py-2">
+                            <option value="">Loading templates...</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Import Mode</label>
+                        <select id="import-mode" class="w-full border rounded px-3 py-2">
+                            <option value="create_new">Create New (rename duplicates)</option>
+                            <option value="merge">Merge (keep existing data)</option>
+                            <option value="overwrite">Overwrite (replace existing)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="text-xs text-gray-500">
+                        ⚠️ Import will validate data structure before processing. No credentials will be imported.
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button onclick="hideImportModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                    <button onclick="executeImport()" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700" id="import-btn" disabled>
+                        📥 Import
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export JavaScript Functions - KISS Implementation -->
+    <script>
+    // Export functionality - Simple and focused
+    function showExportMenu() {
+        document.getElementById('export-modal').classList.remove('hidden');
+    }
+    
+    function hideExportModal() {
+        document.getElementById('export-modal').classList.add('hidden');
+        clearExportMessages();
+    }
+    
+    function showExportMessage(message, type) {
+        const messageDiv = document.getElementById('export-message');
+        messageDiv.className = `mb-4 p-3 rounded ${type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`;
+        messageDiv.textContent = message;
+        messageDiv.classList.remove('hidden');
+    }
+    
+    function clearExportMessages() {
+        document.getElementById('export-message').classList.add('hidden');
+    }
+    
+    async function executeExport() {
+        const exportType = document.getElementById('export-type').value;
+        const format = document.getElementById('export-format').value;
+        const exportBtn = document.getElementById('export-btn');
+        
+        // Get current workspace
+        const workspaceSelect = document.getElementById('workspace-select');
+        const workspaceId = workspaceSelect.value;
+        
+        if (!workspaceId) {
+            showExportMessage('Please select a workspace first', 'error');
+            return;
+        }
+        
+        try {
+            // Show loading state
+            exportBtn.disabled = true;
+            exportBtn.innerHTML = '⏳ Exporting...';
+            clearExportMessages();
+            
+            let url;
+            if (exportType === 'workspace') {
+                url = `/api/export/workspace/${workspaceId}?format=${format}`;
+            } else {
+                // For assignment export, we need the current assignment
+                if (!selectedAssignmentId) {
+                    showExportMessage('Please select an assignment first', 'error');
+                    return;
+                }
+                url = `/api/export/assignment/${workspaceId}/${selectedAssignmentId}?format=${format}`;
+            }
+            
+            const response = await fetch(url);
+            const result = await response.json();
+            
+            if (result.success) {
+                // Success! Show download link
+                showExportMessage(`Export successful! File: ${result.filename} (${result.size_bytes} bytes)`, 'success');
+                
+                // Auto-download the file
+                window.open(`/api/export/download/${result.filename}`, '_blank');
+                
+                // Close modal after a delay
+                setTimeout(() => {
+                    hideExportModal();
+                }, 2000);
+            } else {
+                showExportMessage(`Export failed: ${result.error}`, 'error');
+            }
+            
+        } catch (error) {
+            console.error('Export error:', error);
+            showExportMessage(`Export failed: ${error.message}`, 'error');
+        } finally {
+            // Restore button state
+            exportBtn.disabled = false;
+            exportBtn.innerHTML = '📤 Export';
+        }
+    }
+    
+    // ============================================================================
+    // Import JavaScript Functions - Phase 2 KISS Implementation
+    // ============================================================================
+    
+    function showImportMenu() {
+        document.getElementById('import-modal').classList.remove('hidden');
+        loadImportTemplates();
+        setupImportSourceToggle();
+    }
+    
+    function hideImportModal() {
+        document.getElementById('import-modal').classList.add('hidden');
+        clearImportMessages();
+        resetImportForm();
+    }
+    
+    function showImportMessage(message, type) {
+        const messageDiv = document.getElementById('import-message');
+        messageDiv.className = `mb-4 p-3 rounded ${type === 'success' ? 'bg-green-100 text-green-700' : type === 'warning' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`;
+        messageDiv.textContent = message;
+        messageDiv.classList.remove('hidden');
+    }
+    
+    function clearImportMessages() {
+        document.getElementById('import-message').classList.add('hidden');
+    }
+    
+    function resetImportForm() {
+        document.getElementById('import-file').value = '';
+        document.querySelector('input[name="import-source"][value="file"]').checked = true;
+        document.getElementById('import-mode').value = 'create_new';
+        document.getElementById('import-btn').disabled = true;
+        setupImportSourceToggle();
+    }
+    
+    function setupImportSourceToggle() {
+        const fileSection = document.getElementById('file-import-section');
+        const templateSection = document.getElementById('template-import-section');
+        const radios = document.querySelectorAll('input[name="import-source"]');
+        
+        radios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (this.value === 'file') {
+                    fileSection.classList.remove('hidden');
+                    templateSection.classList.add('hidden');
+                } else {
+                    fileSection.classList.add('hidden');
+                    templateSection.classList.remove('hidden');
+                    checkImportReadiness();
+                }
+            });
+        });
+    }
+    
+    async function loadImportTemplates() {
+        try {
+            const response = await fetch('/api/import/templates');
+            const result = await response.json();
+            
+            const select = document.getElementById('import-template');
+            select.innerHTML = '<option value="">Select a template...</option>';
+            
+            if (result.templates) {
+                result.templates.forEach(template => {
+                    const option = document.createElement('option');
+                    option.value = template.id;
+                    option.textContent = `${template.name} - ${template.description}`;
+                    select.appendChild(option);
+                });
+                
+                select.addEventListener('change', checkImportReadiness);
+            }
+            
+        } catch (error) {
+            console.error('Failed to load templates:', error);
+        }
+    }
+    
+    function handleFileSelect() {
+        const fileInput = document.getElementById('import-file');
+        const file = fileInput.files[0];
+        
+        if (file) {
+            // Basic file validation
+            const validTypes = ['application/json', 'text/csv'];
+            if (!validTypes.includes(file.type) && !file.name.endsWith('.json') && !file.name.endsWith('.csv')) {
+                showImportMessage('Please select a JSON or CSV file', 'error');
+                fileInput.value = '';
+                document.getElementById('import-btn').disabled = true;
+                return;
+            }
+            
+            // Size check (max 10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                showImportMessage('File too large. Maximum size is 10MB', 'error');
+                fileInput.value = '';
+                document.getElementById('import-btn').disabled = true;
+                return;
+            }
+            
+            clearImportMessages();
+            showImportMessage(`File selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`, 'success');
+            document.getElementById('import-btn').disabled = false;
+        } else {
+            document.getElementById('import-btn').disabled = true;
+        }
+    }
+    
+    function checkImportReadiness() {
+        const importSource = document.querySelector('input[name="import-source"]:checked').value;
+        const importBtn = document.getElementById('import-btn');
+        
+        if (importSource === 'file') {
+            const fileInput = document.getElementById('import-file');
+            importBtn.disabled = !fileInput.files[0];
+        } else {
+            const templateSelect = document.getElementById('import-template');
+            importBtn.disabled = !templateSelect.value;
+        }
+    }
+    
+    async function executeImport() {
+        const importSource = document.querySelector('input[name="import-source"]:checked').value;
+        const importMode = document.getElementById('import-mode').value;
+        const importBtn = document.getElementById('import-btn');
+        const workspaceSelect = document.getElementById('workspace-select');
+        const workspaceId = workspaceSelect.value;
+        
+        if (!workspaceId) {
+            showImportMessage('Please select a workspace first', 'error');
+            return;
+        }
+        
+        try {
+            importBtn.disabled = true;
+            importBtn.innerHTML = '⏳ Importing...';
+            clearImportMessages();
+            
+            let importData;
+            
+            if (importSource === 'file') {
+                // Handle file import
+                const fileInput = document.getElementById('import-file');
+                const file = fileInput.files[0];
+                
+                if (!file) {
+                    showImportMessage('Please select a file', 'error');
+                    return;
+                }
+                
+                importData = await readFileAsText(file);
+                
+                // Parse JSON if needed
+                if (file.type === 'application/json' || file.name.endsWith('.json')) {
+                    try {
+                        importData = JSON.parse(importData);
+                    } catch (e) {
+                        showImportMessage('Invalid JSON file format', 'error');
+                        return;
+                    }
+                } else {
+                    showImportMessage('CSV import not yet supported. Please use JSON format.', 'error');
+                    return;
+                }
+                
+            } else {
+                // Handle template import
+                const templateId = document.getElementById('import-template').value;
+                if (!templateId) {
+                    showImportMessage('Please select a template', 'error');
+                    return;
+                }
+                
+                // Get template data
+                const templatesResponse = await fetch('/api/import/templates');
+                const templatesResult = await templatesResponse.json();
+                const template = templatesResult.templates.find(t => t.id === templateId);
+                
+                if (!template) {
+                    showImportMessage('Template not found', 'error');
+                    return;
+                }
+                
+                // Create import data from template
+                importData = {
+                    export_metadata: {
+                        export_version: '1.0',
+                        workspace_id: workspaceId,
+                        export_timestamp: new Date().toISOString(),
+                        source: 'template'
+                    },
+                    workspace_info: {},
+                    assignments: [{
+                        assignment_id: `template_${templateId}_${Date.now()}`,
+                        ...template.template
+                    }]
+                };
+            }
+            
+            // Send import request
+            const response = await fetch(`/api/workspaces/${workspaceId}/import?mode=${importMode}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(importData)
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok || response.status === 207) { // 207 = partial success
+                let message = `Import completed! `;
+                if (result.imported_assignments > 0) message += `Created: ${result.imported_assignments} `;
+                if (result.updated_assignments > 0) message += `Updated: ${result.updated_assignments} `;
+                if (result.skipped_assignments > 0) message += `Skipped: ${result.skipped_assignments}`;
+                
+                showImportMessage(message, result.success ? 'success' : 'warning');
+                
+                // Show details if any
+                if (result.details && result.details.length > 0) {
+                    console.log('Import details:', result.details);
+                }
+                
+                // Show errors if any
+                if (result.errors && result.errors.length > 0) {
+                    console.log('Import errors:', result.errors);
+                }
+                
+                // Refresh the page after success to show new assignments
+                if (result.success) {
+                    setTimeout(() => {
+                        hideImportModal();
+                        window.location.reload();
+                    }, 2000);
+                }
+                
+            } else {
+                showImportMessage(`Import failed: ${result.error || 'Unknown error'}`, 'error');
+                if (result.errors) {
+                    console.error('Import errors:', result.errors);
+                }
+            }
+            
+        } catch (error) {
+            console.error('Import error:', error);
+            showImportMessage(`Import failed: ${error.message}`, 'error');
+        } finally {
+            importBtn.disabled = false;
+            importBtn.innerHTML = '📥 Import';
+        }
+    }
+    
+    function readFileAsText(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = (e) => reject(new Error('Failed to read file'));
+            reader.readAsText(file);
+        });
+    }
+    </script>
 
     </body>
     </html>
