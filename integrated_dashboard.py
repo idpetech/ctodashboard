@@ -144,10 +144,22 @@ def test_database_write():
     """Test writing a record to verify database location"""
     try:
         import time
-        from services.security.secure_database import secure_db
+        import sqlite3
+        from pathlib import Path
         
-        # Get DB location first
-        db_path = secure_db.db_path
+        # Determine database path based on environment
+        railway_env = os.getenv("RAILWAY_ENVIRONMENT")
+        if railway_env:
+            # On Railway, use volume mount
+            db_path = "/data/config/secure_credentials.db"
+            config_dir = "/data/config"
+        else:
+            # Local development
+            db_path = "config/secure_credentials.db"
+            config_dir = "config"
+        
+        # Ensure directory exists
+        os.makedirs(config_dir, exist_ok=True)
         
         # Get file size before
         if os.path.exists(db_path):
@@ -155,9 +167,21 @@ def test_database_write():
         else:
             size_before = 0
         
-        # Test database health check instead of creating UserService
-        health = secure_db.health_check()
-        user_count = health.get('statistics', {}).get('users', 0)
+        # Simple SQLite test - just connect and count tables
+        try:
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            tables = cursor.fetchall()
+            table_count = len(tables)
+            conn.close()
+            connection_success = True
+        except Exception as sqlite_error:
+            table_count = 0
+            connection_success = False
+            sqlite_error_msg = str(sqlite_error)
+        else:
+            sqlite_error_msg = None
         
         # Get file size after
         if os.path.exists(db_path):
@@ -171,17 +195,22 @@ def test_database_write():
             "size_before": size_before,
             "size_after": size_after,
             "size_changed": size_after != size_before,
-            "user_count": user_count,
+            "table_count": table_count,
             "file_exists": os.path.exists(db_path),
-            "database_connected": health.get("database_connected", False),
+            "connection_success": connection_success,
+            "sqlite_error": sqlite_error_msg,
+            "working_directory": os.getcwd(),
+            "config_dir_exists": os.path.exists(config_dir),
             "timestamp": int(time.time()),
-            "railway_environment": os.getenv("RAILWAY_ENVIRONMENT", "local")
+            "railway_environment": railway_env or "local"
         }
     except Exception as e:
         import traceback
         return {
             "error": str(e),
+            "error_type": type(e).__name__,
             "traceback": traceback.format_exc(),
+            "working_directory": os.getcwd(),
             "railway_environment": os.getenv("RAILWAY_ENVIRONMENT", "local")
         }, 500
 
