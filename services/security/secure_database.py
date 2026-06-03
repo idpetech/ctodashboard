@@ -42,6 +42,7 @@ class SecureDatabaseManager:
             elif os.getenv("RAILWAY_ENVIRONMENT"):
                 # On Railway, use the mounted volume for persistence across deploys
                 # Check for explicit SQLITE_DATABASE_PATH first, then fallback to default
+                # This fix ensures database persists between deployments
                 db_path = os.getenv("SQLITE_DATABASE_PATH", "/data/config/secure_credentials.db")
                 logger.info("Railway environment detected - using volume-backed path", extra={
                     "operation": "db_init",
