@@ -41,12 +41,14 @@ class SecureDatabaseManager:
                 })
             elif os.getenv("RAILWAY_ENVIRONMENT"):
                 # On Railway, use the mounted volume for persistence across deploys
-                db_path = "/data/config/secure_credentials.db"
+                # Check for explicit SQLITE_DATABASE_PATH first, then fallback to default
+                db_path = os.getenv("SQLITE_DATABASE_PATH", "/data/config/secure_credentials.db")
                 logger.info("Railway environment detected - using volume-backed path", extra={
                     "operation": "db_init",
                     "db_path": db_path,
                     "environment": "railway",
-                    "source": "railway_volume"
+                    "source": "railway_volume",
+                    "env_var_used": "SQLITE_DATABASE_PATH" if os.getenv("SQLITE_DATABASE_PATH") else "hardcoded_fallback"
                 })
             else:
                 db_path = "config/secure_credentials.db"
