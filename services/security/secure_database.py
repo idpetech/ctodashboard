@@ -63,23 +63,44 @@ class SecureDatabaseManager:
         
         # Create parent directory with proper permissions
         try:
-            self.db_path.parent.mkdir(exist_ok=True, parents=True)
+            self.db_path.parent.mkdir(exist_ok=True, parents=True, mode=0o755)
             logger.info("Database directory created successfully", extra={
                 "operation": "db_init",
                 "directory": str(self.db_path.parent),
                 "exists": self.db_path.parent.exists()
             })
         except (PermissionError, OSError) as e:
-            # Fallback to current directory if we can't create the config dir
-            # (e.g. read-only filesystem on Railway without a volume attached)
-            original_path = str(self.db_path)
-            self.db_path = Path("secure_credentials.db")
-            logger.warning("Database directory creation failed - using fallback path", extra={
-                "operation": "db_init",
-                "original_path": original_path,
-                "fallback_path": str(self.db_path),
-                "error": str(e)
-            })
+            # For Railway: If /data mount fails, try creating with different permissions
+            if str(self.db_path).startswith("/data") and os.getenv("RAILWAY_ENVIRONMENT"):
+                try:
+                    # Try creating with more permissive rights for Railway volumes
+                    os.makedirs(str(self.db_path.parent), exist_ok=True, mode=0o777)
+                    logger.info("Railway volume directory created with fallback permissions", extra={
+                        "operation": "db_init",
+                        "directory": str(self.db_path.parent),
+                        "method": "railway_fallback"
+                    })
+                except Exception as railway_error:
+                    # Only fall back to non-persistent path if Railway volume completely fails
+                    original_path = str(self.db_path)
+                    self.db_path = Path("secure_credentials.db")
+                    logger.error("Railway volume creation failed - using non-persistent fallback", extra={
+                        "operation": "db_init",
+                        "original_path": original_path,
+                        "fallback_path": str(self.db_path),
+                        "original_error": str(e),
+                        "railway_error": str(railway_error)
+                    })
+            else:
+                # Non-Railway environments: use original fallback logic
+                original_path = str(self.db_path)
+                self.db_path = Path("secure_credentials.db")
+                logger.warning("Database directory creation failed - using fallback path", extra={
+                    "operation": "db_init",
+                    "original_path": original_path,
+                    "fallback_path": str(self.db_path),
+                    "error": str(e)
+                })
         
         # Thread-local storage for database connections
         self._local = threading.local()
