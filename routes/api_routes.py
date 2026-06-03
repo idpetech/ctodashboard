@@ -24,17 +24,68 @@ from services.data_import_service import DataImportService
 # Initialize logging
 logger = get_logger(__name__)
 
-# Initialize services
-service_manager = ServiceManager()
-workspace_service = WorkspaceService()
-user_service = UserService()
-export_service = DataExportService()
-import_service = DataImportService()
+# Lazy service initialization - services created only when needed
+_service_manager = None
+_workspace_service = None
+_user_service = None
+_export_service = None
+_import_service = None
 
-# Create authentication decorators with dependency injection
-auth_decorators = create_auth_decorators(user_service)
-require_auth, require_workspace_access, optional_auth = auth_decorators[:3]
-require_web_auth, require_web_workspace_access = auth_decorators[3:5] if len(auth_decorators) >= 5 else (None, None)
+def get_service_manager():
+    global _service_manager
+    if _service_manager is None:
+        _service_manager = ServiceManager()
+    return _service_manager
+
+def get_workspace_service():
+    global _workspace_service
+    if _workspace_service is None:
+        _workspace_service = WorkspaceService()
+    return _workspace_service
+
+def get_user_service():
+    global _user_service
+    if _user_service is None:
+        _user_service = UserService()
+    return _user_service
+
+def get_export_service():
+    global _export_service
+    if _export_service is None:
+        _export_service = DataExportService()
+    return _export_service
+
+def get_import_service():
+    global _import_service
+    if _import_service is None:
+        _import_service = DataImportService()
+    return _import_service
+
+# Lazy authentication decorators - created only when needed
+_auth_decorators = None
+
+def get_auth_decorators():
+    global _auth_decorators
+    if _auth_decorators is None:
+        _auth_decorators = create_auth_decorators(get_user_service())
+    return _auth_decorators
+
+def get_require_auth():
+    return get_auth_decorators()[0]
+
+def get_require_workspace_access():
+    return get_auth_decorators()[1]
+
+def get_optional_auth():
+    return get_auth_decorators()[2]
+
+def get_require_web_auth():
+    decorators = get_auth_decorators()
+    return decorators[3] if len(decorators) >= 4 else None
+
+def get_require_web_workspace_access():
+    decorators = get_auth_decorators()
+    return decorators[4] if len(decorators) >= 5 else None
 
 # Global connector instances (for backward compatibility)
 aws_metrics = EmbeddedAWSMetrics()
@@ -143,10 +194,10 @@ def register_routes(app):
         # Aggregate assignments from all workspaces
         all_assignments = []
         try:
-            for workspace_path in workspace_service.workspace_dir.glob("*"):
+            for workspace_path in get_workspace_service().workspace_dir.glob("*"):
                 if workspace_path.is_dir():
                     workspace_id = workspace_path.name
-                    result = workspace_service.get_workspace_assignments(workspace_id)
+                    result = get_workspace_service().get_workspace_assignments(workspace_id)
                     if "assignments" in result:
                         all_assignments.extend(result["assignments"])
         except Exception as e:
@@ -155,7 +206,7 @@ def register_routes(app):
         return jsonify(all_assignments)
 
     @app.route("/api/assignments/<assignment_id>")
-    @require_auth
+    @get_require_auth()
     def get_assignment(assignment_id):
         """Get a specific assignment configuration"""
         workspace_id = request.args.get("workspace_id")
@@ -169,7 +220,7 @@ def register_routes(app):
                 # Search for assignment in user's workspaces
                 found_assignments = []
                 for ws_id in user_workspaces:
-                    assignment = workspace_service.get_assignment(ws_id, assignment_id)
+                    assignment = get_workspace_service().get_assignment(ws_id, assignment_id)
                     if assignment:
                         found_assignments.append({"workspace_id": ws_id, "assignment": assignment})
                 
@@ -188,7 +239,7 @@ def register_routes(app):
                     return jsonify({"error": f"Assignment '{assignment_id}' not found in your accessible workspaces"}), 404
         
         # Use defensive resolver for workspace context (when workspace_id is provided)
-        result = workspace_service.find_assignment(assignment_id, workspace_id)
+        result = get_workspace_service().find_assignment(assignment_id, workspace_id)
         
         if result.get("status") == 200:
             return jsonify(result["assignment"])
@@ -198,7 +249,7 @@ def register_routes(app):
             return jsonify({"error": result.get("error", f"Assignment {assignment_id} not found")}), 404
     
     @app.route("/api/assignments/<assignment_id>", methods=["PUT"])
-    @require_auth
+    @get_require_auth()
     def update_assignment(assignment_id):
         """Update assignment configuration - workspace-only"""
         data = request.get_json()
@@ -213,7 +264,7 @@ def register_routes(app):
                 workspace_id = current_user["preferences"]["default_workspace"]
             else:
                 # Fallback to legacy resolution if user has no default workspace
-                find_result = workspace_service.find_assignment(assignment_id)
+                find_result = get_workspace_service().find_assignment(assignment_id)
                 if find_result.get("status") == 200:
                     workspace_id = find_result["workspace_id"]
                 elif find_result.get("status") == 409:
@@ -222,7 +273,7 @@ def register_routes(app):
                     return jsonify({"error": "Assignment not found and no workspace_id provided"}), 404
         
         try:
-            result = workspace_service.update_assignment(workspace_id, assignment_id, data)
+            result = get_workspace_service().update_assignment(workspace_id, assignment_id, data)
             if result.get("success"):
                 return jsonify({"success": True, "message": "Assignment updated successfully", "assignment": result.get("assignment")})
             else:
@@ -231,7 +282,7 @@ def register_routes(app):
             return jsonify({"error": f"Failed to update assignment: {str(e)}"}), 500
     
     @app.route("/api/assignments/<assignment_id>", methods=["DELETE"])
-    @require_auth
+    @get_require_auth()
     def delete_assignment(assignment_id):
         """Delete assignment (archive) - workspace-only"""
         workspace_id = request.args.get("workspace_id")
@@ -242,7 +293,7 @@ def register_routes(app):
                 workspace_id = current_user["preferences"]["default_workspace"]
             else:
                 # Fallback to legacy resolution if user has no default workspace
-                find_result = workspace_service.find_assignment(assignment_id)
+                find_result = get_workspace_service().find_assignment(assignment_id)
                 if find_result.get("status") == 200:
                     workspace_id = find_result["workspace_id"]
                 elif find_result.get("status") == 409:
@@ -251,7 +302,7 @@ def register_routes(app):
                     return jsonify({"error": "Assignment not found and no workspace_id provided"}), 404
         
         try:
-            result = workspace_service.archive_assignment(workspace_id, assignment_id)
+            result = get_workspace_service().archive_assignment(workspace_id, assignment_id)
             if result.get("success"):
                 return jsonify({"success": True, "message": f"Assignment '{assignment_id}' archived successfully"})
             else:
@@ -275,7 +326,7 @@ def register_routes(app):
             # Load assignment configuration - need to find workspace first
             assignment = None
             for workspace_id in ['admin_workspace', 'test_workspace']:  # Try common workspaces
-                assignment = workspace_service.get_assignment(workspace_id, assignment_id)
+                assignment = get_workspace_service().get_assignment(workspace_id, assignment_id)
                 if assignment:
                     break
             
@@ -327,7 +378,7 @@ def register_routes(app):
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/all-metrics/<assignment_id>")
-    @require_auth
+    @get_require_auth()
     def get_all_metrics(assignment_id):
         """Get all metrics for specific assignment - workspace-only"""
         workspace_id = request.args.get("workspace_id")
@@ -341,7 +392,7 @@ def register_routes(app):
                 # Search for assignment in user's workspaces
                 found_assignments = []
                 for ws_id in user_workspaces:
-                    assignment = workspace_service.get_assignment(ws_id, assignment_id)
+                    assignment = get_workspace_service().get_assignment(ws_id, assignment_id)
                     if assignment:
                         found_assignments.append({"workspace_id": ws_id, "assignment": assignment})
                 
@@ -361,7 +412,7 @@ def register_routes(app):
         
         try:
             # Use defensive resolver for workspace context
-            result = workspace_service.find_assignment(assignment_id, workspace_id)
+            result = get_workspace_service().find_assignment(assignment_id, workspace_id)
             
             if result.get("status") != 200:
                 if result.get("status") == 409:
@@ -607,7 +658,9 @@ def register_routes(app):
     
     @app.route("/api/auth/register", methods=["POST"])
     def register():
-        """Register a new user account"""
+        """Register a new user account and auto-login"""
+        from flask import session
+        
         data = request.get_json()
         if not data:
             return jsonify({"error": "No registration data provided"}), 400
@@ -619,10 +672,35 @@ def register_routes(app):
         if not email or not password:
             return jsonify({"error": "Email and password are required"}), 400
         
-        result = user_service.register_user(email, password, display_name)
+        result = get_user_service().register_user(email, password, display_name)
         
         if result.get("success"):
-            return jsonify(result), 201
+            # Auto-login the newly registered user to avoid logout requirement
+            login_result = get_user_service().authenticate_user(email, password)
+            
+            if login_result.get("success"):
+                # Set session data same as login endpoint
+                session['user_email'] = email
+                session['auth_token'] = login_result.get("token")
+                session['user_data'] = login_result.get("user")
+                session.permanent = True
+                
+                # Return combined registration + login data
+                return jsonify({
+                    "success": True,
+                    "message": "User registered and logged in successfully",
+                    "user": login_result.get("user"),
+                    "token": login_result.get("token"),
+                    "auto_logged_in": True
+                }), 201
+            else:
+                # Registration succeeded but auto-login failed
+                return jsonify({
+                    "success": True,
+                    "message": "User registered successfully but auto-login failed. Please log in manually.",
+                    "user": result.get("user"),
+                    "auto_login_error": login_result.get("error")
+                }), 201
         else:
             return jsonify(result), 400
     
@@ -641,7 +719,7 @@ def register_routes(app):
         if not email or not password:
             return jsonify({"error": "Email and password are required"}), 400
         
-        result = user_service.authenticate_user(email, password)
+        result = get_user_service().authenticate_user(email, password)
         
         if result.get("success"):
             # Store authentication in session for web pages
@@ -670,7 +748,7 @@ def register_routes(app):
         # Check session first (for page refreshes)
         if 'user_email' in session and 'auth_token' in session:
             # Verify the session token
-            verification = user_service.verify_token(session['auth_token'])
+            verification = get_user_service().verify_token(session['auth_token'])
             if verification.get("valid"):
                 return jsonify({
                     "valid": True,
@@ -683,7 +761,7 @@ def register_routes(app):
             try:
                 scheme, token = auth_header.split(' ')
                 if scheme.lower() == 'bearer':
-                    verification = user_service.verify_token(token)
+                    verification = get_user_service().verify_token(token)
                     if verification.get("valid"):
                         return jsonify({
                             "valid": True,
@@ -695,7 +773,7 @@ def register_routes(app):
         return jsonify({"valid": False, "error": "No valid authentication found"}), 401
     
     @app.route("/api/auth/users", methods=["GET"])
-    @require_auth
+    @get_require_auth()
     def list_users():
         """List all users (admin only)"""
         current_user = get_current_user()
@@ -704,11 +782,11 @@ def register_routes(app):
         if current_user.get("role") != "admin":
             return jsonify({"error": "Admin access required"}), 403
         
-        users = user_service.list_users()
+        users = get_user_service().list_users()
         return jsonify({"users": users})
     
     @app.route("/api/auth/users/<user_email>/workspaces", methods=["POST"])
-    @require_auth
+    @get_require_auth()
     def grant_workspace_access(user_email):
         """Grant user access to workspace (admin only)"""
         current_user = get_current_user()
@@ -727,7 +805,7 @@ def register_routes(app):
         if not workspace_id:
             return jsonify({"error": "Workspace ID is required"}), 400
         
-        result = user_service.add_user_to_workspace(user_email, workspace_id, role)
+        result = get_user_service().add_user_to_workspace(user_email, workspace_id, role)
         
         if result.get("success"):
             return jsonify(result), 200
@@ -735,7 +813,7 @@ def register_routes(app):
             return jsonify(result), 400
     
     @app.route("/api/auth/profile", methods=["GET", "PUT"])
-    @require_auth
+    @get_require_auth()
     def profile():
         """Get or update user profile information - Phase 5B"""
         current_user = get_current_user()
@@ -746,7 +824,7 @@ def register_routes(app):
         
         if request.method == "GET":
             # Get user profile
-            result = user_service.get_user_profile(user_email)
+            result = get_user_service().get_user_profile(user_email)
             if result.get("success"):
                 return jsonify(result["user"]), 200
             else:
@@ -764,7 +842,7 @@ def register_routes(app):
             return jsonify({"error": "No valid profile fields provided"}), 400
         
         # Update the user profile
-        result = user_service.update_user(user_email, updates)
+        result = get_user_service().update_user(user_email, updates)
         
         if result.get("success"):
             return jsonify({
@@ -781,7 +859,7 @@ def register_routes(app):
     # ===== WORKSPACE MANAGEMENT ENDPOINTS (Phase 1 + 3 Auth) =====
     
     @app.route("/api/workspaces", methods=["GET", "POST"])
-    @optional_auth
+    @get_optional_auth()
     def workspace_management():
         """Workspace management endpoint"""
         if request.method == "GET":
@@ -789,12 +867,12 @@ def register_routes(app):
             try:
                 current_user = get_current_user()
                 if current_user:
-                    user_workspace_ids = user_service.get_user_workspaces(
+                    user_workspace_ids = get_user_service().get_user_workspaces(
                         current_user.get("email")
                     ).get("workspaces", [])
                     user_workspaces = []
                     for ws_id in user_workspace_ids:
-                        workspace_data = workspace_service.get_workspace(ws_id)
+                        workspace_data = get_workspace_service().get_workspace(ws_id)
                         if workspace_data and not workspace_data.get("error"):
                             user_workspaces.append({
                                 "id": workspace_data.get("id"),
@@ -808,7 +886,7 @@ def register_routes(app):
                         return jsonify(user_workspaces)
 
                 # Return default workspace for unauthenticated access
-                workspace_data = workspace_service.get_workspace("default_workspace")
+                workspace_data = get_workspace_service().get_workspace("default_workspace")
                 if workspace_data and not workspace_data.get("error"):
                     workspace_info = {
                         "id": workspace_data.get("id"),
@@ -842,10 +920,10 @@ def register_routes(app):
                 return jsonify({"error": "Workspace ID and name are required"}), 400
             
             try:
-                result = workspace_service.create_workspace(workspace_id, name, description)
+                result = get_workspace_service().create_workspace(workspace_id, name, description)
                 if result.get("success"):
                     # Link the new workspace to the creating user
-                    user_service.add_user_to_workspace(
+                    get_user_service().add_user_to_workspace(
                         current_user.get("email"), workspace_id, "owner"
                     )
                     return jsonify(result), 201
@@ -856,19 +934,19 @@ def register_routes(app):
         
     
     @app.route("/api/workspaces/<workspace_id>", methods=["GET", "DELETE"])
-    @require_workspace_access
+    @get_require_workspace_access()
     def workspace_detail(workspace_id):
         """Workspace detail operations"""
         if request.method == "GET":
             # Get workspace details
-            workspace = workspace_service.get_workspace(workspace_id)
+            workspace = get_workspace_service().get_workspace(workspace_id)
             if "error" in workspace:
                 return jsonify(workspace), 404
             return jsonify(workspace)
         
         elif request.method == "DELETE":
             # Delete workspace
-            result = workspace_service.delete_workspace(workspace_id)
+            result = get_workspace_service().delete_workspace(workspace_id)
             if result.get("success"):
                 return jsonify(result), 200
             else:
@@ -879,7 +957,7 @@ def register_routes(app):
         """Workspace assignment management"""
         if request.method == "GET":
             # Get assignments for workspace
-            result = workspace_service.get_workspace_assignments(workspace_id)
+            result = get_workspace_service().get_workspace_assignments(workspace_id)
             if "error" in result:
                 return jsonify(result), 404
             return jsonify(result)
@@ -897,7 +975,7 @@ def register_routes(app):
             # Remove 'id' from data since it's passed separately
             assignment_config = {k: v for k, v in data.items() if k != "id"}
             
-            result = workspace_service.add_assignment_to_workspace(
+            result = get_workspace_service().add_assignment_to_workspace(
                 workspace_id, 
                 assignment_id, 
                 assignment_config
@@ -913,7 +991,7 @@ def register_routes(app):
         """Get or update specific assignment in workspace"""
         if request.method == "GET":
             # Get all assignments and find the specific one
-            result = workspace_service.get_workspace_assignments(workspace_id)
+            result = get_workspace_service().get_workspace_assignments(workspace_id)
             if "error" in result:
                 return jsonify(result), 404
             
@@ -932,7 +1010,7 @@ def register_routes(app):
                 return jsonify({"error": "No assignment data provided"}), 400
             
             # Use workspace service to update assignment
-            result = workspace_service.update_assignment(workspace_id, assignment_id, data)
+            result = get_workspace_service().update_assignment(workspace_id, assignment_id, data)
             if "error" in result:
                 return jsonify(result), 400
             
@@ -941,7 +1019,7 @@ def register_routes(app):
     # ===== PHASE 3 WORKSPACE CREDENTIALS TEST ENDPOINT =====
     
     @app.route("/api/workspaces/<workspace_id>/assignments/<assignment_id>/test-credentials", methods=["GET"])
-    @require_workspace_access
+    @get_require_workspace_access()
     def test_workspace_credentials(workspace_id, assignment_id):
         """
         Test endpoint to verify Phase 3 workspace credentials are working.
@@ -1016,11 +1094,11 @@ def register_routes(app):
     # ===== CONNECTOR TEMPLATE ENDPOINTS (Phase 2) =====
     
     @app.route("/api/workspaces/<workspace_id>/connector-templates", methods=["GET"])
-    @require_workspace_access
+    @get_require_workspace_access()
     def get_workspace_templates(workspace_id):
         """Get all connector templates for workspace"""
         connector_type = request.args.get("type")  # Optional filter by connector type
-        result = workspace_service.get_connector_templates(workspace_id, connector_type)
+        result = get_workspace_service().get_connector_templates(workspace_id, connector_type)
         
         if "error" in result:
             return jsonify(result), 404
@@ -1040,7 +1118,7 @@ def register_routes(app):
         if not template_name:
             return jsonify({"error": "Template name is required"}), 400
         
-        result = workspace_service.create_connector_template(
+        result = get_workspace_service().create_connector_template(
             workspace_id, 
             connector_type, 
             template_name, 
@@ -1057,14 +1135,14 @@ def register_routes(app):
         """Get or delete specific connector template"""
         if request.method == "GET":
             # Get template details
-            result = workspace_service.get_connector_template(workspace_id, connector_type, template_name)
+            result = get_workspace_service().get_connector_template(workspace_id, connector_type, template_name)
             if "error" in result:
                 return jsonify(result), 404
             return jsonify(result)
         
         elif request.method == "DELETE":
             # Delete template
-            result = workspace_service.delete_connector_template(workspace_id, connector_type, template_name)
+            result = get_workspace_service().delete_connector_template(workspace_id, connector_type, template_name)
             if result.get("success"):
                 return jsonify(result), 200
             else:
@@ -1087,7 +1165,7 @@ def register_routes(app):
         # Remove 'id' and 'templates' from assignment config
         assignment_config = {k: v for k, v in data.items() if k not in ["id", "templates"]}
         
-        result = workspace_service.create_assignment_from_template(
+        result = get_workspace_service().create_assignment_from_template(
             workspace_id,
             assignment_id,
             assignment_config,
@@ -1110,7 +1188,7 @@ def register_routes(app):
         if not credentials:
             return jsonify({"error": "Credentials object is required"}), 400
         
-        result = workspace_service.update_assignment_auth(
+        result = get_workspace_service().update_assignment_auth(
             workspace_id,
             assignment_id, 
             connector_type,
@@ -1129,12 +1207,12 @@ def register_routes(app):
         """Get or update workspace settings"""
         if request.method == "GET":
             # Get workspace settings including connector configurations
-            workspace = workspace_service.get_workspace(workspace_id)
+            workspace = get_workspace_service().get_workspace(workspace_id)
             if "error" in workspace:
                 return jsonify(workspace), 404
             
             # Get assignments for credential status
-            assignments = workspace_service.get_workspace_assignments(workspace_id)
+            assignments = get_workspace_service().get_workspace_assignments(workspace_id)
             
             # Return workspace info with credential status
             return jsonify({
@@ -1150,7 +1228,7 @@ def register_routes(app):
             if not data:
                 return jsonify({"error": "No settings data provided"}), 400
             
-            result = workspace_service.update_workspace_settings(workspace_id, data)
+            result = get_workspace_service().update_workspace_settings(workspace_id, data)
             if result.get("success"):
                 return jsonify(result), 200
             else:
@@ -1191,7 +1269,7 @@ def register_routes(app):
                 }), 400
             
             # Update assignment auth
-            result = workspace_service.update_assignment_auth(
+            result = get_workspace_service().update_assignment_auth(
                 workspace_id, assignment_id, connector_type, credentials
             )
             
@@ -1212,7 +1290,7 @@ def register_routes(app):
             if not assignment_id:
                 return jsonify({"error": "Assignment ID is required"}), 400
             
-            result = workspace_service.clear_assignment_auth(workspace_id, assignment_id, connector_type)
+            result = get_workspace_service().clear_assignment_auth(workspace_id, assignment_id, connector_type)
             
             if result.get("success"):
                 return jsonify(result), 200
@@ -1236,14 +1314,14 @@ def register_routes(app):
     # ===== PHASE 5C: IMPORT/EXPORT ENDPOINTS =====
     
     @app.route("/api/workspaces/<workspace_id>/export", methods=["GET"])
-    @require_auth
+    @get_require_auth()
     def export_workspace_data(workspace_id):
         """Export all workspace data - Enhanced with Phase 2 export service"""
         try:
             format_type = request.args.get('format', 'json').lower()
             include_assignments = request.args.get('include_assignments', 'true').lower() == 'true'
             
-            result = export_service.export_workspace_data(
+            result = get_export_service().export_workspace_data(
                 workspace_id=workspace_id,
                 format=format_type,
                 include_assignments=include_assignments
@@ -1275,7 +1353,7 @@ def register_routes(app):
             return jsonify({"error": f"Export failed: {str(e)}"}), 500
     
     @app.route("/api/workspaces/<workspace_id>/import", methods=["POST"])
-    @require_auth
+    @get_require_auth()
     def import_workspace_data(workspace_id):
         """Enhanced import workspace data - Phase 2 Implementation with backward compatibility"""
         try:
@@ -1286,7 +1364,7 @@ def register_routes(app):
             import_mode = request.args.get("mode", "create_new")  # create_new, overwrite, merge
             
             # Use enhanced import service with validation and compatibility
-            results = import_service.import_workspace_data(workspace_id, data, import_mode)
+            results = get_import_service().import_workspace_data(workspace_id, data, import_mode)
             
             # Determine appropriate status code
             if results['success']:
@@ -1302,7 +1380,7 @@ def register_routes(app):
             return jsonify({"error": f"Import failed: {str(e)}"}), 500
     
     @app.route("/api/assignments/export", methods=["GET"])
-    @require_auth  
+    @get_require_auth()  
     def export_assignments():
         """Export all assignments across workspaces - Enhanced with Phase 2 export service"""
         try:
@@ -1311,7 +1389,7 @@ def register_routes(app):
             workspace_id = request.args.get('workspace_id', 'default_workspace')
             format_type = request.args.get('format', 'json').lower()
             
-            result = export_service.export_workspace_data(
+            result = get_export_service().export_workspace_data(
                 workspace_id=workspace_id,
                 format=format_type,
                 include_assignments=True
@@ -1335,7 +1413,7 @@ def register_routes(app):
     # ===== PHASE 5C: ASSIGNMENT HISTORY/AUDIT LOG ENDPOINTS =====
     
     @app.route("/api/assignments/<assignment_id>/history", methods=["GET"])
-    @require_auth
+    @get_require_auth()
     def get_assignment_history(assignment_id):
         """Get change history for a specific assignment - Phase 5C"""
         try:
@@ -1354,7 +1432,7 @@ def register_routes(app):
             return jsonify({"error": f"Failed to get assignment history: {str(e)}"}), 500
     
     @app.route("/api/audit/recent", methods=["GET"])
-    @require_auth
+    @get_require_auth()
     def get_recent_changes():
         """Get recent changes across all assignments - Phase 5C"""
         try:
@@ -1375,11 +1453,11 @@ def register_routes(app):
     def _get_workspace_credential_status(workspace_id):
         """Get credential configuration status for workspace"""
         try:
-            workspace = workspace_service.get_workspace(workspace_id)
+            workspace = get_workspace_service().get_workspace(workspace_id)
             if "error" in workspace:
                 return {"error": "Workspace not found"}
             
-            assignments = workspace_service.get_workspace_assignments(workspace_id)
+            assignments = get_workspace_service().get_workspace_assignments(workspace_id)
             status = {
                 "workspace_id": workspace_id,
                 "connectors": {
@@ -1615,7 +1693,7 @@ def register_routes(app):
             if not data:
                 return jsonify({"error": "No data provided for validation"}), 400
             
-            validation = import_service.validate_import_data(data)
+            validation = get_import_service().validate_import_data(data)
             return jsonify(validation)
             
         except Exception as e:
@@ -1625,7 +1703,7 @@ def register_routes(app):
     def get_import_templates():
         """Get available assignment templates for quick setup"""
         try:
-            templates = import_service.get_import_templates()
+            templates = get_import_service().get_import_templates()
             return jsonify({'templates': templates})
             
         except Exception as e:

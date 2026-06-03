@@ -88,7 +88,7 @@ class SecureDatabaseManager:
                 f.write(f"\n# Auto-added by secure database\n{self.db_path}\n")
         
         self._fernet = self._get_encryption_key()
-        self._init_database()
+        self._ensure_database_ready()
     
     def _get_connection(self) -> sqlite3.Connection:
         """Get thread-local database connection with lock handling"""
@@ -253,9 +253,203 @@ class SecureDatabaseManager:
         
         conn.commit()
         
-        # REMOVED: Auto-initialization on startup to prevent wiping users on Railway deployments
-        # Use manual initialization instead: railway run python railway_db_inspect.py reset
+        # Database migration and schema versioning completed successfully
+        logger.info("Database initialization completed", extra={
+            "operation": "db_init_complete",
+            "db_path": str(self.db_path),
+            "db_version": self._get_database_version()
+        })
     
+    def _ensure_database_ready(self):
+        """
+        Production-ready database initialization.
+        Only runs schema changes when necessary, tracks versions, supports migrations.
+        """
+        try:
+            logger.info("Checking database readiness", extra={
+                "operation": "db_readiness_check",
+                "db_path": str(self.db_path),
+                "db_exists": self.db_path.exists()
+            })
+            
+            # Check if database exists and has tables
+            if not self._database_exists_and_ready():
+                logger.info("Database not ready - initializing schema", extra={
+                    "operation": "db_first_init"
+                })
+                self._init_database()
+                self._set_database_version(1)
+            else:
+                # Database exists - check if migration needed
+                current_version = self._get_database_version()
+                target_version = self._get_target_schema_version()
+                
+                if current_version < target_version:
+                    logger.info("Database migration required", extra={
+                        "operation": "db_migration_required",
+                        "current_version": current_version,
+                        "target_version": target_version
+                    })
+                    self._run_migrations(current_version, target_version)
+                else:
+                    logger.info("Database is up to date", extra={
+                        "operation": "db_up_to_date",
+                        "version": current_version
+                    })
+                    
+        except Exception as e:
+            logger.error("Database readiness check failed", extra={
+                "operation": "db_readiness_failed",
+                "error": str(e)
+            }, exc_info=e)
+            raise
+    
+    def _database_exists_and_ready(self) -> bool:
+        """Check if database exists and has the basic tables"""
+        try:
+            if not self.db_path.exists():
+                return False
+                
+            conn = self._get_connection()
+            cursor = conn.execute("""
+                SELECT name FROM sqlite_master 
+                WHERE type='table' AND name IN ('secure_users', 'secure_workspaces', 'secure_assignments')
+            """)
+            tables = cursor.fetchall()
+            
+            # Database is ready if it has the core tables
+            required_tables = {'secure_users', 'secure_workspaces', 'secure_assignments'}
+            existing_tables = {table[0] for table in tables}
+            
+            is_ready = required_tables.issubset(existing_tables)
+            logger.info("Database existence check completed", extra={
+                "operation": "db_existence_check",
+                "tables_found": len(existing_tables),
+                "tables_required": len(required_tables),
+                "is_ready": is_ready,
+                "existing_tables": list(existing_tables)
+            })
+            
+            return is_ready
+            
+        except Exception as e:
+            logger.warning("Could not check database readiness", extra={
+                "operation": "db_existence_check_failed",
+                "error": str(e)
+            })
+            return False
+    
+    def _get_database_version(self) -> int:
+        """Get current database schema version"""
+        try:
+            conn = self._get_connection()
+            
+            # Create version table if it doesn't exist
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS schema_version (
+                    version INTEGER PRIMARY KEY,
+                    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    description TEXT
+                )
+            """)
+            
+            cursor = conn.execute("SELECT MAX(version) FROM schema_version")
+            result = cursor.fetchone()
+            version = result[0] if result and result[0] is not None else 0
+            
+            logger.debug("Retrieved database version", extra={
+                "operation": "get_db_version",
+                "version": version
+            })
+            
+            return version
+            
+        except Exception as e:
+            logger.warning("Could not get database version", extra={
+                "operation": "get_db_version_failed",
+                "error": str(e)
+            })
+            return 0
+    
+    def _set_database_version(self, version: int, description: str = None):
+        """Set database schema version"""
+        try:
+            conn = self._get_connection()
+            
+            if description is None:
+                description = f"Schema version {version}"
+                
+            conn.execute("""
+                INSERT INTO schema_version (version, description)
+                VALUES (?, ?)
+            """, (version, description))
+            
+            conn.commit()
+            
+            logger.info("Database version updated", extra={
+                "operation": "set_db_version",
+                "version": version,
+                "description": description
+            })
+            
+        except Exception as e:
+            logger.error("Failed to set database version", extra={
+                "operation": "set_db_version_failed",
+                "version": version,
+                "error": str(e)
+            })
+            raise
+    
+    def _get_target_schema_version(self) -> int:
+        """Get the target schema version for this application version"""
+        # This should be incremented when schema changes are made
+        return 1
+    
+    def _run_migrations(self, from_version: int, to_version: int):
+        """Run database migrations from one version to another"""
+        logger.info("Starting database migration", extra={
+            "operation": "db_migration_start",
+            "from_version": from_version,
+            "to_version": to_version
+        })
+        
+        try:
+            for version in range(from_version + 1, to_version + 1):
+                self._apply_migration(version)
+                self._set_database_version(version, f"Migration to version {version}")
+                
+            logger.info("Database migration completed", extra={
+                "operation": "db_migration_complete",
+                "final_version": to_version
+            })
+            
+        except Exception as e:
+            logger.error("Database migration failed", extra={
+                "operation": "db_migration_failed",
+                "from_version": from_version,
+                "to_version": to_version,
+                "error": str(e)
+            })
+            raise
+    
+    def _apply_migration(self, version: int):
+        """Apply a specific migration version"""
+        logger.info("Applying migration", extra={
+            "operation": "apply_migration",
+            "version": version
+        })
+        
+        # Future migrations would be implemented here
+        # For now, version 1 is the initial schema
+        if version == 1:
+            # This is handled by _init_database()
+            pass
+        else:
+            logger.warning("Unknown migration version requested", extra={
+                "operation": "unknown_migration",
+                "version": version
+            })
+
     def _auto_initialize_if_empty(self):
         """Automatically create default user if database is empty"""
         try:
