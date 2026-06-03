@@ -7,6 +7,7 @@ from flask import jsonify, render_template, request, send_from_directory
 import os
 import json
 from datetime import datetime
+from config.logging_config import get_logger, log_api_request
 from services.service_manager import ServiceManager
 from services.embedded.aws_metrics import EmbeddedAWSMetrics
 from services.embedded.github_metrics import EmbeddedGitHubMetrics
@@ -19,6 +20,9 @@ from services.auth.user_service import UserService
 from services.auth.auth_middleware import create_auth_decorators, get_current_user
 from services.data_export_service import DataExportService
 from services.data_import_service import DataImportService
+
+# Initialize logging
+logger = get_logger(__name__)
 
 # Initialize services
 service_manager = ServiceManager()

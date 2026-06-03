@@ -6,14 +6,14 @@ Augments existing CTO Dashboard functionality with export capabilities
 import os
 import json
 import csv
-import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Any, List
 from services.workspace.workspace_service import WorkspaceService
-from services.security.secure_database import SecureDatabaseManager
+from services.security.secure_database import secure_db
+from config.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class DataExportService:
     """
@@ -23,9 +23,15 @@ class DataExportService:
     
     def __init__(self):
         self.workspace_service = WorkspaceService()
-        self.secure_db = SecureDatabaseManager()
+        self.secure_db = secure_db  # Use singleton instance
         self.export_dir = Path("exports")
         self.export_dir.mkdir(exist_ok=True)
+        
+        logger.info("DataExportService initialized with singleton database instance", extra={
+            "operation": "service_init",
+            "service": "data_export",
+            "singleton_used": True
+        })
         
     def export_workspace_data(self, workspace_id: str, format: str = 'json', include_assignments: bool = True) -> Dict[str, Any]:
         """

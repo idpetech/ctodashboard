@@ -13,6 +13,11 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Setup centralized logging before anything else
+from config.logging_config import setup_logging, get_logger
+setup_logging()
+logger = get_logger(__name__)
+
 # Feature Flags - must match those in services/service_manager.py
 FEATURE_FLAGS = {
     "multi_tenancy": os.getenv("ENABLE_MULTI_TENANCY", "false").lower() == "true",
@@ -24,6 +29,13 @@ FEATURE_FLAGS = {
 
 # Configure Flask paths
 app = Flask(__name__, template_folder='templates')
+
+# Log application startup
+logger.info("CTOLens application starting up", extra={
+    "operation": "startup",
+    "environment": os.getenv("RAILWAY_ENVIRONMENT", "development"),
+    "feature_flags": FEATURE_FLAGS
+})
 
 # Configure sessions for web authentication
 app.secret_key = os.getenv("JWT_SECRET", secrets.token_urlsafe(32))
@@ -61,6 +73,12 @@ def debug_auth():
         from services.security.secure_database import secure_db
         health = secure_db.health_check()
         
+        logger.info("Debug auth endpoint accessed", extra={
+            "operation": "debug_auth",
+            "database_connected": health.get("database_connected", False),
+            "user_count": health.get('statistics', {}).get('users', 0)
+        })
+        
         return {
             "database_connected": health.get("database_connected", False),
             "user_count": health.get('statistics', {}).get('users', 0),
@@ -70,6 +88,10 @@ def debug_auth():
             "debug": True
         }
     except Exception as e:
+        logger.error("Debug auth endpoint failed", extra={
+            "operation": "debug_auth",
+            "error": str(e)
+        }, exc_info=e)
         return {
             "error": str(e),
             "database_connected": False,
@@ -123,8 +145,8 @@ def debug_db_location():
             file_exists = False
             
         return {
-            "database_path": db_path,
-            "absolute_path": abs_db_path,
+            "database_path": str(db_path),
+            "absolute_path": str(abs_db_path),
             "file_exists": file_exists,
             "file_size_bytes": file_size,
             "working_directory": os.getcwd(),
@@ -216,4 +238,15 @@ def test_database_write():
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8520))  # Use allocated CTO Dashboard port
-    app.run(host="0.0.0.0", port=port, debug=True)
+    
+    # Enable debug mode only in development, not in production (Railway)
+    debug_mode = not os.getenv("RAILWAY_ENVIRONMENT")
+    
+    logger.info("Starting Flask application server", extra={
+        "operation": "server_start",
+        "port": port,
+        "debug_mode": debug_mode,
+        "environment": os.getenv("RAILWAY_ENVIRONMENT", "development")
+    })
+    
+    app.run(host="0.0.0.0", port=port, debug=debug_mode)

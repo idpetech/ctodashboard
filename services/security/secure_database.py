@@ -17,8 +17,9 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import threading
 
-# Configure logging
-logger = logging.getLogger(__name__)
+# Configure logging  
+from config.logging_config import get_logger
+logger = get_logger(__name__)
 
 
 class SecureDatabaseManager:
@@ -33,22 +34,49 @@ class SecureDatabaseManager:
             if os.getenv("DB_PATH"):
                 # Explicit override via environment variable
                 db_path = os.getenv("DB_PATH")
+                logger.info("Database path set via DB_PATH environment variable", extra={
+                    "operation": "db_init",
+                    "db_path": db_path,
+                    "source": "environment_variable"
+                })
             elif os.getenv("RAILWAY_ENVIRONMENT"):
                 # On Railway, use the mounted volume for persistence across deploys
                 db_path = "/data/config/secure_credentials.db"
-                logger.info(f"🚂 Railway environment - using volume-backed path: {db_path}")
+                logger.info("Railway environment detected - using volume-backed path", extra={
+                    "operation": "db_init",
+                    "db_path": db_path,
+                    "environment": "railway",
+                    "source": "railway_volume"
+                })
             else:
                 db_path = "config/secure_credentials.db"
+                logger.info("Local development environment - using config directory", extra={
+                    "operation": "db_init",
+                    "db_path": db_path,
+                    "environment": "development",
+                    "source": "local_config"
+                })
         self.db_path = Path(db_path)
         
         # Create parent directory with proper permissions
         try:
             self.db_path.parent.mkdir(exist_ok=True, parents=True)
-        except (PermissionError, OSError):
+            logger.info("Database directory created successfully", extra={
+                "operation": "db_init",
+                "directory": str(self.db_path.parent),
+                "exists": self.db_path.parent.exists()
+            })
+        except (PermissionError, OSError) as e:
             # Fallback to current directory if we can't create the config dir
             # (e.g. read-only filesystem on Railway without a volume attached)
+            original_path = str(self.db_path)
             self.db_path = Path("secure_credentials.db")
-            print(f"Warning: Using fallback database path: {self.db_path}")
+            logger.warning("Database directory creation failed - using fallback path", extra={
+                "operation": "db_init",
+                "original_path": original_path,
+                "fallback_path": str(self.db_path),
+                "error": str(e)
+            })
         
         # Thread-local storage for database connections
         self._local = threading.local()
@@ -120,9 +148,16 @@ class SecureDatabaseManager:
     
     def _init_database(self):
         """Initialize database schema"""
+        logger.info("Starting database schema initialization", extra={
+            "operation": "db_schema_init",
+            "db_path": str(self.db_path),
+            "db_exists": self.db_path.exists()
+        })
+        
         conn = self._get_connection()
         
         # Users table - stores user auth data with encrypted sensitive fields
+        logger.info("Creating secure_users table", extra={"operation": "db_table_create", "table": "secure_users"})
         conn.execute("""
             CREATE TABLE IF NOT EXISTS secure_users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -188,6 +223,10 @@ class SecureDatabaseManager:
         """)
         
         # Create indexes for performance
+        logger.info("Creating database indexes for performance optimization", extra={
+            "operation": "db_index_create",
+            "indexes": ["users_email", "workspaces_id", "assignments_workspace", "assignments_id", "credentials_lookup"]
+        })
         conn.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON secure_users(email)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_workspaces_id ON secure_workspaces(workspace_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_assignments_workspace ON secure_assignments(workspace_id)")
@@ -622,7 +661,15 @@ def get_secure_db() -> SecureDatabaseManager:
     if _secure_db_instance is None:
         with _secure_db_lock:
             if _secure_db_instance is None:  # Double-check locking
+                logger.info("Creating singleton SecureDatabaseManager instance", extra={
+                    "operation": "singleton_creation",
+                    "thread_name": threading.current_thread().name
+                })
                 _secure_db_instance = SecureDatabaseManager()
+                logger.info("Singleton SecureDatabaseManager instance created successfully", extra={
+                    "operation": "singleton_created",
+                    "thread_name": threading.current_thread().name
+                })
     return _secure_db_instance
 
 # Lazy property for backward compatibility

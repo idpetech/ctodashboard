@@ -6,15 +6,15 @@ Compatible with Phase 1 Export Service format
 
 import os
 import json
-import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Any, List, Tuple
 from services.workspace.workspace_service import WorkspaceService
-from services.security.secure_database import SecureDatabaseManager
+from services.security.secure_database import secure_db
+from config.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class DataImportService:
     """
@@ -24,7 +24,13 @@ class DataImportService:
     
     def __init__(self):
         self.workspace_service = WorkspaceService()
-        self.secure_db = SecureDatabaseManager()
+        self.secure_db = secure_db  # Use singleton instance
+        
+        logger.info("DataImportService initialized with singleton database instance", extra={
+            "operation": "service_init",
+            "service": "data_import",
+            "singleton_used": True
+        })
         
     def validate_import_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """

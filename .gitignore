@@ -1,6 +1,9 @@
 # Environment variables (contains sensitive API keys)
 .env
 
+# Archived legacy configurations (file-based workspaces, users, assignments)
+_archived/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -499,6 +502,156 @@ config/secrets/
 
 # Auto-added by secure database
 config/secure_credentials.db
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by secure database
+config/secure_credentials.db
+
+# Auto-added by credential manager
+config/secrets/
 
 # Auto-added by secure database
 config/secure_credentials.db
