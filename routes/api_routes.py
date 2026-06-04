@@ -218,9 +218,9 @@ def collect_assignment_metrics(workspace_id: str, assignment_id: str, assignment
 def register_routes(app):
     """Register all routes with the Flask app"""
     
-    @app.route("/")
-    def index():
-        """Main dashboard page"""
+    @app.route("/dashboard")
+    def dashboard():
+        """Main dashboard page - moved from root to /dashboard"""
         return render_template("dashboard.html")
     
     @app.route("/workspace/<workspace_id>/settings")

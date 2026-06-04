@@ -11,8 +11,12 @@ from flask import Flask
 from flask_cors import CORS
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables. .env holds shared keys; .env.local holds local-only
+# values (e.g. DATABASE_URL) and is layered on top so local runs need no external
+# `export` step. Skipped on Railway, where platform-provided env vars are authoritative.
 load_dotenv()
+if not os.getenv("RAILWAY_ENVIRONMENT"):
+    load_dotenv(".env.local", override=True)
 
 # Setup centralized logging before anything else
 from config.logging_config import setup_logging, get_logger
@@ -62,6 +66,10 @@ CORS(app, supports_credentials=True, origins=["http://127.0.0.1:8520", "http://l
 # Import and register routes
 from routes.api_routes import register_routes
 from routes.database_admin import register_database_admin_routes
+from routes.homepage_routes import homepage_bp
+
+# Register homepage routes first to claim root route
+app.register_blueprint(homepage_bp)
 
 register_routes(app)
 register_database_admin_routes(app)

@@ -4,14 +4,11 @@
 ## MANDATORY PRE-SESSION PROTOCOL
 Before ANY work on this project, you MUST:
 
-1. Read QUICK-REFERENCE-CARD.md - Current state and patterns
-2. Read CONVERSATION-CONTEXT-SUMMARY.md - Session memory
-3. Read IMPLEMENTATION-CHECKLIST.md - Current phase and tasks
-4. Read DECISION-MATRIX.md - Decision criteria
-5. Read PRE-SESSION-COMPLIANCE-CHECKLIST.md - Compliance requirements
-6. Read SESSION-START-PROTOCOL.md - Session start sequence
-7. Read REAL-TIME-COMPLIANCE-MONITORING.md - Monitoring system
-8. Read USER-ENFORCEMENT-PROTOCOL.md - User enforcement mechanism
+1. Read docs/CURRENT-ARCHITECTURE.md - Source of truth (Postgres-only, Flask monolith)
+2. Read docs/POSTGRES-SINGLE-SOURCE-PLAN.md - Data migration rationale
+3. Read docs/DEPRECATION-MANIFEST.md - Removed / legacy paths
+
+Obsolete (do not use for architecture decisions): QUICK-REFERENCE-CARD.md, Phase 2.1 checklists, root CLAUDE.md InsightVault rules.
 
 ## CORE PRINCIPLES (NEVER DEVIATE)
 - "Always Working" Principle - Current functionality MUST NEVER break
@@ -19,13 +16,12 @@ Before ANY work on this project, you MUST:
 - Single Service Architecture - ONE Flask app (integrated_dashboard.py)
 - Consistency Requirements - Same patterns across all features
 
-## CURRENT STATE (AS OF 2025-10-06)
-- Phase: Phase 2.1: Service Configuration Foundation
-- Task: Service Types First - KISS + DRY approach
-- Priority: GitHub → Jira → OpenAI → Railway → AWS
-- Feature Flags: Service Config UI ENABLED
-- Working: integrated_dashboard.py, all endpoints, chatbot, OpenAI, AWS, GitHub, Jira
-- Deployment: Railway working and stable
+## CURRENT STATE (AS OF 2026-06-04)
+- Phase: Postgres single source of truth (complete at runtime)
+- Data: PostgreSQL ctodashboard schema only; SQLite disabled
+- UI: templates/dashboard.html (React in _attic/ only)
+- Working: Auth, workspaces, assignments, connectors, metrics (parallel fetch)
+- Deploy: Railway; local port 8520 with .env.local
 
 ## SERVICE CONFIGURATION PRIORITIES
 - Service Types First (before workstream management)

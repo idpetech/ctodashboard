@@ -773,3 +773,57 @@ config/secrets/
 # Runtime data lives in Postgres only
 config/users/*.json
 config/workspaces/*.json
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/

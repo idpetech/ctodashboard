@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ content.hero.headline }} - CTO Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .gradient-hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .attention-pulse {
+            animation: pulse 2s infinite;
+        }
+        .feature-hover {
+            transition: all 0.3s ease;
+        }
+        .feature-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .brief-item {
+            animation: slideIn 0.5s ease-out;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .attention-engine {
+            background: linear-gradient(45deg, #f093fb 0%, #f5576c 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center">
+                    <div class="text-2xl font-bold text-gray-900">
+                        <span class="text-blue-600">CTO</span> Dashboard
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/dashboard" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium">
+                        Login
+                    </a>
+                    <a href="/dashboard" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                        Start Free
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="gradient-hero py-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h1 class="text-4xl md:text-6xl font-bold text-white mb-6">
+                <span class="attention-pulse">{{ content.hero.headline }}</span>
+            </h1>
+            <p class="text-xl md:text-2xl text-blue-100 mb-8 max-w-3xl mx-auto">
+                {{ content.hero.subheadline }}
+            </p>
+            <a href="{{ content.hero.cta_link }}" class="inline-block bg-white text-blue-600 font-semibold px-8 py-4 rounded-lg text-lg hover:bg-gray-50 transition-colors shadow-lg">
+                {{ content.hero.cta_text }}
+            </a>
+            
+            <!-- Dashboard Preview -->
+            <div class="mt-16 max-w-4xl mx-auto">
+                <div class="bg-white/10 backdrop-blur-sm rounded-xl p-8 shadow-2xl">
+                    <div class="bg-white rounded-lg p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Today's CTO Briefing</h3>
+                        <div class="space-y-3">
+                            {% for item in content.hero.preview_items %}
+                            <div class="flex items-center {% if item.type == 'urgent' %}text-red-600{% elif item.type == 'warning' %}text-yellow-600{% elif item.type == 'good' %}text-green-600{% else %}text-blue-600{% endif %}">
+                                <span class="text-xl mr-3">{{ item.icon }}</span>
+                                <span class="font-medium">{{ item.text }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Problem Section -->
+    <section class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                "{{ content.problem.headline }}<br>
+                <span class="text-blue-600">{{ content.problem.subheadline }}"</span>
+            </h2>
+            
+            <div class="grid md:grid-cols-3 gap-8 mt-16">
+                {% for challenge in content.problem.challenges %}
+                <div class="text-center">
+                    <div class="{% if challenge.icon == 'scatter' %}bg-red-100{% elif challenge.icon == 'view' %}bg-yellow-100{% else %}bg-purple-100{% endif %} w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                        {% if challenge.icon == 'scatter' %}
+                        <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+                        </svg>
+                        {% elif challenge.icon == 'view' %}
+                        <svg class="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                        {% else %}
+                        <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                        </svg>
+                        {% endif %}
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">{{ challenge.title }}</h3>
+                    <p class="text-gray-600">{{ challenge.description }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <!-- Solution Section -->
+    <section class="py-20 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 class="text-5xl font-bold mb-8">
+                <span class="attention-engine">{{ content.solution.title }}</span>
+            </h2>
+            <p class="text-xl text-gray-600 mb-12 max-w-3xl mx-auto">
+                {{ content.solution.description }}
+            </p>
+            
+            <!-- Workflow Diagram -->
+            <div class="flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8 mt-16">
+                {% for step in content.solution.workflow %}
+                <div class="flex flex-col items-center">
+                    <div class="{% if step.icon_type == 'tools' %}bg-white{% elif step.icon_type == 'engine' %}bg-gradient-to-r from-pink-500 to-rose-500{% else %}bg-white{% endif %} rounded-lg p-6 shadow-lg mb-4">
+                        {% if step.icon_type == 'tools' %}
+                        <div class="flex space-x-4">
+                            <div class="w-8 h-8 bg-gray-900 rounded"></div>
+                            <div class="w-8 h-8 bg-blue-500 rounded"></div>
+                            <div class="w-8 h-8 bg-green-500 rounded"></div>
+                            <div class="w-8 h-8 bg-purple-500 rounded"></div>
+                        </div>
+                        {% elif step.icon_type == 'engine' %}
+                        <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                        </div>
+                        {% else %}
+                        <div class="space-y-2">
+                            <div class="flex items-center">
+                                <span class="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                                <div class="w-20 h-2 bg-gray-200 rounded"></div>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                                <div class="w-16 h-2 bg-gray-200 rounded"></div>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                                <div class="w-12 h-2 bg-gray-200 rounded"></div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <span class="text-sm font-medium text-gray-700">{{ step.name }}</span>
+                </div>
+                
+                {% if not loop.last %}
+                <div class="hidden md:block">
+                    <svg class="w-12 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">{{ content.features.title }}</h2>
+                <p class="text-xl text-gray-600">{{ content.features.subtitle }}</p>
+            </div>
+            
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+                {% for feature in content.features.feature_list %}
+                <div class="feature-hover bg-white p-6 rounded-xl shadow-lg border">
+                    <div class="{% if feature.icon == 'github' %}bg-gray-900{% elif feature.icon == 'jira' %}bg-blue-500{% elif feature.icon == 'deploy' %}bg-green-500{% else %}bg-purple-500{% endif %} w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+                        {% if feature.icon == 'github' %}
+                        <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 0C5.374 0 0 5.373 0 12 0 17.302 3.438 21.8 8.207 23.387c.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+                        </svg>
+                        {% elif feature.icon == 'jira' %}
+                        <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M11.53 2C7.05 2 3.43 4.76 3.43 8.09c0 1.73.85 3.33 2.24 4.54L11.53 22l5.86-9.37c1.39-1.21 2.24-2.81 2.24-4.54C19.63 4.76 15.99 2 11.53 2z"/>
+                        </svg>
+                        {% elif feature.icon == 'deploy' %}
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path>
+                        </svg>
+                        {% else %}
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        {% endif %}
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">{{ feature.title }}</h3>
+                    <p class="text-gray-600 mb-4">{{ feature.description }}</p>
+                    <ul class="text-sm text-gray-500 space-y-1">
+                        {% for detail in feature.details %}
+                        <li>• {{ detail }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <!-- Example Daily Brief Section -->
+    <section class="py-20 bg-gray-50">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">{{ content.daily_brief.title }}</h2>
+                <p class="text-xl text-gray-600">{{ content.daily_brief.subtitle }}</p>
+            </div>
+            
+            <div class="bg-white rounded-2xl shadow-xl p-8">
+                <div class="border-b border-gray-200 pb-4 mb-6">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-2xl font-bold text-gray-900">Today's Briefing</h3>
+                        <span class="text-sm text-gray-500">{{ content.daily_brief.date }}</span>
+                    </div>
+                </div>
+                
+                <div class="space-y-4">
+                    {% for item in content.daily_brief.brief_items %}
+                    <div class="brief-item flex items-start p-4 {% if item.level == 'urgent' %}bg-red-50 border-l-4 border-red-500{% elif item.level == 'warning' %}bg-yellow-50 border-l-4 border-yellow-500{% elif item.level == 'good' %}bg-green-50 border-l-4 border-green-500{% else %}bg-blue-50 border-l-4 border-blue-500{% endif %} rounded-lg">
+                        <span class="text-2xl mr-4">{{ item.icon }}</span>
+                        <div>
+                            <h4 class="font-semibold {% if item.level == 'urgent' %}text-red-800{% elif item.level == 'warning' %}text-yellow-800{% elif item.level == 'good' %}text-green-800{% else %}text-blue-800{% endif %}">{{ item.title }}</h4>
+                            <p class="{% if item.level == 'urgent' %}text-red-600{% elif item.level == 'warning' %}text-yellow-600{% elif item.level == 'good' %}text-green-600{% else %}text-blue-600{% endif %} text-sm mt-1">{{ item.description }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="mt-8 text-center">
+                    <a href="{{ content.daily_brief.cta.link }}" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg transition-colors">
+                        {{ content.daily_brief.cta.text }}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="py-20 bg-white">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 class="text-4xl font-bold text-gray-900 mb-4">{{ content.pricing.title }}</h2>
+            <p class="text-xl text-gray-600 mb-12">{{ content.pricing.subtitle }}</p>
+            
+            <div class="grid md:grid-cols-3 gap-8">
+                {% for plan in content.pricing.plans %}
+                <div class="{% if plan.popular %}border-2 border-blue-500{% else %}border border-gray-200{% endif %} rounded-xl p-8 relative">
+                    {% if plan.popular %}
+                    <div class="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                        <span class="bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-medium">Popular</span>
+                    </div>
+                    {% endif %}
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">{{ plan.name }}</h3>
+                    <div class="text-3xl font-bold text-gray-900 mb-4">{{ plan.price }}<span class="text-lg text-gray-600">{{ plan.period }}</span></div>
+                    <p class="text-gray-600 mb-6">{{ plan.description }}</p>
+                    <ul class="text-sm text-gray-600 space-y-2 mb-8">
+                        {% for feature in plan.features %}
+                        <li>• {{ feature }}</li>
+                        {% endfor %}
+                    </ul>
+                    <a href="{{ plan.cta.link }}" class="block w-full {% if plan.cta.style == 'primary' %}bg-blue-600 hover:bg-blue-700 text-white{% else %}bg-gray-900 hover:bg-gray-800 text-white{% endif %} py-3 rounded-lg font-medium transition-colors">
+                        {{ plan.cta.text }}
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="mt-12">
+                <a href="{{ content.pricing.bottom_cta.link }}" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-4 rounded-lg text-lg transition-colors">
+                    {{ content.pricing.bottom_cta.text }}
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid md:grid-cols-4 gap-8">
+                <div>
+                    <div class="text-2xl font-bold mb-4">
+                        <span class="text-blue-400">CTO</span> Dashboard
+                    </div>
+                    <p class="text-gray-400 text-sm">
+                        {{ content.footer.tagline }}
+                    </p>
+                </div>
+                
+                {% for section in content.footer.sections %}
+                <div>
+                    <h4 class="font-semibold mb-4">{{ section.title }}</h4>
+                    <ul class="space-y-2 text-sm text-gray-400">
+                        {% for link in section.links %}
+                        <li><a href="{{ link.url }}" class="hover:text-white">{{ link.text }}</a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="border-t border-gray-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
+                <p class="text-gray-400 text-sm">{{ content.footer.copyright }}</p>
+                <div class="flex space-x-6 mt-4 md:mt-0">
+                    {% for social in content.footer.social_links %}
+                    <a href="{{ social.url }}" class="text-gray-400 hover:text-white">
+                        {% if social.platform == 'twitter' %}
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/>
+                        </svg>
+                        {% elif social.platform == 'linkedin' %}
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                        </svg>
+                        {% endif %}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

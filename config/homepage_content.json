@@ -1,0 +1,213 @@
+{
+  "hero": {
+    "headline": "Know what needs your attention before it becomes a problem.",
+    "subheadline": "Connect GitHub, Jira, Railway and spreadsheets to get a daily CTO briefing.",
+    "cta_text": "Start Free Assessment",
+    "cta_link": "/dashboard",
+    "preview_items": [
+      {
+        "icon": "🚨",
+        "type": "urgent",
+        "text": "URGENT: API error rate spiked 300%"
+      },
+      {
+        "icon": "⚠️",
+        "type": "warning", 
+        "text": "WARNING: Sprint velocity down 20%"
+      },
+      {
+        "icon": "✅",
+        "type": "good",
+        "text": "GOOD: All deployments successful"
+      }
+    ]
+  },
+  "problem": {
+    "headline": "Current tools show data.",
+    "subheadline": "CTO Dashboard shows what needs attention.",
+    "challenges": [
+      {
+        "icon": "scatter",
+        "title": "Too many tools",
+        "description": "Scattered across platforms, context switching all day"
+      },
+      {
+        "icon": "view",
+        "title": "No single view", 
+        "description": "Jumping between dashboards, missing connections"
+      },
+      {
+        "icon": "warning",
+        "title": "Hidden risks",
+        "description": "Problems surface too late, firefighting mode"
+      }
+    ]
+  },
+  "solution": {
+    "title": "Attention Engine",
+    "description": "Our AI-powered system watches your development pipeline and surfaces only what requires your immediate attention.",
+    "workflow": [
+      {
+        "name": "Your Tools",
+        "description": "GitHub, Jira, Railway, AWS",
+        "icon_type": "tools"
+      },
+      {
+        "name": "AI Engine", 
+        "description": "Analyzes patterns and priorities",
+        "icon_type": "engine"
+      },
+      {
+        "name": "Daily Brief",
+        "description": "Actionable insights delivered",
+        "icon_type": "brief"
+      }
+    ]
+  },
+  "features": {
+    "title": "Complete CTO Intelligence",
+    "subtitle": "Connect your entire tech stack in minutes",
+    "feature_list": [
+      {
+        "icon": "github",
+        "title": "GitHub Insights",
+        "description": "Code velocity, team activity, repository health",
+        "details": ["Commit frequency", "Pull request metrics", "Team productivity"]
+      },
+      {
+        "icon": "jira",
+        "title": "Jira Insights", 
+        "description": "Sprint health, issue trends, team capacity",
+        "details": ["Sprint velocity", "Issue resolution time", "Backlog health"]
+      },
+      {
+        "icon": "deploy",
+        "title": "Deployment Monitoring",
+        "description": "Railway, AWS, error rates, uptime", 
+        "details": ["Deploy success rate", "Error monitoring", "Performance metrics"]
+      },
+      {
+        "icon": "strategic",
+        "title": "Strategic Tracking",
+        "description": "Business KPIs, cost optimization",
+        "details": ["Cost monitoring", "Resource utilization", "ROI tracking"]
+      }
+    ]
+  },
+  "daily_brief": {
+    "title": "Your Daily CTO Briefing",
+    "subtitle": "Get the essential insights delivered every morning",
+    "date": "March 15, 2024",
+    "brief_items": [
+      {
+        "icon": "🚨",
+        "level": "urgent",
+        "title": "URGENT: API error rate spiked 300%",
+        "description": "2 issues detected in payment service. Deploy rollback recommended."
+      },
+      {
+        "icon": "⚠️",
+        "level": "warning",
+        "title": "WARNING: Sprint velocity down 20%", 
+        "description": "Team capacity issues. 3 blockers identified in current sprint."
+      },
+      {
+        "icon": "✅",
+        "level": "good",
+        "title": "GOOD: All deployments successful",
+        "description": "5 successful deploys this week, 99.8% uptime maintained."
+      },
+      {
+        "icon": "📊",
+        "level": "info",
+        "title": "INFO: Team shipped 15 features this week",
+        "description": "Above average productivity, customer satisfaction up 12%."
+      }
+    ],
+    "cta": {
+      "text": "View Full Dashboard",
+      "link": "/dashboard"
+    }
+  },
+  "pricing": {
+    "title": "Simple Pricing",
+    "subtitle": "Start with a free assessment, scale as you grow",
+    "plans": [
+      {
+        "name": "Free Assessment",
+        "price": "$0",
+        "period": "",
+        "description": "7-day evaluation of your current setup",
+        "features": ["Connect 2 services", "Basic health check", "CTO report"],
+        "cta": {
+          "text": "Start Assessment",
+          "link": "/dashboard",
+          "style": "secondary"
+        }
+      },
+      {
+        "name": "Full Access",
+        "price": "$49",
+        "period": "/mo",
+        "description": "Complete CTO dashboard for growing teams",
+        "features": ["Unlimited services", "Daily briefings", "Alert management", "Team insights"],
+        "popular": true,
+        "cta": {
+          "text": "Get Started",
+          "link": "/dashboard", 
+          "style": "primary"
+        }
+      },
+      {
+        "name": "Scale",
+        "price": "$149",
+        "period": "/mo",
+        "description": "Enterprise features for larger organizations",
+        "features": ["Everything in Full", "Custom integrations", "Advanced analytics", "Priority support"],
+        "cta": {
+          "text": "Contact Sales",
+          "link": "/contact",
+          "style": "secondary"
+        }
+      }
+    ],
+    "bottom_cta": {
+      "text": "Get Started Today",
+      "link": "/assessment"
+    }
+  },
+  "footer": {
+    "tagline": "Know what needs your attention before it becomes a problem.",
+    "sections": [
+      {
+        "title": "Product",
+        "links": [
+          {"text": "Features", "url": "/features"},
+          {"text": "Pricing", "url": "/pricing"},
+          {"text": "Integrations", "url": "/integrations"}
+        ]
+      },
+      {
+        "title": "Company",
+        "links": [
+          {"text": "About", "url": "/about"},
+          {"text": "Blog", "url": "/blog"},
+          {"text": "Careers", "url": "/careers"}
+        ]
+      },
+      {
+        "title": "Support", 
+        "links": [
+          {"text": "Contact", "url": "/contact"},
+          {"text": "Help Center", "url": "/help"},
+          {"text": "Privacy", "url": "/privacy"}
+        ]
+      }
+    ],
+    "social_links": [
+      {"platform": "twitter", "url": "#"},
+      {"platform": "linkedin", "url": "#"}
+    ],
+    "copyright": "© 2024 CTO Dashboard. All rights reserved."
+  }
+}
