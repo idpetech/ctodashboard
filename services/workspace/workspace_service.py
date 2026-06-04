@@ -1,12 +1,8 @@
-# Workspace API facade — persistence via Postgres (postgres_backend → secure_db).
-# JSON under config/workspaces/ is legacy read-only for analysis helpers only.
+# Workspace API facade — Postgres only (postgres_backend → secure_db).
+# config/connectors/*.json = connector field schemas only (not user/workspace data).
 # See docs/POSTGRES-SINGLE-SOURCE-PLAN.md
 """
-Workspace Service - Phase 0 Foundation
-Pure addition, zero impact on existing functionality
-
-This service starts in legacy mode, providing foundation for workspace
-functionality without touching existing working code.
+Workspace Service — CRUD and connector templates via Postgres.
 """
 
 import os
@@ -21,200 +17,15 @@ from .postgres_backend import PostgresWorkspaceBackend
 logger = logging.getLogger(__name__)
 
 class WorkspaceService:
-    """
-    Foundation workspace service that starts in legacy compatibility mode.
-    
-    Phase 0: Read-only analysis and foundation setup
-    Future phases will add creation, modification, and migration capabilities.
-    """
-    
+    """Workspace and assignment operations backed by Postgres."""
+
     def __init__(self):
-        self.workspace_dir = Path("config/workspaces")
-        self.assignments_dir = Path("config/assignments")
         self.feature_enabled = os.getenv("ENABLE_WORKSPACES", "true").lower() == "true"
         self._store = PostgresWorkspaceBackend()
-        
+
     def is_workspace_enabled(self) -> bool:
-        """Check if workspace functionality is enabled via feature flag"""
         return self.feature_enabled
-    
-    def get_legacy_assignments(self) -> Dict[str, Any]:
-        """
-        Read current assignment structure for analysis.
-        Pure read-only operation, no modifications.
-        """
-        assignments = {}
-        
-        if not self.assignments_dir.exists():
-            return assignments
-            
-        for assignment_file in self.assignments_dir.glob("*.json"):
-            try:
-                with open(assignment_file, 'r') as f:
-                    assignment_data = json.load(f)
-                    assignments[assignment_file.stem] = assignment_data
-            except Exception as e:
-                # Log but don't break - defensive programming
-                logger.warning("Could not read assignment %s: %s", assignment_file, e)
-                
-        return assignments
-    
-    def analyze_current_structure(self) -> Dict[str, Any]:
-        """
-        Analyze current assignment structure to understand workspace migration needs.
-        Pure analysis, no modifications.
-        """
-        assignments = self.get_legacy_assignments()
-        
-        analysis = {
-            "total_assignments": len(assignments),
-            "connector_types_used": set(),
-            "unique_orgs": set(),
-            "assignments_by_status": {},
-            "metrics_config_patterns": {}
-        }
-        
-        for assignment_id, assignment in assignments.items():
-            # Track status distribution
-            status = assignment.get("status", "unknown")
-            analysis["assignments_by_status"][status] = analysis["assignments_by_status"].get(status, 0) + 1
-            
-            # Track connector types
-            metrics_config = assignment.get("metrics_config", {})
-            for connector_type, config in metrics_config.items():
-                if config.get("enabled", False):
-                    analysis["connector_types_used"].add(connector_type)
-                    
-                    # Track unique organizations/projects
-                    if connector_type == "github" and "org" in config:
-                        analysis["unique_orgs"].add(config["org"])
-                    
-                    # Track configuration patterns
-                    if connector_type not in analysis["metrics_config_patterns"]:
-                        analysis["metrics_config_patterns"][connector_type] = []
-                    analysis["metrics_config_patterns"][connector_type].append({
-                        "assignment_id": assignment_id,
-                        "config_keys": list(config.keys())
-                    })
-        
-        # Convert sets to lists for JSON serialization
-        analysis["connector_types_used"] = list(analysis["connector_types_used"])
-        analysis["unique_orgs"] = list(analysis["unique_orgs"])
-        
-        return analysis
-    
-    def get_workspace_readiness(self) -> Dict[str, Any]:
-        """
-        Assess readiness for workspace migration.
-        Pure assessment, no changes.
-        """
-        analysis = self.analyze_current_structure()
-        
-        readiness = {
-            "ready_for_migration": True,
-            "warnings": [],
-            "recommendations": [],
-            "migration_complexity": "low"
-        }
-        
-        # Check for potential issues
-        if analysis["total_assignments"] == 0:
-            readiness["warnings"].append("No assignments found - nothing to migrate")
-            
-        if len(analysis["connector_types_used"]) > 3:
-            readiness["migration_complexity"] = "medium"
-            readiness["recommendations"].append("Consider phased connector migration due to high connector diversity")
-            
-        if analysis["total_assignments"] > 10:
-            readiness["migration_complexity"] = "high" 
-            readiness["recommendations"].append("Large number of assignments - recommend batch migration approach")
-            
-        # Check for missing configurations
-        for assignment_id, assignment in self.get_legacy_assignments().items():
-            if not assignment.get("metrics_config"):
-                readiness["warnings"].append(f"Assignment '{assignment_id}' has no metrics configuration")
-                
-        return readiness
-    
-    def preview_workspace_structure(self) -> Dict[str, Any]:
-        """
-        Preview what workspace structure would look like after migration.
-        Pure preview, no actual changes.
-        """
-        assignments = self.get_legacy_assignments()
-        analysis = self.analyze_current_structure()
-        
-        # Group assignments by organization/company for workspace suggestion
-        workspace_suggestions = {}
-        
-        for assignment_id, assignment in assignments.items():
-            # Use company name or fallback to assignment name
-            company_name = assignment.get("name", assignment_id)
-            workspace_name = company_name.lower().replace(" ", "_").replace("consulting", "").strip("_")
-            
-            if workspace_name not in workspace_suggestions:
-                workspace_suggestions[workspace_name] = {
-                    "workspace_id": workspace_name,
-                    "name": company_name,
-                    "assignments": [],
-                    "connector_templates": set()
-                }
-                
-            workspace_suggestions[workspace_name]["assignments"].append(assignment_id)
-            
-            # Track connector types for templates
-            metrics_config = assignment.get("metrics_config", {})
-            for connector_type, config in metrics_config.items():
-                if config.get("enabled", False):
-                    workspace_suggestions[workspace_name]["connector_templates"].add(connector_type)
-        
-        # Convert sets to lists
-        for workspace in workspace_suggestions.values():
-            workspace["connector_templates"] = list(workspace["connector_templates"])
-            
-        return {
-            "suggested_workspaces": workspace_suggestions,
-            "total_workspaces": len(workspace_suggestions),
-            "migration_summary": {
-                "assignments_to_migrate": analysis["total_assignments"],
-                "connector_types_to_template": len(analysis["connector_types_used"]),
-                "estimated_templates_needed": len(analysis["connector_types_used"])
-            }
-        }
-    
-    def validate_legacy_compatibility(self) -> Dict[str, Any]:
-        """
-        Validate that current assignment loading still works perfectly.
-        This ensures workspace service doesn't break existing functionality.
-        """
-        validation = {
-            "legacy_loading_works": True,
-            "assignments_readable": 0,
-            "assignments_with_errors": 0,
-            "errors": []
-        }
-        
-        try:
-            assignments = self.get_legacy_assignments()
-            validation["assignments_readable"] = len(assignments)
-            
-            # Validate each assignment has required fields
-            for assignment_id, assignment in assignments.items():
-                required_fields = ["id", "name", "status"]
-                missing_fields = [field for field in required_fields if field not in assignment]
-                
-                if missing_fields:
-                    validation["assignments_with_errors"] += 1
-                    validation["errors"].append(f"Assignment '{assignment_id}' missing fields: {missing_fields}")
-                    
-        except Exception as e:
-            validation["legacy_loading_works"] = False
-            validation["errors"].append(f"Critical error reading assignments: {str(e)}")
-            
-        return validation
-    
-    # ===== PHASE 1: WORKSPACE CREATION AND MANAGEMENT =====
-    
+
     def create_workspace(self, workspace_id: str, name: str, description: str = "") -> Dict[str, Any]:
         if not self.feature_enabled:
             return {
@@ -227,53 +38,7 @@ class WorkspaceService:
         if not self.feature_enabled:
             return {"error": "Workspace functionality is disabled"}
         return self._store.get_workspace(workspace_id)
-    
-    def _create_default_workspace(self, workspace_id: str) -> Dict[str, Any]:
-        """Create a default workspace for Railway deployment"""
-        try:
-            # Ensure workspace directory exists
-            self.workspace_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Create workspace directory structure
-            workspace_path = self.workspace_dir / workspace_id
-            workspace_path.mkdir(parents=True, exist_ok=True)
-            
-            # Create assignments subdirectory
-            assignments_dir = workspace_path / "assignments"
-            assignments_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Default workspace configuration
-            workspace_config = {
-                "id": workspace_id,
-                "name": workspace_id.replace("_", " ").title(),
-                "description": "Default workspace for Railway deployment",
-                "created_at": datetime.utcnow().isoformat(),
-                "assignments": [],
-                "owner": "admin",
-                "members": ["admin"],
-                "settings": {
-                    "auto_create_assignments": True,
-                    "default_connectors": ["github", "jira", "aws"],
-                    "theme": "default"
-                },
-                "connector_templates": {
-                    "github": {},
-                    "jira": {},
-                    "aws": {}
-                },
-                "status": "active"
-            }
-            
-            # Write workspace config file
-            workspace_file = self.workspace_dir / f"{workspace_id}.json"
-            with open(workspace_file, 'w') as f:
-                json.dump(workspace_config, f, indent=2)
-            
-            return {"success": True, "workspace_id": workspace_id}
-            
-        except Exception as e:
-            return {"error": f"Failed to create default workspace: {str(e)}"}
-    
+
     def list_workspaces(self) -> Dict[str, Any]:
         if not self.feature_enabled:
             return {"workspaces": [], "message": "Workspace functionality is disabled"}

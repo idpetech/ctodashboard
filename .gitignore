@@ -763,3 +763,13 @@ config/secrets/
 
 # Local dev overrides (not for remote)
 .env.local
+
+# Auto-added by credential manager
+config/secrets/
+
+# Auto-added by credential manager
+config/secrets/
+
+# Runtime data lives in Postgres only
+config/users/*.json
+config/workspaces/*.json

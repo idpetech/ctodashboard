@@ -119,10 +119,10 @@ fi
 
 echo "✅ Database connection successful"
 
-# Run schema migration if script exists
-if [ -f "railway_schema_migration.py" ]; then
-    echo "🔄 Setting up database schema..."
-    python3 railway_schema_migration.py
+# Apply canonical schema (requires DATABASE_URL in environment)
+if [ -n "${DATABASE_URL:-}" ]; then
+    echo "🔄 Applying canonical Postgres schema..."
+    ENABLE_DB_AUTO_INIT=true python3 scripts/init_postgres_schema.py
 fi
 
 echo ""

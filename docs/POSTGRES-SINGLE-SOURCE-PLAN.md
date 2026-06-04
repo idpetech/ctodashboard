@@ -1,51 +1,29 @@
-# Postgres Single Source of Truth — Plan
+# Postgres Single Source of Truth
 
-**Status:** Implemented (canonical schema + consolidated access layer)  
-**Date:** 2026-05-31  
-
-## Problem
-
-Three competing persistence models ran in parallel: JSON under `config/workspaces/`, wrong adapter DDL (`secure_assignments` with `id` PK and no `metrics_config`), and correct migration DDL in `railway_schema_migration.py` that was not wired at runtime. SQL in `store_assignment` targeted columns the adapter never created.
+**Status:** Complete (runtime cutover)  
+**Date:** 2026-06-04  
 
 ## Decision
 
-**Keep:** `ctodashboard` schema — `users`, `workspaces`, `assignments`, `credentials`, `audit_logs`, `schema_version`.
+**Single schema:** `ctodashboard` — `users`, `workspaces`, `assignments`, `credentials`, `audit_logs`, `schema_version`.
 
-**Rationale:** Matches WorkspaceService assignment JSON, dashboard UI fields, `SecureUserService`, and existing `store_assignment` / `store_assignment_credentials` column sets.
+**Code path:** `canonical_schema.py` → `database_adapter.py` → `postgres_store.py` → `secure_database.py`.
 
-**Reject:** Adapter legacy `secure_assignments` DDL, SQLite paths in services, hardcoded Postgres URLs, silent auto-admin without env flag.
+**Auth:** `SecureUserService` only (Postgres). `user_service.py` is a thin import alias.
 
-## Implementation
+**Workspaces:** `WorkspaceService` → `postgres_backend` → `secure_db`. Connector schemas: `config/connectors/*.json`.
 
-1. `services/security/canonical_schema.py` — only DDL.
-2. `PostgreSQLAdapter.create_tables()` — calls canonical apply only.
-3. `SecureDatabaseManager` — PostgreSQL-only, canonical table names, `ENABLE_DB_AUTO_INIT` gated.
-4. Import/export — `secure_db` methods only, no parallel `?` SQL.
-5. This manifest + deprecation headers on one-off scripts.
+## Local run
 
-## Backout
+```bash
+source .env.local
+export ENABLE_WORKSPACES=true
+ENABLE_DB_AUTO_INIT=true python3 scripts/init_postgres_schema.py
+./venv/bin/python integrated_dashboard.py
+```
 
-1. `git revert` the SSOT commit(s).
-2. Unset `ENABLE_DB_AUTO_INIT` if enabled for testing.
-3. Old `secure_*` tables remain on disk; reverted code may read them if `search_path` is not `ctodashboard`.
-4. Assignment backup: JSON under `config/workspaces/` or export files.
-5. Railway: redeploy previous release; verify `DATABASE_URL`.
+## Validation
 
-## Validation checklist
-
-- App starts with `DATABASE_URL` set.
-- `health_check()` reports schema_version >= 1 and counts from `users` / `assignments`.
-- Assignment store/load round-trip via `secure_db`.
-- Import uses `store_assignment` (no raw SQLite SQL).
-
-## Deferred
-
-- Full WorkspaceService → Postgres cutover in API routes.
-- Deleting files listed in `DEPRECATION-MANIFEST.md`.
-
-## Phase 2 (2026-05-31): Workspace cutover
-
-- `WorkspaceService` CRUD delegates to `postgres_backend` → `secure_db`
-- `CredentialService` reads from `credentials` table only
-- Connector form loads credentials via `GET .../auth/<connector_type>` (authenticated)
-- `GET /api/assignments` lists from Postgres workspaces, not `config/workspaces/` dirs
+- Register → token + profile 200
+- `secure_db.health_check()` → `database_type: postgresql`
+- No runtime data in `config/users/` or `config/workspaces/`

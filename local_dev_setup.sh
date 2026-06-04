@@ -31,9 +31,9 @@ fi
 echo "🔧 Setting up environment..."
 cp .env.local .env
 
-# Run schema migration
+# Apply canonical schema
 echo "🔄 Setting up database schema..."
-python3 railway_schema_migration.py
+ENABLE_DB_AUTO_INIT=true python3 scripts/init_postgres_schema.py
 
 # Verify setup
 echo "🔍 Verifying setup..."
