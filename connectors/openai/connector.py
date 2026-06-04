@@ -13,6 +13,8 @@ from .validator import OpenAIValidator
 logger = logging.getLogger(__name__)
 
 class OpenAIConnector(BaseConnector):
+    CONNECTOR_TYPE = "openai"
+
     """
     OpenAI API connector with comprehensive usage and billing tracking
     

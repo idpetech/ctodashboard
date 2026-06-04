@@ -67,23 +67,30 @@ class MetricsAggregator:
         github_config = metrics_config.get("github", {})
         if github_config.get("enabled", False):
             try:
-                # Transform the config format for the metrics service
-                github_metrics_config = {
-                    'org': github_config.get('auth_instance', {}).get('credentials', {}).get('github_org', ''),
-                    'repos': github_config.get('auth_instance', {}).get('credentials', {}).get('github_repos', '').split(',') if github_config.get('auth_instance', {}).get('credentials', {}).get('github_repos') else []
-                }
-                # Clean up empty repositories
-                github_metrics_config['repos'] = [repo.strip() for repo in github_metrics_config['repos'] if repo.strip()]
-                
-                metrics["github"] = connectors["github"].get_metrics(github_metrics_config)
+                from services.assignment_metrics_config import (
+                    github_metrics_config as build_github_metrics_config,
+                )
+
+                gh_cfg = build_github_metrics_config(
+                    workspace_id, assignment_id, github_config
+                )
+                metrics["github"] = connectors["github"].get_metrics(gh_cfg)
             except Exception as e:
                 metrics["github"] = {"error": str(e)}
-        
+
         # Get Jira metrics if configured
         jira_config = metrics_config.get("jira", {})
         if jira_config.get("enabled", False):
             try:
-                metrics["jira"] = connectors["jira"].get_metrics(jira_config)
+                from services.assignment_metrics_config import (
+                    jira_metrics_config as build_jira_metrics_config,
+                )
+
+                metrics["jira"] = connectors["jira"].get_metrics(
+                    build_jira_metrics_config(
+                        workspace_id, assignment_id, jira_config
+                    )
+                )
             except Exception as e:
                 metrics["jira"] = {"error": str(e)}
         

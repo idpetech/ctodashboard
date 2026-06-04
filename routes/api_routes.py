@@ -6,6 +6,8 @@ Extracted from integrated_dashboard.py for clean separation
 from flask import jsonify, render_template, request, send_from_directory
 import os
 import json
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from config.logging_config import get_logger, log_api_request
 from services.service_manager import ServiceManager
@@ -95,8 +97,7 @@ railway_metrics = RailwayMetrics()
 
 def get_workspace_connectors(workspace_id, assignment_id):
     """
-    Create workspace-scoped connector instances with credentials from assignment JSON.
-    Phase 3: Enable workspace-specific authentication instead of global env vars.
+    Create workspace-scoped connector instances with credentials from Postgres store.
     """
     return {
         'github': EmbeddedGitHubMetrics(workspace_id=workspace_id, assignment_id=assignment_id),
@@ -104,6 +105,115 @@ def get_workspace_connectors(workspace_id, assignment_id):
         'aws': EmbeddedAWSMetrics(workspace_id=workspace_id, assignment_id=assignment_id),
         'openai': ConnectorRegistry.get_connector('openai', workspace_id, assignment_id)
     }
+
+
+from services.assignment_metrics_config import (
+    github_metrics_config as build_github_metrics_config,
+    jira_metrics_config as build_jira_metrics_config,
+)
+
+
+def _run_connector_metrics(name: str, fn):
+    """Run one connector fetch; return (name, result, elapsed_seconds)."""
+    started = time.monotonic()
+    try:
+        result = fn()
+        return name, result, time.monotonic() - started
+    except Exception as e:
+        logger.exception("%s metrics fetch failed", name)
+        return name, {"error": str(e)}, time.monotonic() - started
+
+
+def collect_assignment_metrics(workspace_id: str, assignment_id: str, assignment: dict) -> dict:
+    """Gather enabled connector metrics in parallel (external APIs are slow)."""
+    started_total = time.monotonic()
+    connectors = get_workspace_connectors(workspace_id, assignment_id)
+    metrics = {}
+    metrics_config = assignment.get("metrics_config") or {}
+    jobs = {}
+
+    aws_config = metrics_config.get("aws", {})
+    if aws_config.get("enabled", False):
+        jobs["aws"] = lambda: connectors["aws"].get_metrics()
+
+    github_config = metrics_config.get("github", {})
+    if github_config.get("enabled", False):
+        gh_cfg = build_github_metrics_config(
+            workspace_id, assignment_id, github_config
+        )
+        jobs["github"] = lambda c=connectors["github"], g=gh_cfg: c.get_metrics(g)
+
+    jira_config = metrics_config.get("jira", {})
+    if jira_config.get("enabled", False):
+        jira_merged = build_jira_metrics_config(
+            workspace_id, assignment_id, jira_config
+        )
+        jobs["jira"] = lambda c=connectors["jira"], j=jira_merged: c.get_metrics(j)
+
+    openai_config = metrics_config.get("openai", {})
+    if openai_config.get("enabled", False):
+        openai_connector = ConnectorRegistry.get_connector(
+            "openai", workspace_id, assignment_id
+        )
+        jobs["openai"] = lambda o=openai_connector, cfg=openai_config: o.get_metrics(cfg)
+
+    railway_config = metrics_config.get("railway", {})
+    if railway_config.get("enabled", False):
+        import asyncio
+
+        pid = railway_config.get("project_id")
+        pname = railway_config.get("project_name")
+
+        def _railway():
+            return asyncio.run(
+                railway_metrics.get_metrics(project_id=pid, project_name=pname)
+            )
+
+        jobs["railway"] = _railway
+
+    if not jobs:
+        return metrics
+
+    max_workers = min(len(jobs), 4)
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = {
+            pool.submit(_run_connector_metrics, name, fn): name
+            for name, fn in jobs.items()
+        }
+        for future in as_completed(futures, timeout=90):
+            name, result, elapsed = future.result()
+            metrics[name] = result
+            logger.info(
+                "Metrics %s ws=%s assignment=%s done in %.1fs",
+                name,
+                workspace_id,
+                assignment_id,
+                elapsed,
+            )
+            if isinstance(result, dict):
+                err = result.get("error") or (
+                    result.get("cost_analysis", {}).get("error")
+                    if name == "aws"
+                    else None
+                )
+                if err:
+                    logger.warning(
+                        "Metrics %s error ws=%s assignment=%s: %s",
+                        name,
+                        workspace_id,
+                        assignment_id,
+                        err,
+                    )
+
+    logger.info(
+        "Metrics total ws=%s assignment=%s %.1fs connectors=%s",
+        workspace_id,
+        assignment_id,
+        time.monotonic() - started_total,
+        list(metrics.keys()),
+    )
+    return metrics
+
 
 def register_routes(app):
     """Register all routes with the Flask app"""
@@ -325,29 +435,29 @@ def register_routes(app):
     def get_github_metrics(assignment_id):
         """Get GitHub metrics for specific assignment"""
         try:
-            # Load assignment configuration - need to find workspace first
-            assignment = None
-            for workspace_id in ['admin_workspace', 'test_workspace']:  # Try common workspaces
-                assignment = get_workspace_service().get_assignment(workspace_id, assignment_id)
-                if assignment:
-                    break
-            
+            workspace_id = request.args.get("workspace_id")
+            if workspace_id:
+                assignment = get_workspace_service().get_assignment(
+                    workspace_id, assignment_id
+                )
+            else:
+                result = get_workspace_service().find_assignment(assignment_id)
+                if result.get("status") != 200:
+                    return jsonify({"error": "Assignment not found"}), 404
+                workspace_id = result["workspace_id"]
+                assignment = result["assignment"]
+
             if not assignment:
                 return jsonify({"error": "Assignment not found"}), 404
-            
-            github_config = assignment.get('metrics_config', {}).get('github', {})
-            if not github_config.get('enabled', False):
+
+            github_config = assignment.get("metrics_config", {}).get("github", {})
+            if not github_config.get("enabled", False):
                 return jsonify({"error": "GitHub not enabled for this assignment"}), 400
-            
-            # Transform the config format for the metrics service
-            github_metrics_config = {
-                'org': github_config.get('auth_instance', {}).get('credentials', {}).get('github_org', ''),
-                'repos': github_config.get('auth_instance', {}).get('credentials', {}).get('github_repos', '').split(',') if github_config.get('auth_instance', {}).get('credentials', {}).get('github_repos') else []
-            }
-            # Clean up empty repositories
-            github_metrics_config['repos'] = [repo.strip() for repo in github_metrics_config['repos'] if repo.strip()]
-            
-            metrics = github_metrics.get_metrics(github_metrics_config)
+
+            gh_cfg = build_github_metrics_config(
+                workspace_id, assignment_id, github_config
+            )
+            metrics = github_metrics.get_metrics(gh_cfg)
             return jsonify(metrics)
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -362,20 +472,36 @@ def register_routes(app):
             return jsonify({"error": str(e), "valid": False}), 500
 
     @app.route("/api/jira-metrics/<assignment_id>")
+    @get_require_auth()
     def get_jira_metrics(assignment_id):
-        """Get Jira metrics for specific assignment"""
+        """Get Jira metrics for specific assignment (Postgres credentials)."""
         try:
-            # Load assignment configuration
-            assignment = assignment_service.get_assignment(assignment_id)
+            workspace_id = request.args.get("workspace_id")
+            if workspace_id:
+                assignment = get_workspace_service().get_assignment(
+                    workspace_id, assignment_id
+                )
+            else:
+                result = get_workspace_service().find_assignment(assignment_id)
+                if result.get("status") != 200:
+                    return jsonify({"error": "Assignment not found"}), 404
+                workspace_id = result["workspace_id"]
+                assignment = result["assignment"]
+
             if not assignment:
                 return jsonify({"error": "Assignment not found"}), 404
-            
-            jira_config = assignment.get('metrics_config', {}).get('jira', {})
-            if not jira_config.get('enabled', False):
+
+            jira_config = assignment.get("metrics_config", {}).get("jira", {})
+            if not jira_config.get("enabled", False):
                 return jsonify({"error": "Jira not enabled for this assignment"}), 400
-            
-            metrics = jira_metrics.get_metrics(jira_config)
-            return jsonify(metrics)
+
+            jira_merged = build_jira_metrics_config(
+                workspace_id, assignment_id, jira_config
+            )
+            connector = EmbeddedJiraMetrics(
+                workspace_id=workspace_id, assignment_id=assignment_id
+            )
+            return jsonify(connector.get_metrics(jira_merged))
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
@@ -424,138 +550,25 @@ def register_routes(app):
             
             workspace_id = result["workspace_id"]
             assignment = result["assignment"]
-            
-            # Build workspace connectors with credentials
-            connectors = get_workspace_connectors(workspace_id, assignment_id)
-            
-            metrics = {}
-            
-            # AWS metrics
-            aws_config = assignment.get('metrics_config', {}).get('aws', {})
-            if aws_config.get('enabled', False):
-                try:
-                    metrics['aws'] = connectors['aws'].get_metrics()
-                except Exception as e:
-                    metrics['aws'] = {"error": str(e)}
-            
-            # GitHub metrics
-            github_config = assignment.get('metrics_config', {}).get('github', {})
-            if github_config.get('enabled', False):
-                try:
-                    # Transform the config format for the metrics service
-                    github_metrics_config = {
-                        'org': github_config.get('auth_instance', {}).get('credentials', {}).get('github_org', ''),
-                        'repos': github_config.get('auth_instance', {}).get('credentials', {}).get('github_repos', '').split(',') if github_config.get('auth_instance', {}).get('credentials', {}).get('github_repos') else []
-                    }
-                    # Clean up empty repositories
-                    github_metrics_config['repos'] = [repo.strip() for repo in github_metrics_config['repos'] if repo.strip()]
-                    
-                    metrics['github'] = connectors['github'].get_metrics(github_metrics_config)
-                except Exception as e:
-                    metrics['github'] = {"error": str(e)}
-            
-            # Jira metrics
-            jira_config = assignment.get('metrics_config', {}).get('jira', {})
-            if jira_config.get('enabled', False):
-                try:
-                    metrics['jira'] = connectors['jira'].get_metrics(jira_config)
-                except Exception as e:
-                    metrics['jira'] = {"error": str(e)}
-            
-            # OpenAI metrics
-            openai_config = assignment.get('metrics_config', {}).get('openai', {})
-            if openai_config.get('enabled', False):
-                try:
-                    openai_connector = ConnectorRegistry.get_connector('openai', workspace_id, assignment_id)
-                    metrics['openai'] = openai_connector.get_metrics(openai_config)
-                except Exception as e:
-                    metrics['openai'] = {"error": str(e)}
-            
-            # Railway metrics
-            railway_config = assignment.get('metrics_config', {}).get('railway', {})
-            if railway_config.get('enabled', False):
-                try:
-                    import asyncio
-                    project_id = railway_config.get('project_id')
-                    project_name = railway_config.get('project_name')
-                    metrics['railway'] = asyncio.run(railway_metrics.get_metrics(project_id=project_id, project_name=project_name))
-                except Exception as e:
-                    metrics['railway'] = {"error": str(e)}
-            
-            return jsonify(metrics)
+            return jsonify(
+                collect_assignment_metrics(workspace_id, assignment_id, assignment)
+            )
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/workspaces/<workspace_id>/assignments/<assignment_id>/metrics")
+    @get_require_auth()
     def get_workspace_assignment_metrics(workspace_id, assignment_id):
-        """Get metrics for specific assignment in workspace context"""
+        """Get metrics for assignment in workspace (Postgres)."""
         try:
-            # Load assignment from workspace
-            assignment_file = f"config/workspaces/{workspace_id}/assignments/{assignment_id}.json"
-            if not os.path.exists(assignment_file):
+            assignment = get_workspace_service().get_assignment(
+                workspace_id, assignment_id
+            )
+            if not assignment:
                 return jsonify({"error": "Assignment not found"}), 404
-            
-            with open(assignment_file, 'r') as f:
-                assignment = json.load(f)
-            
-            metrics = {}
-            
-            # Use workspace-aware connectors where available
-            # Get workspace-scoped connector instances
-            connectors = get_workspace_connectors(workspace_id, assignment_id)
-            
-            # AWS metrics (still using monolithic until extracted)
-            aws_config = assignment.get('metrics_config', {}).get('aws', {})
-            if aws_config.get('enabled', False):
-                try:
-                    metrics['aws'] = connectors['aws'].get_metrics()
-                except Exception as e:
-                    metrics['aws'] = {"error": str(e)}
-            
-            # GitHub metrics (still using monolithic until extracted) 
-            github_config = assignment.get('metrics_config', {}).get('github', {})
-            if github_config.get('enabled', False):
-                try:
-                    # Transform the config format for the metrics service
-                    github_metrics_config = {
-                        'org': github_config.get('auth_instance', {}).get('credentials', {}).get('github_org', ''),
-                        'repos': github_config.get('auth_instance', {}).get('credentials', {}).get('github_repos', '').split(',') if github_config.get('auth_instance', {}).get('credentials', {}).get('github_repos') else []
-                    }
-                    # Clean up empty repositories
-                    github_metrics_config['repos'] = [repo.strip() for repo in github_metrics_config['repos'] if repo.strip()]
-                    
-                    metrics['github'] = connectors['github'].get_metrics(github_metrics_config)
-                except Exception as e:
-                    metrics['github'] = {"error": str(e)}
-            
-            # Jira metrics (still using monolithic until extracted)
-            jira_config = assignment.get('metrics_config', {}).get('jira', {}) 
-            if jira_config.get('enabled', False):
-                try:
-                    metrics['jira'] = connectors['jira'].get_metrics(jira_config)
-                except Exception as e:
-                    metrics['jira'] = {"error": str(e)}
-            
-            # OpenAI metrics (using modular connector)
-            openai_config = assignment.get('metrics_config', {}).get('openai', {})
-            if openai_config.get('enabled', False):
-                try:
-                    metrics['openai'] = connectors['openai'].get_metrics(openai_config)
-                except Exception as e:
-                    metrics['openai'] = {"error": str(e)}
-            
-            # Railway metrics
-            if assignment.get('metrics_config', {}).get('railway', {}).get('enabled'):
-                try:
-                    import asyncio
-                    railway_config = assignment.get('metrics_config', {}).get('railway', {})
-                    project_id = railway_config.get('project_id')
-                    project_name = railway_config.get('project_name')
-                    metrics['railway'] = asyncio.run(railway_metrics.get_metrics(project_id=project_id, project_name=project_name))
-                except Exception as e:
-                    metrics['railway'] = {"error": str(e)}
-            
-            return jsonify(metrics)
+            return jsonify(
+                collect_assignment_metrics(workspace_id, assignment_id, assignment)
+            )
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
@@ -1249,6 +1262,7 @@ def register_routes(app):
             return jsonify({"error": f"Failed to get credential status: {str(e)}"}), 500
     
     @app.route("/api/workspaces/<workspace_id>/credentials/<connector_type>", methods=["PUT", "DELETE"])
+    @get_require_auth()
     def manage_connector_credentials(workspace_id, connector_type):
         """Set or delete credentials for a specific connector type"""
         if request.method == "PUT":

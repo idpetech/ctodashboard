@@ -63,27 +63,39 @@ class BaseConnector(ABC):
         """
         pass
     
+    def _connector_type(self) -> str:
+        """Map class name to connector_type (e.g. OpenAIConnector -> openai)."""
+        return getattr(self, "CONNECTOR_TYPE", None) or self.__class__.__name__.lower().replace(
+            "connector", ""
+        )
+
     def _load_workspace_credentials(self):
-        """Load credentials from workspace assignment"""
+        """Load credentials from Postgres credentials table (not metrics_config JSON)."""
+        connector_type = self._connector_type()
         try:
-            from services.workspace.workspace_service import WorkspaceService
-            workspace_service = WorkspaceService()
-            assignment = workspace_service.get_assignment(self.workspace_id, self.assignment_id)
-            
-            if assignment:
-                connector_name = self.__class__.__name__.lower().replace('connector', '')
-                config = assignment.get('metrics_config', {}).get(connector_name, {})
-                auth_instance = config.get('auth_instance', {})
-                
-                if auth_instance.get('auth_configured'):
-                    self.credentials = auth_instance.get('credentials', {})
-                    logger.info(f"Loaded {connector_name} credentials from workspace assignment")
-                else:
-                    logger.warning(f"No {connector_name} credentials configured in workspace")
-                    
+            from services.auth.credential_service import CredentialService
+
+            creds = CredentialService().get_workspace_credentials(
+                self.workspace_id, self.assignment_id, connector_type
+            )
+            if creds:
+                self.credentials = creds
+                logger.info(
+                    "Loaded %s credentials from Postgres for %s/%s",
+                    connector_type,
+                    self.workspace_id,
+                    self.assignment_id,
+                )
+                return
+            logger.warning(
+                "No Postgres credentials for %s on %s/%s",
+                connector_type,
+                self.workspace_id,
+                self.assignment_id,
+            )
         except Exception as e:
-            logger.warning(f"Could not load workspace credentials: {e}")
-            self._load_environment_credentials()
+            logger.warning("Could not load workspace credentials: %s", e)
+        self._load_environment_credentials()
     
     def _load_environment_credentials(self):
         """Load credentials from environment variables - implemented by subclasses"""

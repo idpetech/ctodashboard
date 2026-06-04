@@ -26,28 +26,38 @@ class EmbeddedAWSMetrics:
         self._rds_client = None
     
     def _init_credentials(self):
-        """Initialize AWS credentials with workspace support and env var fallback"""
+        """Initialize AWS credentials from Postgres with env var fallback."""
         if self.workspace_id and self.assignment_id:
             try:
-                # Load credentials directly from workspace assignment JSON
-                from services.workspace.workspace_service import WorkspaceService
-                workspace_service = WorkspaceService()
-                assignment = workspace_service.get_assignment(self.workspace_id, self.assignment_id)
-                
-                if assignment and assignment.get('metrics_config', {}).get('aws', {}).get('auth_instance', {}).get('credentials'):
-                    aws_creds = assignment['metrics_config']['aws']['auth_instance']['credentials']
-                    self.access_key = aws_creds.get("aws_access_key") or os.getenv("AWS_ACCESS_KEY_ID")
-                    self.secret_key = aws_creds.get("aws_secret_key") or os.getenv("AWS_SECRET_ACCESS_KEY")
-                    self.region = aws_creds.get("aws_region") or os.getenv("AWS_REGION", "us-east-1")
-                    logger.info("Loaded AWS credentials from workspace assignment")
-                else:
-                    raise ValueError("No AWS credentials in assignment")
+                from services.auth.credential_service import CredentialService
+
+                aws_creds = CredentialService().get_aws_credentials(
+                    self.workspace_id, self.assignment_id
+                )
+                self.access_key = aws_creds.get("access_key") or os.getenv(
+                    "AWS_ACCESS_KEY_ID"
+                )
+                self.secret_key = aws_creds.get("secret_key") or os.getenv(
+                    "AWS_SECRET_ACCESS_KEY"
+                )
+                self.region = aws_creds.get("region") or os.getenv(
+                    "AWS_REGION", "us-east-1"
+                )
+                if self.access_key and self.secret_key:
+                    logger.info(
+                        "Loaded AWS credentials from Postgres for %s/%s",
+                        self.workspace_id,
+                        self.assignment_id,
+                    )
+                    return
             except Exception as e:
-                logger.warning("Could not load workspace credentials, falling back to env vars: %s", e)
-                # AWS credentials from environment variables (never hardcode!)
-                self.access_key = os.getenv("AWS_ACCESS_KEY_ID")
-                self.secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-                self.region = os.getenv("AWS_REGION", "us-east-1")
+                logger.warning(
+                    "Could not load workspace AWS credentials, falling back to env: %s",
+                    e,
+                )
+            self.access_key = os.getenv("AWS_ACCESS_KEY_ID")
+            self.secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+            self.region = os.getenv("AWS_REGION", "us-east-1")
         else:
             # Fallback to environment variables (preserves existing behavior)
             # AWS credentials from environment variables (never hardcode!)

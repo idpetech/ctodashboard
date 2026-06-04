@@ -1817,30 +1817,44 @@
                 configureConnector(connectorType);
             }
 
+            function refreshAssignmentsUI() {
+                if (document.getElementById('setupAssignmentsList')) {
+                    loadSetupData();
+                } else {
+                    if (typeof cache !== 'undefined' && cache.invalidateAssignments) {
+                        cache.invalidateAssignments();
+                    }
+                    loadDashboard();
+                }
+            }
+
             async function loadSetupData() {
-                // Load assignments for the setup panel
+                const container = document.getElementById('setupAssignmentsList');
+                if (!container) {
+                    return;
+                }
                 try {
                     const workspaceId = currentWorkspace || 'default_workspace';
-                    
-                    // Load assignments
-                    const assignmentsResponse = await fetch(`/api/workspaces/${workspaceId}/assignments`);
+
+                    const assignmentsResponse = await authFetch(
+                        `/api/workspaces/${workspaceId}/assignments`
+                    );
                     if (assignmentsResponse.ok) {
                         const assignmentsData = await assignmentsResponse.json();
                         displaySetupAssignments(assignmentsData.assignments || []);
                     }
-                    
-                    // Load credential status
-                    const credentialsResponse = await fetch(`/api/workspaces/${workspaceId}/credentials`);
+
+                    const credentialsResponse = await authFetch(
+                        `/api/workspaces/${workspaceId}/credentials`
+                    );
                     if (credentialsResponse.ok) {
                         const credentialsData = await credentialsResponse.json();
                         updateSetupConnectorStatus(credentialsData);
                     }
                 } catch (error) {
                     console.error('Error loading setup data:', error);
-                    const container = document.getElementById('setupAssignmentsList');
-                    if (container) {
-                        container.innerHTML = '<div class="text-center py-8 text-red-500">Error loading data</div>';
-                    }
+                    container.innerHTML =
+                        '<div class="text-center py-8 text-red-500">Error loading data</div>';
                 }
             }
 
@@ -1849,10 +1863,7 @@
             
             function displaySetupAssignments(assignments) {
                 const container = document.getElementById('setupAssignmentsList');
-                
-                // Check if container exists (setup panel might not be loaded yet)
                 if (!container) {
-                    console.warn('Setup assignments container not found, skipping display');
                     return;
                 }
                 
@@ -2128,13 +2139,13 @@
 
                 try {
                     const workspaceId = currentWorkspace || 'default_workspace';
-                    const response = await fetch(`/api/workspaces/${workspaceId}/assignments/${assignmentId}`, {
-                        method: 'DELETE'
-                    });
+                    const response = await authFetch(
+                        `/api/workspaces/${workspaceId}/assignments/${assignmentId}`,
+                        { method: 'DELETE' }
+                    );
 
                     if (response.ok) {
-                        // Refresh the assignments list
-                        loadSetupData();
+                        refreshAssignmentsUI();
                     } else {
                         const result = await response.json();
                         alert(`Failed to delete: ${result.error || 'Unknown error'}`);
@@ -2492,16 +2503,44 @@
                 return html;
             }
             
+            function connectorMetricsOk(payload) {
+                if (!payload) return false;
+                if (payload.error) return false;
+                if (payload.cost_analysis && payload.cost_analysis.error) return false;
+                if (Array.isArray(payload)) {
+                    return payload.length > 0 && payload.every(item => !item.error);
+                }
+                return true;
+            }
+
+            function summarizeMetricsPayload(data) {
+                const parts = [];
+                for (const key of ['github', 'jira', 'aws', 'openai', 'railway']) {
+                    if (!data[key]) continue;
+                    const p = data[key];
+                    if (p.error) {
+                        parts.push(`${key}: ${p.error}`);
+                    } else if (p.cost_analysis && p.cost_analysis.error) {
+                        parts.push(`${key}: ${p.cost_analysis.error}`);
+                    } else if (Array.isArray(p)) {
+                        const err = p.find(item => item.error);
+                        parts.push(err ? `${key}: ${err.error}` : `${key}: ok (${p.length})`);
+                    } else {
+                        parts.push(`${key}: ok`);
+                    }
+                }
+                return parts.join('; ') || 'no connectors returned data';
+            }
+
             // Phase 5B: Load basic metrics summary for dashboard cards
             async function loadBasicMetrics(assignmentId) {
                 const metricsElement = document.getElementById('metrics-' + assignmentId);
                 if (!metricsElement) return;
                 
                 try {
-                    // Load workspace-aware metrics summary
-                    const response = await fetch(`/api/workspaces/${currentWorkspace}/assignments/${assignmentId}/metrics`, {
-                        credentials: 'include'
-                    });
+                    const response = await authFetch(
+                        `/api/workspaces/${currentWorkspace}/assignments/${assignmentId}/metrics`
+                    );
                     
                     if (!response.ok) {
                         if (response.status === 404) {
@@ -2512,21 +2551,31 @@
                     }
                     
                     const data = await response.json();
+                    console.log(
+                        `📊 Metrics summary [${assignmentId}]:`,
+                        summarizeMetricsPayload(data),
+                        data
+                    );
+
                     let metricsCount = 0;
                     let statusColor = 'text-gray-500';
                     
-                    // Count enabled metrics
-                    if (data.github && !data.github.error) metricsCount++;
-                    if (data.jira && !data.jira.error) metricsCount++;
-                    if (data.aws && !data.aws.error) metricsCount++;
-                    if (data.openai && !data.openai.error) metricsCount++;
-                    if (data.railway && !data.railway.error) metricsCount++;
+                    if (connectorMetricsOk(data.github)) metricsCount++;
+                    if (connectorMetricsOk(data.jira)) metricsCount++;
+                    if (connectorMetricsOk(data.aws)) metricsCount++;
+                    if (connectorMetricsOk(data.openai)) metricsCount++;
+                    if (connectorMetricsOk(data.railway)) metricsCount++;
                     
                     if (metricsCount > 0) {
                         statusColor = 'text-green-600';
+                    } else if (Object.keys(data).length > 0) {
+                        statusColor = 'text-amber-600';
                     }
                     
-                    metricsElement.innerHTML = `<span class="${statusColor}">${metricsCount} active</span>`;
+                    const label = metricsCount > 0
+                        ? `${metricsCount} active`
+                        : (Object.keys(data).length ? 'needs config' : 'No metrics');
+                    metricsElement.innerHTML = `<span class="${statusColor}">${label}</span>`;
                     
                 } catch (error) {
                     console.warn('Failed to load basic metrics for', assignmentId, ':', error);
@@ -2536,16 +2585,18 @@
             
             async function loadRealMetrics(assignmentId) {
                 const metricsDiv = document.getElementById('metrics-display-' + assignmentId);
-                metricsDiv.innerHTML = '<div class="bg-blue-50 p-4 rounded"><div class="loading-spinner"></div>Loading all metrics data...</div>';
+                const loadStarted = Date.now();
+                metricsDiv.innerHTML = '<div class="bg-blue-50 p-4 rounded"><div class="loading-spinner"></div><p class="mt-2 text-gray-700">Loading all metrics…</p><p class="text-sm text-gray-500">Calling GitHub, AWS, OpenAI, and other APIs in parallel. This often takes 30–90 seconds.</p></div>';
                 
                 try {
-                    // Use the existing metrics API endpoint
-                    const metricsUrl = '/api/all-metrics/' + assignmentId;
-                    console.log('🏢 Loading metrics with workspace context:', currentWorkspace);
+                    const ws = currentWorkspace ? `?workspace_id=${encodeURIComponent(currentWorkspace)}` : '';
+                    const metricsUrl = '/api/all-metrics/' + assignmentId + ws;
+                    console.log('🏢 Loading full metrics:', metricsUrl);
                     
-                    const response = await fetch(metricsUrl, {
-                        headers: getAuthHeaders()
-                    });
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 120000);
+                    const response = await authFetch(metricsUrl, { signal: controller.signal });
+                    clearTimeout(timeoutId);
                     
                     if (!response.ok) {
                         if (response.status === 404) {
@@ -2556,16 +2607,25 @@
                     }
                     
                     const data = await response.json();
+                    console.log(
+                        `📊 Full metrics [${assignmentId}]:`,
+                        summarizeMetricsPayload(data),
+                        data
+                    );
                     
                     if (data.error) {
                         metricsDiv.innerHTML = '<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">Metrics Error: ' + data.error + '</div>';
                         return;
                     }
                     
+                    console.log(`📊 Full metrics loaded in ${((Date.now() - loadStarted) / 1000).toFixed(1)}s`);
                     displayAllMetrics(data, metricsDiv);
                     
                 } catch (error) {
-                    metricsDiv.innerHTML = '<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">Failed to load metrics: ' + error.message + '</div>';
+                    const msg = error.name === 'AbortError'
+                        ? 'Metrics request timed out after 2 minutes. Try again or disable a slow connector (AWS is often the slowest).'
+                        : error.message;
+                    metricsDiv.innerHTML = '<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">Failed to load metrics: ' + msg + '</div>';
                 }
             }
             
@@ -2574,7 +2634,11 @@
                 html += '<h3 class="text-xl font-bold text-gray-800 mb-4">📊 All Metrics - ' + new Date().toLocaleString() + '</h3>';
                 
                 // GitHub Metrics
-                if (metrics.github && Array.isArray(metrics.github)) {
+                if (metrics.github && metrics.github.error) {
+                    html += '<div class="bg-red-100 border border-red-300 text-red-700 p-3 rounded mb-4">';
+                    html += '🚀 GitHub Error: ' + metrics.github.error;
+                    html += '</div>';
+                } else if (metrics.github && Array.isArray(metrics.github)) {
                     html += '<div class="bg-purple-50 border border-purple-200 rounded mb-4">';
                     html += '<div class="cursor-pointer p-4 hover:bg-purple-100" onclick="toggleSection(' + "'github-section'" + ')">';
                     html += '<h4 class="text-lg font-semibold text-purple-800 flex items-center">';
@@ -4881,9 +4945,10 @@ Backups are stored in: ./backups/
                     var cached = cache.get(key);
                     if (cached) {
                         console.log('📂 Cache hit:', key);
-                        return Promise.resolve({ 
-                            json: function() { return Promise.resolve(cached); }, 
-                            ok: true 
+                        return Promise.resolve({
+                            json: function() { return Promise.resolve(cached); },
+                            ok: true,
+                            status: 200,
                         });
                     }
                 }
@@ -4944,9 +5009,8 @@ Backups are stored in: ./backups/
                     console.log(`Loading existing ${connectorType} credentials for assignment:`, assignmentId);
                     
                     const workspaceId = currentWorkspace || 'default_workspace';
-                    const response = await fetch(
-                        `/api/workspaces/${workspaceId}/assignments/${assignmentId}/auth/${connectorType}`,
-                        { headers: getAuthHeaders() }
+                    const response = await authFetch(
+                        `/api/workspaces/${workspaceId}/assignments/${assignmentId}/auth/${connectorType}`
                     );
                     
                     if (response.ok) {
@@ -5018,7 +5082,6 @@ Backups are stored in: ./backups/
             }
             
             function populateJiraForm(credentials) {
-                // Pre-populate Jira form fields
                 if (credentials.jira_url) {
                     document.getElementById('jira_url').value = credentials.jira_url;
                 }
@@ -5027,6 +5090,9 @@ Backups are stored in: ./backups/
                 }
                 if (credentials.jira_token) {
                     document.getElementById('jira_token').value = credentials.jira_token;
+                }
+                if (credentials.jira_projects) {
+                    document.getElementById('jira_projects').value = credentials.jira_projects;
                 }
                 console.log('Jira form pre-populated with existing credentials');
             }
@@ -5046,11 +5112,8 @@ Backups are stored in: ./backups/
 
                 try {
                     const workspaceId = currentWorkspace || 'default_workspace';
-                    const response = await fetch(`/api/workspaces/${workspaceId}/credentials/${connectorType}/test`, {
+                    const response = await authFetch(`/api/workspaces/${workspaceId}/credentials/${connectorType}/test`, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
                         body: JSON.stringify({ credentials })
                     });
 
@@ -5081,12 +5144,9 @@ Backups are stored in: ./backups/
 
                 try {
                     const workspaceId = currentWorkspace || 'default_workspace';
-                    const response = await fetch(`/api/workspaces/${workspaceId}/credentials/${connectorType}`, {
+                    const response = await authFetch(`/api/workspaces/${workspaceId}/credentials/${connectorType}`, {
                         method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ 
+                        body: JSON.stringify({
                             credentials,
                             assignment_id: assignmentId
                         })
@@ -5102,7 +5162,7 @@ Backups are stored in: ./backups/
                             if (selectedAssignmentId) {
                                 loadAssignmentConnectors(selectedAssignmentId);
                             }
-                            loadSetupData(); // Refresh overall status
+                            refreshAssignmentsUI();
                         }, 2000);
                     } else {
                         showMessage(`❌ Save failed: ${result.error || result.details}`, 'error');
@@ -5272,11 +5332,8 @@ Backups are stored in: ./backups/
 
                 try {
                     const workspaceId = currentWorkspace || 'default_workspace';
-                    const response = await fetch(`/api/workspaces/${workspaceId}/assignments`, {
+                    const response = await authFetch(`/api/workspaces/${workspaceId}/assignments`, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
                         body: JSON.stringify(assignmentData)
                     });
 
@@ -5286,7 +5343,7 @@ Backups are stored in: ./backups/
                         showAssignmentMessage('✅ Assignment created successfully!', 'success');
                         setTimeout(() => {
                             closeCreateAssignmentModal();
-                            loadSetupData(); // Refresh the setup panel
+                            refreshAssignmentsUI();
                         }, 2000);
                     } else {
                         showAssignmentMessage(`❌ Failed to create assignment: ${result.error || 'Unknown error'}`, 'error');
