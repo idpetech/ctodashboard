@@ -143,12 +143,31 @@ class UserService:
             # Auto-create default workspace for new user
             self._create_user_workspace(email, user_data_public["display_name"])
             
+            # Generate JWT token for immediate login
+            import time
+            now = int(time.time())
+            
+            token_payload = {
+                "email": email,
+                "display_name": user_data_public["display_name"],
+                "workspaces": user_data_public["workspaces"],
+                "role": user_data_public["role"],
+                "exp": now + (self.token_expiry_hours * 3600),
+                "iat": now
+            }
+            
+            token = jwt.encode(token_payload, self.jwt_secret, algorithm='HS256')
+            
             return {
                 "success": True,
+                "token": token,
                 "user": {
                     "email": email,
                     "display_name": user_data_public["display_name"],
-                    "created_at": user_data_public["created_at"]
+                    "created_at": user_data_public["created_at"],
+                    "workspaces": user_data_public["workspaces"],
+                    "role": user_data_public["role"],
+                    "preferences": user_data_public["preferences"]
                 },
                 "message": "User registered successfully"
             }

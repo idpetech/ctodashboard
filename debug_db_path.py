@@ -1,3 +1,4 @@
+# DEPRECATED: see docs/DEPRECATION-MANIFEST.md — do not use in production paths.
 #!/usr/bin/env python3
 """
 Debug exactly which database path is being used

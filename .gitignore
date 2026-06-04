@@ -760,3 +760,6 @@ secure_credentials.db
 
 # Auto-added by credential manager
 config/secrets/
+
+# Local dev overrides (not for remote)
+.env.local

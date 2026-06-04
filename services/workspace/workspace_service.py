@@ -1,3 +1,6 @@
+# Workspace API facade — persistence via Postgres (postgres_backend → secure_db).
+# JSON under config/workspaces/ is legacy read-only for analysis helpers only.
+# See docs/POSTGRES-SINGLE-SOURCE-PLAN.md
 """
 Workspace Service - Phase 0 Foundation
 Pure addition, zero impact on existing functionality
@@ -13,6 +16,8 @@ from typing import Dict, Optional, Any
 from pathlib import Path
 from datetime import datetime
 
+from .postgres_backend import PostgresWorkspaceBackend
+
 logger = logging.getLogger(__name__)
 
 class WorkspaceService:
@@ -25,8 +30,9 @@ class WorkspaceService:
     
     def __init__(self):
         self.workspace_dir = Path("config/workspaces")
-        self.assignments_dir = Path("config/assignments") 
+        self.assignments_dir = Path("config/assignments")
         self.feature_enabled = os.getenv("ENABLE_WORKSPACES", "true").lower() == "true"
+        self._store = PostgresWorkspaceBackend()
         
     def is_workspace_enabled(self) -> bool:
         """Check if workspace functionality is enabled via feature flag"""
@@ -210,69 +216,17 @@ class WorkspaceService:
     # ===== PHASE 1: WORKSPACE CREATION AND MANAGEMENT =====
     
     def create_workspace(self, workspace_id: str, name: str, description: str = "") -> Dict[str, Any]:
-        """
-        Create a new workspace.
-        Phase 1: Basic workspace creation with JSON file storage.
-        """
         if not self.feature_enabled:
             return {
                 "success": False,
-                "error": "Workspace functionality is disabled. Set ENABLE_WORKSPACES=true"
+                "error": "Workspace functionality is disabled. Set ENABLE_WORKSPACES=true",
             }
-        
-        # Ensure workspace directory exists
-        self.workspace_dir.mkdir(parents=True, exist_ok=True)
-        
-        workspace_file = self.workspace_dir / f"{workspace_id}.json"
-        
-        if workspace_file.exists():
-            return {
-                "success": False,
-                "error": f"Workspace '{workspace_id}' already exists"
-            }
-        
-        # Create workspace structure
-        workspace_data = {
-            "id": workspace_id,
-            "name": name,
-            "description": description,
-            "created_at": datetime.now().isoformat(),
-            "assignments": [],
-            "connector_templates": {},
-            "status": "active"
-        }
-        
-        try:
-            with open(workspace_file, 'w') as f:
-                json.dump(workspace_data, f, indent=2)
-            
-            return {
-                "success": True,
-                "workspace": workspace_data,
-                "message": f"Workspace '{workspace_id}' created successfully"
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Failed to create workspace: {str(e)}"
-            }
-    
+        return self._store.create_workspace(workspace_id, name, description)
+
     def get_workspace(self, workspace_id: str) -> Dict[str, Any]:
-        """Get workspace by ID, auto-create default if it doesn't exist"""
         if not self.feature_enabled:
             return {"error": "Workspace functionality is disabled"}
-        
-        workspace_file = self.workspace_dir / f"{workspace_id}.json"
-        
-        # Return error if workspace doesn't exist (no auto-creation)
-        if not workspace_file.exists():
-            return {"error": f"Workspace '{workspace_id}' not found"}
-        
-        try:
-            with open(workspace_file, 'r') as f:
-                return json.load(f)
-        except Exception as e:
-            return {"error": f"Failed to read workspace: {str(e)}"}
+        return self._store.get_workspace(workspace_id)
     
     def _create_default_workspace(self, workspace_id: str) -> Dict[str, Any]:
         """Create a default workspace for Railway deployment"""
@@ -321,169 +275,24 @@ class WorkspaceService:
             return {"error": f"Failed to create default workspace: {str(e)}"}
     
     def list_workspaces(self) -> Dict[str, Any]:
-        """List all workspaces"""
         if not self.feature_enabled:
-            return {
-                "workspaces": [],
-                "message": "Workspace functionality is disabled"
-            }
-        
-        if not self.workspace_dir.exists():
-            return {"workspaces": []}
-        
-        workspaces = []
-        for workspace_file in self.workspace_dir.glob("*.json"):
-            try:
-                with open(workspace_file, 'r') as f:
-                    workspace_data = json.load(f)
-                    # Return summary info for listing
-                    workspaces.append({
-                        "id": workspace_data.get("id"),
-                        "name": workspace_data.get("name"),
-                        "description": workspace_data.get("description", ""),
-                        "assignment_count": len(workspace_data.get("assignments", [])),
-                        "status": workspace_data.get("status", "active"),
-                        "created_at": workspace_data.get("created_at")
-                    })
-            except Exception as e:
-                # Log error but continue with other workspaces
-                logger.warning("Could not read workspace %s: %s", workspace_file, e)
-        
-        return {"workspaces": workspaces}
+            return {"workspaces": [], "message": "Workspace functionality is disabled"}
+        return self._store.list_workspaces()
     
     def add_assignment_to_workspace(self, workspace_id: str, assignment_id: str, assignment_config: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Add an assignment to a workspace.
-        Phase 1: Basic assignment creation within workspace.
-        """
         if not self.feature_enabled:
-            return {
-                "success": False,
-                "error": "Workspace functionality is disabled"
-            }
-        
-        # Get workspace
-        workspace = self.get_workspace(workspace_id)
-        if "error" in workspace:
-            return {
-                "success": False,
-                "error": workspace["error"]
-            }
-        
-        # Check if assignment already exists in workspace
-        existing_assignments = workspace.get("assignments", [])
-        if assignment_id in existing_assignments:
-            return {
-                "success": False,
-                "error": f"Assignment '{assignment_id}' already exists in workspace '{workspace_id}'"
-            }
-        
-        # Create assignment file in workspace-specific directory
-        workspace_assignments_dir = self.workspace_dir / workspace_id / "assignments"
-        workspace_assignments_dir.mkdir(parents=True, exist_ok=True)
-        
-        assignment_file = workspace_assignments_dir / f"{assignment_id}.json"
-        
-        # Prepare assignment data
-        assignment_data = {
-            "id": assignment_id,
-            "workspace_id": workspace_id,
-            "created_at": datetime.now().isoformat(),
-            **assignment_config
-        }
-        
-        try:
-            # Save assignment file
-            with open(assignment_file, 'w') as f:
-                json.dump(assignment_data, f, indent=2)
-            
-            # Update workspace to include assignment
-            workspace["assignments"].append(assignment_id)
-            
-            # Save updated workspace
-            workspace_file = self.workspace_dir / f"{workspace_id}.json"
-            with open(workspace_file, 'w') as f:
-                json.dump(workspace, f, indent=2)
-            
-            return {
-                "success": True,
-                "assignment": assignment_data,
-                "message": f"Assignment '{assignment_id}' added to workspace '{workspace_id}'"
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Failed to add assignment: {str(e)}"
-            }
-    
+            return {"success": False, "error": "Workspace functionality is disabled"}
+        return self._store.add_assignment(workspace_id, assignment_id, assignment_config)
+
     def get_workspace_assignments(self, workspace_id: str) -> Dict[str, Any]:
-        """Get all assignments for a workspace"""
         if not self.feature_enabled:
-            return {
-                "assignments": [],
-                "error": "Workspace functionality is disabled"
-            }
-        
-        workspace = self.get_workspace(workspace_id)
-        if "error" in workspace:
-            return {"error": workspace["error"]}
-        
-        assignments = []
-        workspace_assignments_dir = self.workspace_dir / workspace_id / "assignments"
-        
-        if workspace_assignments_dir.exists():
-            for assignment_file in workspace_assignments_dir.glob("*.json"):
-                try:
-                    with open(assignment_file, 'r') as f:
-                        assignment_data = json.load(f)
-                        assignments.append(assignment_data)
-                except Exception as e:
-                    logger.warning("Could not read assignment %s: %s", assignment_file, e)
-        
-        return {"assignments": assignments}
+            return {"assignments": [], "error": "Workspace functionality is disabled"}
+        return self._store.get_workspace_assignments(workspace_id)
     
     def delete_workspace(self, workspace_id: str) -> Dict[str, Any]:
-        """
-        Delete a workspace and all its assignments.
-        Phase 1: Basic deletion with safety checks.
-        """
         if not self.feature_enabled:
-            return {
-                "success": False,
-                "error": "Workspace functionality is disabled"
-            }
-        
-        workspace_file = self.workspace_dir / f"{workspace_id}.json"
-        
-        if not workspace_file.exists():
-            return {
-                "success": False,
-                "error": f"Workspace '{workspace_id}' not found"
-            }
-        
-        try:
-            # Get assignment count for confirmation
-            workspace = self.get_workspace(workspace_id)
-            assignment_count = len(workspace.get("assignments", []))
-            
-            # Delete workspace assignments directory
-            import shutil
-            workspace_assignments_dir = self.workspace_dir / workspace_id
-            if workspace_assignments_dir.exists():
-                shutil.rmtree(workspace_assignments_dir)
-            
-            # Delete workspace file
-            workspace_file.unlink()
-            
-            return {
-                "success": True,
-                "message": f"Workspace '{workspace_id}' deleted with {assignment_count} assignments"
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Failed to delete workspace: {str(e)}"
-            }
+            return {"success": False, "error": "Workspace functionality is disabled"}
+        return self._store.delete_workspace(workspace_id)
     
     # ===== PHASE 2: CONNECTOR TEMPLATE SYSTEM =====
     
@@ -549,24 +358,9 @@ class WorkspaceService:
         if connector_type not in workspace["connector_templates"]:
             workspace["connector_templates"][connector_type] = {}
         
-        workspace["connector_templates"][connector_type][template_name] = template_data
-        
-        try:
-            # Save updated workspace
-            workspace_file = self.workspace_dir / f"{workspace_id}.json"
-            with open(workspace_file, 'w') as f:
-                json.dump(workspace, f, indent=2)
-            
-            return {
-                "success": True,
-                "template": template_data,
-                "message": f"Connector template '{template_name}' created for {connector_type}"
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Failed to create template: {str(e)}"
-            }
+        return self._store.create_connector_template(
+            workspace_id, connector_type, template_name, template_data
+        )
     
     def get_connector_templates(self, workspace_id: str, connector_type: str = None) -> Dict[str, Any]:
         """Get connector templates for a workspace"""
@@ -610,50 +404,9 @@ class WorkspaceService:
         return template
     
     def delete_connector_template(self, workspace_id: str, connector_type: str, template_name: str) -> Dict[str, Any]:
-        """Delete a connector template"""
         if not self.feature_enabled:
-            return {
-                "success": False,
-                "error": "Workspace functionality is disabled"
-            }
-        
-        workspace = self.get_workspace(workspace_id)
-        if "error" in workspace:
-            return {
-                "success": False,
-                "error": workspace["error"]
-            }
-        
-        templates = workspace.get("connector_templates", {})
-        
-        if connector_type not in templates or template_name not in templates[connector_type]:
-            return {
-                "success": False,
-                "error": f"Template '{template_name}' not found for {connector_type}"
-            }
-        
-        try:
-            # Remove template
-            del templates[connector_type][template_name]
-            
-            # Clean up empty connector type
-            if not templates[connector_type]:
-                del templates[connector_type]
-            
-            # Save updated workspace
-            workspace_file = self.workspace_dir / f"{workspace_id}.json"
-            with open(workspace_file, 'w') as f:
-                json.dump(workspace, f, indent=2)
-            
-            return {
-                "success": True,
-                "message": f"Template '{template_name}' deleted from {connector_type}"
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Failed to delete template: {str(e)}"
-            }
+            return {"success": False, "error": "Workspace functionality is disabled"}
+        return self._store.delete_connector_template(workspace_id, connector_type, template_name)
     
     def create_assignment_from_template(self, workspace_id: str, assignment_id: str, assignment_config: Dict[str, Any], templates: Dict[str, str] = None) -> Dict[str, Any]:
         """
@@ -763,361 +516,84 @@ class WorkspaceService:
         return env_mapping
     
     def update_assignment_auth(self, workspace_id: str, assignment_id: str, connector_type: str, credentials: Dict[str, str]) -> Dict[str, Any]:
-        """
-        Update authentication credentials for a specific assignment's connector.
-        This is where actual tokens/keys are stored per assignment.
-        """
+        """Store credentials in Postgres; metadata flags only in metrics_config."""
+        from services.security.secure_database import secure_db
+
         if not self.feature_enabled:
-            return {
-                "success": False,
-                "error": "Workspace functionality is disabled"
-            }
-        
-        # Get assignment
-        assignments_result = self.get_workspace_assignments(workspace_id)
-        if "error" in assignments_result:
-            return {
-                "success": False,
-                "error": assignments_result["error"]
-            }
-        
-        assignments = assignments_result.get("assignments", [])
-        assignment = next((a for a in assignments if a.get("id") == assignment_id), None)
-        
+            return {"success": False, "error": "Workspace functionality is disabled"}
+        if not credentials or not any(credentials.values()):
+            return {"success": False, "error": "No credentials provided"}
+
+        assignment = self._store.get_assignment(workspace_id, assignment_id)
         if not assignment:
-            return {
-                "success": False,
-                "error": f"Assignment '{assignment_id}' not found in workspace '{workspace_id}'"
-            }
-        
-        # Check if connector exists in assignment
+            return {"success": False, "error": f"Assignment '{assignment_id}' not found"}
+
         metrics_config = assignment.get("metrics_config", {})
         if connector_type not in metrics_config:
-            return {
-                "success": False,
-                "error": f"Connector '{connector_type}' not found in assignment '{assignment_id}'"
-            }
-        
-        try:
-            # Update auth instance with actual credentials
-            if "auth_instance" not in metrics_config[connector_type]:
-                metrics_config[connector_type]["auth_instance"] = {}
-            
-            metrics_config[connector_type]["auth_instance"].update({
-                "credentials": credentials,
-                "auth_configured": True,
-                "last_updated": datetime.now().isoformat()
-            })
-            
-            # Save updated assignment
-            assignment_file = self.workspace_dir / workspace_id / "assignments" / f"{assignment_id}.json"
-            with open(assignment_file, 'w') as f:
-                json.dump(assignment, f, indent=2)
-            
-            return {
-                "success": True,
-                "message": f"Auth credentials updated for {connector_type} in assignment '{assignment_id}'",
-                "auth_status": "configured"
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Failed to update auth credentials: {str(e)}"
-            }
+            return {"success": False, "error": f"Connector '{connector_type}' not in assignment"}
+
+        if not secure_db.store_assignment_credentials(
+            workspace_id, assignment_id, connector_type, credentials
+        ):
+            return {"success": False, "error": "Failed to store credentials"}
+
+        metrics_config[connector_type].setdefault("auth_instance", {}).update({
+            "auth_configured": True,
+            "credentials": {},
+            "last_updated": datetime.now().isoformat(),
+        })
+        assignment["metrics_config"] = metrics_config
+        return self._store.update_assignment(workspace_id, assignment_id, assignment)
     
     def update_workspace_settings(self, workspace_id: str, settings_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Update workspace settings like name, description, etc.
-        Preserves existing connector templates and assignments.
-        """
         if not self.feature_enabled:
-            return {
-                "success": False,
-                "error": "Workspace functionality is disabled"
-            }
-        
-        workspace = self.get_workspace(workspace_id)
-        if "error" in workspace:
-            return {
-                "success": False,
-                "error": workspace["error"]
-            }
-        
-        try:
-            # Update only provided fields, preserve existing data
-            allowed_fields = ["name", "description", "status"]
-            for field in allowed_fields:
-                if field in settings_data:
-                    workspace[field] = settings_data[field]
-            
-            # Update timestamp
-            workspace["updated_at"] = datetime.now().isoformat()
-            
-            # Save updated workspace
-            workspace_file = self.workspace_dir / f"{workspace_id}.json"
-            with open(workspace_file, 'w') as f:
-                json.dump(workspace, f, indent=2)
-            
-            return {
-                "success": True,
-                "workspace": workspace,
-                "message": "Workspace settings updated successfully"
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Failed to update workspace settings: {str(e)}"
-            }
+            return {"success": False, "error": "Workspace functionality is disabled"}
+        return self._store.update_workspace_settings(workspace_id, settings_data)
     
     def clear_assignment_auth(self, workspace_id: str, assignment_id: str, connector_type: str) -> Dict[str, Any]:
-        """
-        Clear authentication credentials for a specific assignment's connector.
-        Removes credentials but keeps connector configuration.
-        """
+        from services.security.secure_database import secure_db
+
         if not self.feature_enabled:
-            return {
-                "success": False,
-                "error": "Workspace functionality is disabled"
-            }
-        
-        # Get assignment
-        assignments_result = self.get_workspace_assignments(workspace_id)
-        if "error" in assignments_result:
-            return {
-                "success": False,
-                "error": assignments_result["error"]
-            }
-        
-        assignments = assignments_result.get("assignments", [])
-        assignment = next((a for a in assignments if a.get("id") == assignment_id), None)
-        
-        if not assignment:
-            return {
-                "success": False,
-                "error": f"Assignment '{assignment_id}' not found in workspace '{workspace_id}'"
-            }
-        
-        # Check if connector exists in assignment
-        metrics_config = assignment.get("metrics_config", {})
-        if connector_type not in metrics_config:
-            return {
-                "success": False,
-                "error": f"Connector '{connector_type}' not found in assignment '{assignment_id}'"
-            }
-        
-        try:
-            # Clear auth credentials but keep connector config
-            if "auth_instance" in metrics_config[connector_type]:
-                metrics_config[connector_type]["auth_instance"].update({
+            return {"success": False, "error": "Workspace functionality is disabled"}
+
+        secure_db.delete_assignment_credentials(workspace_id, assignment_id, connector_type)
+        assignment = self._store.get_assignment(workspace_id, assignment_id)
+        if assignment:
+            metrics_config = assignment.get("metrics_config", {})
+            if connector_type in metrics_config:
+                metrics_config[connector_type].setdefault("auth_instance", {}).update({
                     "credentials": {},
                     "auth_configured": False,
-                    "cleared_at": datetime.now().isoformat()
+                    "cleared_at": datetime.now().isoformat(),
                 })
-            
-            # Save updated assignment
-            assignment_file = self.workspace_dir / workspace_id / "assignments" / f"{assignment_id}.json"
-            with open(assignment_file, 'w') as f:
-                json.dump(assignment, f, indent=2)
-            
-            return {
-                "success": True,
-                "message": f"Auth credentials cleared for {connector_type} in assignment '{assignment_id}'",
-                "auth_status": "not_configured"
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Failed to clear auth credentials: {str(e)}"
-            }
+                assignment["metrics_config"] = metrics_config
+                self._store.update_assignment(workspace_id, assignment_id, assignment)
+        return {
+            "success": True,
+            "message": f"Auth credentials cleared for {connector_type}",
+            "auth_status": "not_configured",
+        }
     
     # ===== WORKSPACE-ONLY CRUD METHODS (Phase 1) =====
     # These methods provide workspace store as single source of truth
     
     def get_assignment(self, workspace_id: str, assignment_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get a specific assignment from workspace store (single file read).
-        Phase 1: Workspace-only, no legacy fallback.
-        """
         if not self.feature_enabled:
             return None
-            
-        try:
-            assignment_file = self.workspace_dir / workspace_id / "assignments" / f"{assignment_id}.json"
-            if not assignment_file.exists():
-                return None
-                
-            with open(assignment_file, 'r') as f:
-                assignment = json.load(f)
-                assignment["workspace_id"] = workspace_id  # Ensure workspace context
-                return assignment
-                
-        except Exception as e:
-            logger.error("Error reading assignment %s/%s: %s", workspace_id, assignment_id, e, exc_info=True)
-            return None
-    
+        return self._store.get_assignment(workspace_id, assignment_id)
+
     def find_assignment(self, assignment_id: str, workspace_id: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Defensive resolver for assignment lookup across workspaces.
-        
-        Returns:
-        - If workspace_id given: read that workspace only
-        - If not given: scan all workspaces
-          - Exactly one match: return it
-          - Zero matches: return clear "not found" (404)
-          - Multiple matches: return "ambiguous, specify workspace_id" (409)
-        
-        Never silently guess, never read legacy.
-        """
         if not self.feature_enabled:
-            return {
-                "error": "Workspace functionality is disabled",
-                "status": 500
-            }
-        
-        if workspace_id:
-            # Single workspace lookup
-            assignment = self.get_assignment(workspace_id, assignment_id)
-            if assignment:
-                return {
-                    "workspace_id": workspace_id,
-                    "assignment": assignment,
-                    "status": 200
-                }
-            else:
-                return {
-                    "error": f"Assignment '{assignment_id}' not found in workspace '{workspace_id}'",
-                    "status": 404
-                }
-        
-        # Scan all workspaces
-        matches = []
-        try:
-            for workspace_path in self.workspace_dir.glob("*"):
-                if workspace_path.is_dir():
-                    ws_id = workspace_path.name
-                    assignment = self.get_assignment(ws_id, assignment_id)
-                    if assignment:
-                        matches.append({
-                            "workspace_id": ws_id,
-                            "assignment": assignment
-                        })
-            
-            if len(matches) == 0:
-                return {
-                    "error": f"Assignment '{assignment_id}' not found in any workspace",
-                    "status": 404
-                }
-            elif len(matches) == 1:
-                return {
-                    "workspace_id": matches[0]["workspace_id"],
-                    "assignment": matches[0]["assignment"],
-                    "status": 200
-                }
-            else:
-                workspace_ids = [m["workspace_id"] for m in matches]
-                return {
-                    "error": f"Assignment '{assignment_id}' found in multiple workspaces: {workspace_ids}. Please specify workspace_id parameter.",
-                    "ambiguous_workspaces": workspace_ids,
-                    "status": 409  # Conflict
-                }
-                
-        except Exception as e:
-            return {
-                "error": f"Error scanning workspaces: {str(e)}",
-                "status": 500
-            }
-    
+            return {"error": "Workspace functionality is disabled", "status": 500}
+        return self._store.find_assignment(assignment_id, workspace_id)
+
     def update_assignment(self, workspace_id: str, assignment_id: str, assignment_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Update an existing assignment in workspace store.
-        Phase 1: Workspace-only, no legacy interaction.
-        """
         if not self.feature_enabled:
-            return {
-                "success": False,
-                "error": "Workspace functionality is disabled"
-            }
-        
-        try:
-            # Load existing assignment
-            existing_assignment = self.get_assignment(workspace_id, assignment_id)
-            if not existing_assignment:
-                return {
-                    "success": False,
-                    "error": f"Assignment '{assignment_id}' not found in workspace '{workspace_id}'"
-                }
-            
-            # Merge new data with existing (preserve unmodified fields)
-            updated_assignment = {**existing_assignment, **assignment_data}
-            
-            # Ensure workspace context and update timestamp
-            updated_assignment["workspace_id"] = workspace_id
-            updated_assignment["updated_at"] = datetime.now().isoformat()
-            
-            # Write updated assignment
-            assignment_file = self.workspace_dir / workspace_id / "assignments" / f"{assignment_id}.json"
-            with open(assignment_file, 'w') as f:
-                json.dump(updated_assignment, f, indent=2)
-            
-            return {
-                "success": True,
-                "assignment": updated_assignment,
-                "message": f"Assignment '{assignment_id}' updated successfully"
-            }
-            
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Failed to update assignment: {str(e)}"
-            }
-    
+            return {"success": False, "error": "Workspace functionality is disabled"}
+        return self._store.update_assignment(workspace_id, assignment_id, assignment_data)
+
     def archive_assignment(self, workspace_id: str, assignment_id: str) -> Dict[str, Any]:
-        """
-        Archive assignment within workspace folder.
-        Move to config/workspaces/<ws>/assignments/archived/
-        """
         if not self.feature_enabled:
-            return {
-                "success": False,
-                "error": "Workspace functionality is disabled"
-            }
-        
-        try:
-            # Check if assignment exists
-            assignment = self.get_assignment(workspace_id, assignment_id)
-            if not assignment:
-                return {
-                    "success": False,
-                    "error": f"Assignment '{assignment_id}' not found in workspace '{workspace_id}'"
-                }
-            
-            # Create archived directory if it doesn't exist
-            archived_dir = self.workspace_dir / workspace_id / "assignments" / "archived"
-            archived_dir.mkdir(exist_ok=True)
-            
-            # Move from active to archived
-            active_path = self.workspace_dir / workspace_id / "assignments" / f"{assignment_id}.json"
-            archived_path = archived_dir / f"{assignment_id}.json"
-            
-            # Update assignment with archive status
-            assignment["status"] = "archived"
-            assignment["archived_date"] = datetime.now().isoformat()
-            
-            # Write to archived location
-            with open(archived_path, 'w') as f:
-                json.dump(assignment, f, indent=2)
-            
-            # Remove from active location
-            active_path.unlink()
-            
-            return {
-                "success": True,
-                "message": f"Assignment '{assignment_id}' archived successfully"
-            }
-            
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Failed to archive assignment: {str(e)}"
-            }
+            return {"success": False, "error": "Workspace functionality is disabled"}
+        return self._store.archive_assignment(workspace_id, assignment_id)
     

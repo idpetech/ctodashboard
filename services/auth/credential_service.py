@@ -1,66 +1,25 @@
 """
-Workspace Credential Service - Phase 1 Rewrite
-Reads credentials from workspace store exclusively (no legacy fallback)
+Workspace Credential Service — reads from Postgres credentials table only.
 
-Schema: config/workspaces/<ws>/assignments/<id>.json
-  -> metrics_config.<connector>.auth_instance.credentials
+See docs/POSTGRES-SINGLE-SOURCE-PLAN.md
 """
 
 import os
-import json
-from pathlib import Path
 from typing import Dict, Any, Optional
 
+from services.security.secure_database import secure_db
+
+
 class CredentialService:
-    """
-    Service to read credentials from workspace assignment configurations.
-    Phase 1: Workspace-only, no legacy reads.
-    """
-    
-    def __init__(self):
-        self.workspaces_dir = Path("config/workspaces")
-    
-    def get_workspace_credentials(self, workspace_id: str, assignment_id: str, connector_type: str) -> Dict[str, Any]:
-        """
-        Get credentials for a specific connector in a workspace assignment.
-        
-        Reads from: config/workspaces/<ws>/assignments/<id>.json
-        Path: metrics_config.<connector>.auth_instance.credentials
-        
-        Args:
-            workspace_id: ID of the workspace
-            assignment_id: ID of the assignment within the workspace
-            connector_type: Type of connector (github, jira, aws, openai)
-            
-        Returns:
-            Dictionary containing credentials for the connector
-            
-        Example return for GitHub:
-        {
-            "github_token": "ghp_xxxxxxxxxxxx",
-            "github_org": "ideptech"
-        }
-        """
-        try:
-            # Read workspace assignment file
-            assignment_file = self.workspaces_dir / workspace_id / "assignments" / f"{assignment_id}.json"
-            if not assignment_file.exists():
-                return {}
-                
-            with open(assignment_file, 'r') as f:
-                assignment_data = json.load(f)
-            
-            # Navigate to credentials path: metrics_config.<connector>.auth_instance.credentials
-            metrics_config = assignment_data.get("metrics_config", {})
-            connector_config = metrics_config.get(connector_type, {})
-            auth_instance = connector_config.get("auth_instance", {})
-            credentials = auth_instance.get("credentials", {})
-            
-            return credentials
-            
-        except Exception as e:
-            print(f"Warning: Could not load workspace credentials for {workspace_id}/{assignment_id}/{connector_type}: {e}")
-            return {}
+    """Load decrypted assignment credentials from secure_db."""
+
+    def get_workspace_credentials(
+        self, workspace_id: str, assignment_id: str, connector_type: str
+    ) -> Dict[str, Any]:
+        creds = secure_db.get_assignment_credentials(
+            workspace_id, assignment_id, connector_type
+        )
+        return creds or {}
     
     def get_credential_with_fallback(self, 
                                    workspace_id: str, 

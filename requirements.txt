@@ -32,3 +32,6 @@ gunicorn==21.2.0
 
 # Security dependencies
 cryptography>=3.4.8
+
+# Database dependencies
+psycopg2-binary>=2.9.0

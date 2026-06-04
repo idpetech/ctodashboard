@@ -16,7 +16,7 @@ from services.embedded.railway_metrics import RailwayMetrics
 from connectors.registry import ConnectorRegistry
 from services.chatbot_service import process_question, process_question_stream, get_conversation_history, clear_conversation_history
 from services.workspace.workspace_service import WorkspaceService
-from services.auth.user_service import UserService
+from services.auth.secure_user_service import SecureUserService
 from services.auth.auth_middleware import create_auth_decorators, get_current_user
 from services.data_export_service import DataExportService
 from services.data_import_service import DataImportService
@@ -46,7 +46,7 @@ def get_workspace_service():
 def get_user_service():
     global _user_service
     if _user_service is None:
-        _user_service = UserService()
+        _user_service = SecureUserService()
     return _user_service
 
 def get_export_service():
@@ -194,12 +194,14 @@ def register_routes(app):
         # Aggregate assignments from all workspaces
         all_assignments = []
         try:
-            for workspace_path in get_workspace_service().workspace_dir.glob("*"):
-                if workspace_path.is_dir():
-                    workspace_id = workspace_path.name
-                    result = get_workspace_service().get_workspace_assignments(workspace_id)
-                    if "assignments" in result:
-                        all_assignments.extend(result["assignments"])
+            ws_list = get_workspace_service().list_workspaces().get("workspaces", [])
+            for ws in ws_list:
+                workspace_id = ws.get("id")
+                if not workspace_id:
+                    continue
+                result = get_workspace_service().get_workspace_assignments(workspace_id)
+                if "assignments" in result:
+                    all_assignments.extend(result["assignments"])
         except Exception as e:
             return jsonify({"error": f"Failed to load assignments: {str(e)}"}), 500
         
@@ -667,7 +669,7 @@ def register_routes(app):
         
         email = data.get("email")
         password = data.get("password")
-        display_name = data.get("display_name")
+        display_name = data.get("display_name") or data.get("name")
         
         if not email or not password:
             return jsonify({"error": "Email and password are required"}), 400
@@ -675,32 +677,32 @@ def register_routes(app):
         result = get_user_service().register_user(email, password, display_name)
         
         if result.get("success"):
-            # Auto-login the newly registered user to avoid logout requirement
-            login_result = get_user_service().authenticate_user(email, password)
-            
-            if login_result.get("success"):
-                # Set session data same as login endpoint
+            token = result.get("token")
+            user = result.get("user")
+            if not token:
+                login_result = get_user_service().authenticate_user(email, password)
+                token = login_result.get("token")
+                user = login_result.get("user") or user
+
+            if token:
                 session['user_email'] = email
-                session['auth_token'] = login_result.get("token")
-                session['user_data'] = login_result.get("user")
+                session['auth_token'] = token
+                session['user_data'] = user
                 session.permanent = True
-                
-                # Return combined registration + login data
                 return jsonify({
                     "success": True,
                     "message": "User registered and logged in successfully",
-                    "user": login_result.get("user"),
-                    "token": login_result.get("token"),
-                    "auto_logged_in": True
+                    "user": user,
+                    "token": token,
+                    "auto_logged_in": True,
                 }), 201
-            else:
-                # Registration succeeded but auto-login failed
-                return jsonify({
-                    "success": True,
-                    "message": "User registered successfully but auto-login failed. Please log in manually.",
-                    "user": result.get("user"),
-                    "auto_login_error": login_result.get("error")
-                }), 201
+
+            return jsonify({
+                "success": True,
+                "message": "User registered but login failed. Please sign in manually.",
+                "user": user,
+                "auto_login_error": "No token issued",
+            }), 201
         else:
             return jsonify(result), 400
     
@@ -747,12 +749,12 @@ def register_routes(app):
         
         # Check session first (for page refreshes)
         if 'user_email' in session and 'auth_token' in session:
-            # Verify the session token
             verification = get_user_service().verify_token(session['auth_token'])
             if verification.get("valid"):
                 return jsonify({
                     "valid": True,
-                    "user": verification["user"]
+                    "user": verification["user"],
+                    "token": session['auth_token'],
                 })
         
         # Check Authorization header
@@ -765,7 +767,8 @@ def register_routes(app):
                     if verification.get("valid"):
                         return jsonify({
                             "valid": True,
-                            "user": verification["user"]
+                            "user": verification["user"],
+                            "token": token,
                         })
             except ValueError:
                 pass
@@ -1177,28 +1180,30 @@ def register_routes(app):
         else:
             return jsonify(result), 400
     
-    @app.route("/api/workspaces/<workspace_id>/assignments/<assignment_id>/auth/<connector_type>", methods=["PUT"])
-    def update_assignment_auth(workspace_id, assignment_id, connector_type):
-        """Update authentication credentials for assignment connector"""
+    @app.route("/api/workspaces/<workspace_id>/assignments/<assignment_id>/auth/<connector_type>", methods=["GET", "PUT"])
+    @get_require_auth()
+    def assignment_auth(workspace_id, assignment_id, connector_type):
+        if request.method == "GET":
+            from services.auth.credential_service import CredentialService
+            creds = CredentialService().get_workspace_credentials(
+                workspace_id, assignment_id, connector_type
+            )
+            if not creds:
+                return jsonify({"credentials": {}, "auth_configured": False}), 200
+            return jsonify({"credentials": creds, "auth_configured": True}), 200
+
         data = request.get_json()
         if not data:
             return jsonify({"error": "No credentials provided"}), 400
-        
         credentials = data.get("credentials", {})
         if not credentials:
             return jsonify({"error": "Credentials object is required"}), 400
-        
         result = get_workspace_service().update_assignment_auth(
-            workspace_id,
-            assignment_id, 
-            connector_type,
-            credentials
+            workspace_id, assignment_id, connector_type, credentials
         )
-        
         if result.get("success"):
             return jsonify(result), 200
-        else:
-            return jsonify(result), 400
+        return jsonify(result), 400
     
     # ===== WORKSPACE SETTINGS & CREDENTIAL MANAGEMENT =====
     
@@ -1468,22 +1473,19 @@ def register_routes(app):
                 }
             }
             
-            # Check each assignment for configured connectors
+            from services.security.secure_database import secure_db
+
             for assignment in assignments.get("assignments", []):
                 assignment_id = assignment.get("id")
-                metrics_config = assignment.get("metrics_config", {})
-                
+                configured = secure_db.list_assignment_credentials(
+                    workspace_id, assignment_id
+                )
                 for connector_type in ["github", "jira", "aws", "openai"]:
-                    connector_config = metrics_config.get(connector_type, {})
-                    auth_instance = connector_config.get("auth_instance", {})
-                    creds = auth_instance.get("credentials", {})
-                    
-                    if creds and auth_instance.get("auth_configured", False):
+                    if configured.get(connector_type):
                         status["connectors"][connector_type]["configured"] = True
                         status["connectors"][connector_type]["assignments"].append({
                             "id": assignment_id,
                             "name": assignment.get("name", assignment_id),
-                            "credentials_count": len(creds)
                         })
             
             return status

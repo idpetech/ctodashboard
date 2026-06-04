@@ -207,71 +207,21 @@ class DataExportService:
             return []
     
     def _get_workspace_from_db(self, workspace_id: str) -> Optional[Dict[str, Any]]:
-        """Get workspace data from secure database using existing connection"""
-        try:
-            conn = self.secure_db._get_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT workspace_id, name, description, created_at, updated_at FROM secure_workspaces WHERE workspace_id = ?",
-                (workspace_id,)
-            )
-            row = cursor.fetchone()
-            return dict(row) if row else None
-        except Exception as e:
-            logger.error(f"Failed to get workspace {workspace_id}: {str(e)}")
-            return None
+        """Get workspace from canonical postgres_store."""
+        return self.secure_db.get_workspace(workspace_id)
     
     def _get_assignments_for_workspace(self, workspace_id: str) -> List[Dict[str, Any]]:
-        """Get assignments for workspace from file system (dashboard uses file-based storage)"""
-        try:
-            assignments = []
-            workspace_assignments_dir = Path(f"config/workspaces/{workspace_id}/assignments")
-            
-            if workspace_assignments_dir.exists():
-                for assignment_file in workspace_assignments_dir.glob("*.json"):
-                    try:
-                        with open(assignment_file, 'r') as f:
-                            assignment_data = json.load(f)
-                        assignments.append(assignment_data)
-                    except Exception as e:
-                        logger.warning(f"Failed to read assignment file {assignment_file}: {str(e)}")
-                        continue
-            
-            return assignments
-        except Exception as e:
-            logger.error(f"Failed to get assignments for workspace {workspace_id}: {str(e)}")
-            return []
+        """Get assignments from canonical postgres_store (single source of truth)."""
+        return self.secure_db.get_workspace_assignments(workspace_id)
     
     def _get_assignment_from_db(self, workspace_id: str, assignment_id: str) -> Optional[Dict[str, Any]]:
-        """Get single assignment from file system (dashboard uses file-based storage)"""
-        try:
-            assignment_file = Path(f"config/workspaces/{workspace_id}/assignments/{assignment_id}.json")
-            
-            if assignment_file.exists():
-                with open(assignment_file, 'r') as f:
-                    assignment_data = json.load(f)
-                return assignment_data
-            else:
-                logger.warning(f"Assignment file not found: {assignment_file}")
-                return None
-                
-        except Exception as e:
-            logger.error(f"Failed to get assignment {assignment_id}: {str(e)}")
-            return None
+        """Get single assignment from canonical postgres_store."""
+        return self.secure_db.get_assignment(workspace_id, assignment_id)
     
     def _get_connector_types_for_assignment(self, workspace_id: str, assignment_id: str) -> List[str]:
-        """Get connector types configured for an assignment (without credentials)"""
-        try:
-            conn = self.secure_db._get_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT DISTINCT connector_type FROM secure_credentials WHERE workspace_id = ? AND assignment_id = ?",
-                (workspace_id, assignment_id)
-            )
-            return [row[0] for row in cursor.fetchall()]
-        except Exception as e:
-            logger.error(f"Failed to get connector types: {str(e)}")
-            return []
+        """Get connector types with stored credentials for an assignment."""
+        status = self.secure_db.list_assignment_credentials(workspace_id, assignment_id)
+        return [k for k, v in status.items() if v]
     
     def _export_to_csv(self, export_data: Dict[str, Any], file_path: Path):
         """Export workspace data to CSV format"""
@@ -298,19 +248,14 @@ class DataExportService:
                 writer.writerow([key, value])
     
     def _log_export_action(self, workspace_id: str, export_type: str, format: str, file_path: str):
-        """Log export action using existing audit system"""
-        try:
-            conn = self.secure_db._get_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                """INSERT INTO credential_audit 
-                   (action, entity_type, entity_id, workspace_id, success, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                ('export', export_type, file_path, workspace_id, True, datetime.utcnow())
-            )
-            conn.commit()
-        except Exception as e:
-            logger.error(f"Failed to log export action: {str(e)}")
+        """Log export via canonical audit_logs table."""
+        self.secure_db.record_audit_event(
+            "export",
+            export_type,
+            file_path,
+            workspace_id=workspace_id,
+            success=True,
+        )
     
     def _get_dashboard_version(self) -> str:
         """Get dashboard version for export metadata"""

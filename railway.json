@@ -6,10 +6,16 @@
   "deploy": {
     "startCommand": "gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 300 integrated_dashboard:app",
     "healthcheckPath": "/health",
-    "healthcheckTimeout": 300
+    "healthcheckTimeout": 300,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
   },
   "variables": {
     "DATABASE_PERSISTENCE": "true",
-    "CONFIG_BACKUP": "true"
+    "CONFIG_BACKUP": "true",
+    "DATABASE_URL": "postgresql://postgres:lgNRTpOiylzSKRJLaTLCoxjohfFFqyYr@postgres.railway.internal:5432/railway?options=-csearch_path%3Dctodashboard"
+  },
+  "hooks": {
+    "postDeploy": "./railway_postdeploy.sh"
   }
 }

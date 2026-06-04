@@ -892,27 +892,35 @@
                 }
             }
             
-            // Check if server has valid session
+            async function restoreSessionFromServer() {
+                const response = await fetch('/api/auth/verify', {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: getAuthHeaders(),
+                });
+                if (!response.ok) {
+                    return false;
+                }
+                const data = await response.json();
+                if (!data.valid || !data.token) {
+                    return false;
+                }
+                authToken = data.token;
+                currentUser = data.user;
+                localStorage.setItem('auth_token', authToken);
+                localStorage.setItem('current_user', JSON.stringify(currentUser));
+                return true;
+            }
+
+            // Check if server has valid session (e.g. after page refresh)
             async function checkServerSession() {
                 try {
-                    const response = await fetch('/api/auth/verify', {
-                        method: 'GET',
-                        credentials: 'include' // Include session cookies
-                    });
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.valid) {
-                            // Server session is valid, but we need a JWT token for API calls
-                            // Clear localStorage and force re-login to get JWT token
-                            localStorage.removeItem('auth_token');
-                            localStorage.removeItem('current_user');
-                            showAuthOverlay();
-                            return;
-                        }
+                    if (await restoreSessionFromServer()) {
+                        showDashboard();
+                        return;
                     }
                 } catch (error) {
-                    console.log('No valid server session found');
+                    console.log('No valid server session found', error);
                 }
                 showAuthOverlay();
             }
@@ -926,6 +934,13 @@
                     });
                     
                     if (response.ok) {
+                        const data = await response.json();
+                        if (data.valid && data.token) {
+                            authToken = data.token;
+                            currentUser = data.user;
+                            localStorage.setItem('auth_token', authToken);
+                            localStorage.setItem('current_user', JSON.stringify(currentUser));
+                        }
                         showDashboard();
                     } else {
                         clearAuthAndRedirect();
@@ -954,7 +969,8 @@
                 if (currentUser) {
                     isAuthenticated = true;
                     document.getElementById('user-info').classList.remove('hidden');
-                    document.getElementById('user-display-name').textContent = currentUser.name || currentUser.email;
+                    document.getElementById('user-display-name').textContent =
+                        currentUser.display_name || currentUser.name || currentUser.email;
                     document.getElementById('user-email').textContent = currentUser.email;
                     
                     // Show workspace selector
@@ -1073,7 +1089,9 @@
                         headers: {
                             'Content-Type': 'application/json'
                         },
+                        credentials: 'include',
                         body: JSON.stringify({
+                            display_name: name,
                             name: name,
                             email: email,
                             password: password
@@ -1082,15 +1100,21 @@
                     
                     const data = await response.json();
                     
-                    if (response.ok) {
-                        // Success - automatically log in
+                    if (response.ok && data.token) {
                         authToken = data.token;
                         currentUser = data.user;
-                        
                         localStorage.setItem('auth_token', authToken);
                         localStorage.setItem('current_user', JSON.stringify(currentUser));
-                        
                         showDashboard();
+                    } else if (response.ok) {
+                        if (await restoreSessionFromServer()) {
+                            showDashboard();
+                        } else {
+                            showRegisterError(
+                                data.message || 'Account created. Please sign in with your new credentials.'
+                            );
+                            showLoginForm();
+                        }
                     } else {
                         showRegisterError(data.error || 'Registration failed. Please try again.');
                     }
@@ -1132,13 +1156,18 @@
                 const headers = {
                     'Content-Type': 'application/json'
                 };
-                
-                // Only include Bearer token if we have a real JWT token (not session marker)
                 if (authToken && authToken !== 'session') {
                     headers['Authorization'] = `Bearer ${authToken}`;
                 }
-                
                 return headers;
+            }
+
+            function authFetch(url, options = {}) {
+                return fetch(url, {
+                    credentials: 'include',
+                    ...options,
+                    headers: { ...getAuthHeaders(), ...(options.headers || {}) },
+                });
             }
             
             // Retry utility with exponential backoff for handling eventual consistency
@@ -1202,9 +1231,7 @@
             
             async function loadWorkspaces() {
                 try {
-                    const response = await fetch('/api/workspaces', {
-                        headers: getAuthHeaders()
-                    });
+                    const response = await authFetch('/api/workspaces');
                     
                     if (response.ok) {
                         const workspaces = await response.json();
@@ -1223,9 +1250,7 @@
                             document.getElementById('workspace-selector').classList.remove('hidden');
                             
                             // Get user profile to find default workspace
-                            const profileResponse = await fetch('/api/auth/profile', {
-                                headers: getAuthHeaders()
-                            });
+                            const profileResponse = await authFetch('/api/auth/profile');
                             
                             let defaultWorkspace = null;
                             if (profileResponse.ok) {
@@ -1260,7 +1285,7 @@
                 try {
                     // Get user info to create workspace name - with retry logic for race conditions
                     const profileResponse = await retryWithExponentialBackoff(
-                        () => fetch('/api/auth/profile', { headers: getAuthHeaders() }),
+                        () => authFetch('/api/auth/profile'),
                         {
                             maxRetries: 5,
                             initialDelayMs: 500,
@@ -1290,9 +1315,8 @@
                     // Create the user's personal workspace via API - with retry for consistency
                     console.log(`📝 Creating workspace: ${workspaceName}`);
                     const createResponse = await retryWithExponentialBackoff(
-                        () => fetch('/api/workspaces', {
+                        () => authFetch('/api/workspaces', {
                             method: 'POST',
-                            headers: getAuthHeaders(),
                             body: JSON.stringify({
                                 id: workspaceId,
                                 name: workspaceName,
@@ -4919,20 +4943,17 @@ Backups are stored in: ./backups/
                     
                     console.log(`Loading existing ${connectorType} credentials for assignment:`, assignmentId);
                     
-                    // Fetch assignment data to get current credentials
                     const workspaceId = currentWorkspace || 'default_workspace';
-                    const response = await fetch(`/api/workspaces/${workspaceId}/assignments`, {
-                        headers: getAuthHeaders()
-                    });
+                    const response = await fetch(
+                        `/api/workspaces/${workspaceId}/assignments/${assignmentId}/auth/${connectorType}`,
+                        { headers: getAuthHeaders() }
+                    );
                     
                     if (response.ok) {
                         const data = await response.json();
-                        const assignment = data.assignments.find(a => a.id === assignmentId);
+                        const credentials = data.credentials || {};
                         
-                        if (assignment && assignment.metrics_config && assignment.metrics_config[connectorType]) {
-                            const connectorConfig = assignment.metrics_config[connectorType];
-                            const credentials = connectorConfig.auth_instance?.credentials || {};
-                            
+                        if (credentials && Object.keys(credentials).length > 0) {
                             console.log(`Found existing ${connectorType} credentials:`, credentials);
                             
                             // Pre-populate form fields based on connector type
@@ -4946,7 +4967,7 @@ Backups are stored in: ./backups/
                                 populateJiraForm(credentials);
                             }
                         } else {
-                            console.log(`No existing ${connectorType} configuration found for assignment:`, assignmentId);
+                            console.log(`No stored ${connectorType} credentials for assignment:`, assignmentId);
                         }
                     }
                 } catch (error) {

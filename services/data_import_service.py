@@ -276,130 +276,56 @@ class DataImportService:
             }
     
     def _create_assignment_in_db(self, assignment_data: Dict[str, Any]) -> bool:
-        """Create assignment in secure database"""
-        try:
-            conn = self.secure_db._get_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                INSERT INTO secure_assignments 
-                (assignment_id, workspace_id, name, description, team_size, monthly_burn_rate, status, metrics_config, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                assignment_data['assignment_id'],
-                assignment_data['workspace_id'],
-                assignment_data['name'],
-                assignment_data['description'],
-                assignment_data['team_size'],
-                assignment_data['monthly_burn_rate'],
-                assignment_data['status'],
-                assignment_data['metrics_config'],
-                datetime.utcnow(),
-                datetime.utcnow()
-            ))
-            
-            conn.commit()
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to create assignment in DB: {str(e)}")
-            return False
+        """Create assignment via canonical postgres_store (no raw SQL)."""
+        payload = dict(assignment_data)
+        if isinstance(payload.get("metrics_config"), str):
+            try:
+                payload["metrics_config"] = json.loads(payload["metrics_config"])
+            except json.JSONDecodeError:
+                payload["metrics_config"] = {}
+        return self.secure_db.store_assignment(payload)
     
     def _update_assignment_in_db(self, workspace_id: str, assignment_id: str, assignment_data: Dict[str, Any]) -> bool:
-        """Update assignment in secure database"""
-        try:
-            conn = self.secure_db._get_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                UPDATE secure_assignments 
-                SET name=?, description=?, team_size=?, monthly_burn_rate=?, status=?, metrics_config=?, updated_at=?
-                WHERE workspace_id=? AND assignment_id=?
-            """, (
-                assignment_data['name'],
-                assignment_data['description'],
-                assignment_data['team_size'],
-                assignment_data['monthly_burn_rate'],
-                assignment_data['status'],
-                assignment_data['metrics_config'],
-                datetime.utcnow(),
-                workspace_id,
-                assignment_id
-            ))
-            
-            conn.commit()
-            return cursor.rowcount > 0
-            
-        except Exception as e:
-            logger.error(f"Failed to update assignment in DB: {str(e)}")
-            return False
+        """Update assignment via canonical postgres_store."""
+        payload = dict(assignment_data)
+        payload["workspace_id"] = workspace_id
+        payload["assignment_id"] = assignment_id
+        if isinstance(payload.get("metrics_config"), str):
+            try:
+                payload["metrics_config"] = json.loads(payload["metrics_config"])
+            except json.JSONDecodeError:
+                payload["metrics_config"] = {}
+        return self.secure_db.store_assignment(payload)
     
     def _get_assignment_from_db(self, workspace_id: str, assignment_id: str) -> Optional[Dict[str, Any]]:
-        """Get assignment from secure database"""
-        try:
-            conn = self.secure_db._get_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                """SELECT assignment_id, workspace_id, name, description, team_size, 
-                          monthly_burn_rate, status, metrics_config, created_at, updated_at 
-                   FROM secure_assignments WHERE workspace_id = ? AND assignment_id = ?""",
-                (workspace_id, assignment_id)
-            )
-            row = cursor.fetchone()
-            return dict(row) if row else None
-        except Exception as e:
-            logger.error(f"Failed to get assignment from DB: {str(e)}")
-            return None
+        """Get assignment from canonical postgres_store."""
+        return self.secure_db.get_assignment(workspace_id, assignment_id)
     
     def _import_workspace_info(self, workspace_id: str, workspace_info: Dict[str, Any]):
-        """Import workspace metadata (if it doesn't exist)"""
-        try:
-            conn = self.secure_db._get_connection()
-            cursor = conn.cursor()
-            
-            # Check if workspace exists
-            cursor.execute("SELECT workspace_id FROM secure_workspaces WHERE workspace_id = ?", (workspace_id,))
-            exists = cursor.fetchone()
-            
-            if not exists:
-                # Create new workspace
-                cursor.execute("""
-                    INSERT INTO secure_workspaces (workspace_id, name, description, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (
-                    workspace_id,
-                    workspace_info.get('name', workspace_id),
-                    workspace_info.get('description', ''),
-                    datetime.utcnow(),
-                    datetime.utcnow()
-                ))
-                conn.commit()
-                
-        except Exception as e:
-            logger.error(f"Failed to import workspace info: {str(e)}")
-            raise
+        """Import workspace metadata via canonical postgres_store."""
+        if self.secure_db.get_workspace(workspace_id):
+            return
+        settings = workspace_info.get("settings") or {}
+        if workspace_info.get("connector_templates"):
+            settings["connector_templates"] = workspace_info["connector_templates"]
+        self.secure_db.store_workspace(
+            workspace_id,
+            workspace_info.get("name", workspace_id),
+            workspace_info.get("description", ""),
+            settings=settings,
+        )
     
     def _log_import_action(self, workspace_id: str, results: Dict[str, Any], metadata: Dict[str, Any]):
-        """Log import action using existing audit system"""
+        """Log import action via canonical audit_logs table."""
         try:
-            conn = self.secure_db._get_connection()
-            cursor = conn.cursor()
-            
-            # Create audit log entry
-            cursor.execute(
-                """INSERT INTO credential_audit 
-                   (action, entity_type, entity_id, workspace_id, success, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (
-                    'import', 
-                    'workspace',
-                    f"imported_{results.get('imported_assignments', 0)}_assignments",
-                    workspace_id, 
-                    results['success'], 
-                    datetime.utcnow()
-                )
+            self.secure_db.record_audit_event(
+                "import",
+                "workspace",
+                f"imported_{results.get('imported_assignments', 0)}_assignments",
+                workspace_id=workspace_id,
+                success=bool(results.get("success")),
+                audit_info={"user_email": metadata.get("imported_by", "system")},
             )
-            conn.commit()
             
         except Exception as e:
             logger.error(f"Failed to log import action: {str(e)}")

@@ -6,8 +6,12 @@ Integrates with encrypted database storage for user authentication
 import jwt
 import hashlib
 import secrets
+import time
+import logging
 from datetime import datetime
-from typing import Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
+from typing import Dict, Any, Optional, List
 from flask import request
 
 from ..security.secure_database import secure_db
@@ -72,18 +76,34 @@ class SecureUserService(UserService):
         audit_info = self._get_audit_info()
         audit_info["user_email"] = email
         
-        if self.secure_db.store_user_credentials(email, user_data, audit_info):
-            return {
-                "success": True,
-                "message": "User registered successfully",
-                "user": {
-                    "email": email,
-                    "display_name": user_data["display_name"],
-                    "workspaces": user_data["workspaces"]
-                }
-            }
-        else:
+        if not self.secure_db.store_user_credentials(email, user_data, audit_info):
             return {"success": False, "error": "Failed to create user"}
+
+        # Ensure default workspace exists in Postgres
+        workspace_id = user_data["workspaces"][0]
+        try:
+            from services.workspace.postgres_backend import PostgresWorkspaceBackend
+            PostgresWorkspaceBackend().create_workspace(
+                workspace_id,
+                user_data["display_name"],
+                f"Workspace for {email}",
+            )
+        except Exception as e:
+            logger.warning("Could not create workspace for %s: %s", email, e)
+
+        token = self.generate_token(user_data)
+        return {
+            "success": True,
+            "token": token,
+            "message": "User registered successfully",
+            "user": {
+                "email": email,
+                "display_name": user_data["display_name"],
+                "workspaces": user_data["workspaces"],
+                "role": user_data["role"],
+                "preferences": user_data["preferences"],
+            },
+        }
     
     def authenticate_user(self, email: str, password: str) -> Dict[str, Any]:
         """
@@ -92,42 +112,38 @@ class SecureUserService(UserService):
         # Load user from secure database
         user_data = self._load_user_from_secure_db(email)
         if not user_data:
-            return {"valid": False, "error": "Invalid credentials"}
-        
-        # Check account status
+            return {"success": False, "valid": False, "error": "Invalid credentials"}
+
         if user_data.get("status") != "active":
-            return {"valid": False, "error": "Account is disabled"}
-        
-        # Verify password
+            return {"success": False, "valid": False, "error": "Account is disabled"}
+
         stored_hash = user_data.get("password_hash")
         salt = user_data.get("salt")
-        
         if not stored_hash or not salt:
-            return {"valid": False, "error": "Invalid account configuration"}
-        
+            return {"success": False, "valid": False, "error": "Invalid account configuration"}
+
         if not self._verify_password(password, stored_hash, salt):
-            return {"valid": False, "error": "Invalid credentials"}
-        
-        # Update last login
+            return {"success": False, "valid": False, "error": "Invalid credentials"}
+
         user_data["last_login"] = datetime.utcnow().isoformat()
         audit_info = self._get_audit_info()
         audit_info["user_email"] = email
-        
         self.secure_db.store_user_credentials(email, user_data, audit_info)
-        
-        # Generate JWT token
+
         token = self.generate_token(user_data)
-        
+        user_public = {
+            "email": user_data["email"],
+            "display_name": user_data["display_name"],
+            "workspaces": user_data["workspaces"],
+            "role": user_data["role"],
+            "preferences": user_data["preferences"],
+        }
         return {
+            "success": True,
             "valid": True,
             "token": token,
-            "user": {
-                "email": user_data["email"],
-                "display_name": user_data["display_name"],
-                "workspaces": user_data["workspaces"],
-                "role": user_data["role"],
-                "preferences": user_data["preferences"]
-            }
+            "user": user_public,
+            "expires_in": self.token_expiry_hours * 3600,
         }
     
     def verify_token(self, token: str) -> Dict[str, Any]:
@@ -246,6 +262,54 @@ class SecureUserService(UserService):
         
         return True  # Already doesn't have access
     
+    def generate_token(self, user_data: Dict[str, Any]) -> str:
+        """Issue JWT for session and Bearer auth."""
+        now = int(time.time())
+        payload = {
+            "email": user_data["email"],
+            "display_name": user_data.get("display_name", ""),
+            "workspaces": user_data.get("workspaces", []),
+            "role": user_data.get("role", "user"),
+            "exp": now + (self.token_expiry_hours * 3600),
+            "iat": now,
+        }
+        token = jwt.encode(payload, self.jwt_secret, algorithm="HS256")
+        return token if isinstance(token, str) else token.decode("utf-8")
+
+    def get_user_profile(self, email: str) -> Dict[str, Any]:
+        """Profile from Postgres (not JSON files)."""
+        user_data = self._load_user_from_secure_db(email)
+        if not user_data:
+            return {"success": False, "error": "User not found"}
+        return {
+            "success": True,
+            "user": {
+                "email": user_data["email"],
+                "display_name": user_data["display_name"],
+                "workspaces": user_data.get("workspaces", []),
+                "role": user_data.get("role", "user"),
+                "preferences": user_data.get("preferences", {}),
+                "created_at": user_data.get("created_at"),
+            },
+        }
+
+    def get_user_workspaces(self, user_email: str) -> Dict[str, Any]:
+        """Workspace IDs from Postgres user record (not config/users JSON)."""
+        user_data = self._load_user_from_secure_db(user_email)
+        if not user_data:
+            return {"workspaces": [], "error": "User not found"}
+        return {"workspaces": user_data.get("workspaces", [])}
+
+    def add_user_to_workspace(
+        self, user_email: str, workspace_id: str, role: str = "member"
+    ) -> Dict[str, Any]:
+        if self.grant_workspace_access(user_email, workspace_id):
+            return {
+                "success": True,
+                "message": f"User {user_email} added to workspace {workspace_id} as {role}",
+            }
+        return {"success": False, "error": "Failed to add user to workspace"}
+
     def list_users(self) -> List[Dict[str, Any]]:
         """
         List all users (admin function).
