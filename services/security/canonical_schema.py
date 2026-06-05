@@ -66,6 +66,7 @@ DDL_STATEMENTS: List[str] = [
         description TEXT,
         team_size INTEGER,
         monthly_burn_rate INTEGER,
+        target_monthly_burn INTEGER,
         status TEXT DEFAULT 'active',
         metrics_config TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

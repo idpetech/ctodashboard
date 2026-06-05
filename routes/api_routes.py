@@ -22,6 +22,7 @@ from services.auth.secure_user_service import SecureUserService
 from services.auth.auth_middleware import create_auth_decorators, get_current_user
 from services.data_export_service import DataExportService
 from services.data_import_service import DataImportService
+from services.portfolio_service import build_portfolio_overview
 
 # Initialize logging
 logger = get_logger(__name__)
@@ -263,7 +264,8 @@ def register_routes(app):
             "workstream_management": os.getenv("ENABLE_WORKSTREAM_MGMT", "false").lower() == "true",
             "service_config_ui": os.getenv("ENABLE_SERVICE_CONFIG_UI", "false").lower() == "true",
             "advanced_billing": os.getenv("ENABLE_BILLING", "false").lower() == "true",
-            "database_storage": os.getenv("ENABLE_DATABASE", "false").lower() == "true"
+            "database_storage": os.getenv("ENABLE_DATABASE", "false").lower() == "true",
+            "portfolio_dashboard": os.getenv("ENABLE_PORTFOLIO_DASHBOARD", "false").lower() == "true"
         })
 
     @app.route("/api/services/status")
@@ -316,6 +318,35 @@ def register_routes(app):
             return jsonify({"error": f"Failed to load assignments: {str(e)}"}), 500
         
         return jsonify(all_assignments)
+
+    @app.route("/api/portfolio/summary")
+    def get_portfolio_summary():
+        """Portfolio Dashboard MVP — on-demand portfolio intelligence.
+
+        Feature-flagged via ENABLE_PORTFOLIO_DASHBOARD (default off). Computed
+        entirely from current assignment rows; no new tables, jobs, or history.
+        """
+        if not os.getenv("ENABLE_PORTFOLIO_DASHBOARD", "false").lower() == "true":
+            return jsonify({"error": "Portfolio dashboard is disabled"}), 403
+
+        all_assignments = []
+        try:
+            ws_list = get_workspace_service().list_workspaces().get("workspaces", [])
+            for ws in ws_list:
+                workspace_id = ws.get("id")
+                if not workspace_id:
+                    continue
+                result = get_workspace_service().get_workspace_assignments(workspace_id)
+                if "assignments" in result:
+                    all_assignments.extend(result["assignments"])
+        except Exception as e:
+            return jsonify({"error": f"Failed to load assignments: {str(e)}"}), 500
+
+        try:
+            return jsonify(build_portfolio_overview(all_assignments))
+        except Exception as e:
+            logger.exception("Portfolio overview computation failed")
+            return jsonify({"error": f"Failed to build portfolio overview: {str(e)}"}), 500
 
     @app.route("/api/assignments/<assignment_id>")
     @get_require_auth()

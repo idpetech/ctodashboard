@@ -84,6 +84,28 @@ export ENABLE_WORKSPACES=true
 
 ---
 
+## Portfolio Dashboard (MVP, feature-flagged)
+
+**Flag:** `ENABLE_PORTFOLIO_DASHBOARD` (default `false`). Wired in `integrated_dashboard.py`,
+`services/service_manager.py`, and surfaced via `/api/feature-flags`.
+
+- **Schema:** one additive column `assignments.target_monthly_burn INTEGER` (nullable).
+  Applied to fresh DBs via `canonical_schema.py` and to existing DBs via an idempotent
+  `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` in `postgres_store._ensure_database_ready()`.
+  No new tables.
+- **Compute:** `services/portfolio_service.py` — pure, on-demand. Derives six read-only
+  views (summary, health score, connector health, attention center, assignment ranking,
+  budget variance) from current assignment rows. No snapshots, jobs, schedulers, history,
+  trends, or AI.
+- **API:** `GET /api/portfolio/summary` (403 when flag off) in `routes/api_routes.py`.
+- **UI:** `templates/dashboard.html` Overview tab renders a `#portfolio-dashboard-section`
+  only when the flag is on; existing Overview is unchanged. Assignment create/edit forms
+  gained a "Target Monthly Burn" input.
+- **Note:** Connector health is config-derived (enabled vs credentials present), not a live
+  probe, to keep the Overview fast and avoid background polling.
+
+---
+
 ## Related docs
 
 | Doc | Purpose |

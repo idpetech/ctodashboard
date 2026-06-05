@@ -10,7 +10,8 @@ FEATURE_FLAGS = {
     "workstream_management": os.getenv("ENABLE_WORKSTREAM_MGMT", "false").lower() == "true",
     "service_config_ui": os.getenv("ENABLE_SERVICE_CONFIG_UI", "false").lower() == "true",
     "advanced_billing": os.getenv("ENABLE_BILLING", "false").lower() == "true",
-    "database_storage": os.getenv("ENABLE_DATABASE", "false").lower() == "true"
+    "database_storage": os.getenv("ENABLE_DATABASE", "false").lower() == "true",
+    "portfolio_dashboard": os.getenv("ENABLE_PORTFOLIO_DASHBOARD", "false").lower() == "true"
 }
 
 class ServiceManager:

@@ -498,7 +498,12 @@
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Monthly Burn Rate ($)</label>
                                         <input type="number" id="assignment-burn-rate" class="w-full border rounded px-3 py-2" min="0">
                                     </div>
-                                    
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Target Monthly Burn ($)</label>
+                                        <input type="number" id="assignment-target-burn" class="w-full border rounded px-3 py-2" min="0">
+                                    </div>
+
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                                         <input type="date" id="assignment-start-date" class="w-full border rounded px-3 py-2">
@@ -2272,6 +2277,9 @@
                 
                 // Initialize metrics after displaying assignments
                 initializeAssignmentMetrics();
+
+                // Portfolio Dashboard MVP (renders only when ENABLE_PORTFOLIO_DASHBOARD is on)
+                loadPortfolioDashboard();
             }
             
             // Modern UI: Handle "+" tab click for creating new assignments
@@ -2289,6 +2297,165 @@
                     });
                 }
             }
+
+            // ===== Portfolio Dashboard MVP (feature-flagged: ENABLE_PORTFOLIO_DASHBOARD) =====
+            async function loadPortfolioDashboard() {
+                const container = document.getElementById('portfolio-dashboard-section');
+                if (!container) return;
+                try {
+                    const flagsResp = await fetch('/api/feature-flags');
+                    const flags = await flagsResp.json();
+                    if (!flags || !flags.portfolio_dashboard) { container.innerHTML = ''; return; }
+
+                    const resp = await fetch('/api/portfolio/summary', { headers: getAuthHeaders() });
+                    if (resp.status === 403) { container.innerHTML = ''; return; }
+                    const data = await resp.json();
+                    if (data.error) {
+                        container.innerHTML = '<div class="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg mb-6">Portfolio dashboard unavailable: ' + data.error + '</div>';
+                        return;
+                    }
+                    container.innerHTML = renderPortfolioDashboard(data);
+                } catch (e) {
+                    console.warn('Portfolio dashboard load failed:', e);
+                    container.innerHTML = '';
+                }
+            }
+
+            function _pfMoney(n) { return '$' + (Number(n) || 0).toLocaleString(); }
+            function _pfBandColor(band) { return band === 'healthy' ? 'green' : (band === 'at_risk' ? 'yellow' : 'red'); }
+            function _pfSeverityColor(sev) { return sev === 'critical' ? 'red' : (sev === 'warning' ? 'yellow' : 'blue'); }
+
+            function renderPortfolioDashboard(data) {
+                const s = data.summary || {};
+                const h = data.health_score || {};
+                const bv = data.budget_variance || {};
+                const ch = data.connector_health || {};
+                const ac = data.attention_center || {};
+                const rank = data.assignment_ranking || [];
+                const band = h.band || 'healthy';
+                const bandColor = _pfBandColor(band);
+
+                let html = '<div class="bg-white rounded-lg shadow p-6 mb-6">';
+                html += '<div class="flex items-center justify-between mb-4">';
+                html += '<h3 class="text-xl font-bold text-gray-800">\uD83E\uDDED Portfolio Health</h3>';
+                html += '<span class="text-xs text-gray-400">Computed live on load</span>';
+                html += '</div>';
+
+                html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-2">';
+                html += '<div class="bg-' + bandColor + '-50 border border-' + bandColor + '-200 rounded-lg p-4">';
+                html += '<div class="text-sm font-medium text-' + bandColor + '-800">Health Score</div>';
+                html += '<div class="text-3xl font-bold text-' + bandColor + '-600">' + (h.overall_score != null ? h.overall_score : '\u2014') + '<span class="text-base font-medium">/100</span></div>';
+                html += '<div class="text-xs text-' + bandColor + '-700 mt-1 uppercase">' + band.replace('_',' ') + '</div>';
+                html += '</div>';
+                html += '<div class="bg-gray-50 border border-gray-200 rounded-lg p-4">';
+                html += '<div class="text-sm font-medium text-gray-600">Active Assignments</div>';
+                html += '<div class="text-3xl font-bold text-gray-800">' + (s.active_assignments || 0) + '</div>';
+                html += '<div class="text-xs text-gray-500 mt-1">of ' + (s.total_assignments || 0) + ' total</div>';
+                html += '</div>';
+                html += '<div class="bg-gray-50 border border-gray-200 rounded-lg p-4">';
+                html += '<div class="text-sm font-medium text-gray-600">Monthly Burn</div>';
+                html += '<div class="text-3xl font-bold text-gray-800">' + _pfMoney(s.total_monthly_burn) + '</div>';
+                html += '<div class="text-xs text-gray-500 mt-1">target ' + _pfMoney(s.total_target_burn) + '</div>';
+                html += '</div>';
+                html += '<div class="bg-gray-50 border border-gray-200 rounded-lg p-4">';
+                html += '<div class="text-sm font-medium text-gray-600">Total Team</div>';
+                html += '<div class="text-3xl font-bold text-gray-800">' + (s.total_team_size || 0) + '</div>';
+                html += '<div class="text-xs text-gray-500 mt-1">across active</div>';
+                html += '</div>';
+                html += '</div>';
+
+                if (h.components) {
+                    const comps = [];
+                    if (h.components.financial != null) comps.push('Financial ' + h.components.financial);
+                    if (h.components.connector != null) comps.push('Connectors ' + h.components.connector);
+                    if (h.components.delivery != null) comps.push('Delivery ' + h.components.delivery);
+                    if (comps.length) html += '<div class="text-xs text-gray-500">Breakdown: ' + comps.join(' \u00B7 ') + '</div>';
+                }
+                html += '</div>';
+
+                html += '<div class="bg-white rounded-lg shadow p-6 mb-6">';
+                html += '<h3 class="text-lg font-bold text-gray-800 mb-3">\uD83D\uDEA8 Attention Center <span class="text-sm font-normal text-gray-500">(' + (ac.total || 0) + ')</span></h3>';
+                if (!ac.items || ac.items.length === 0) {
+                    html += '<div class="text-sm text-green-700 bg-green-50 border border-green-200 rounded p-3">Nothing needs attention right now.</div>';
+                } else {
+                    ac.items.forEach(function(it) {
+                        const c = _pfSeverityColor(it.severity);
+                        html += '<div class="flex items-start gap-2 border-l-4 border-' + c + '-400 bg-' + c + '-50 px-3 py-2 mb-2 rounded-r">';
+                        html += '<span class="text-xs font-semibold uppercase text-' + c + '-700">' + it.severity + '</span>';
+                        html += '<span class="text-sm text-gray-700">' + it.message + '</span>';
+                        html += '</div>';
+                    });
+                }
+                html += '</div>';
+
+                html += '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">';
+                html += '<div class="bg-white rounded-lg shadow p-6">';
+                html += '<h3 class="text-lg font-bold text-gray-800 mb-3">\uD83D\uDCB0 Budget Variance</h3>';
+                const pvp = bv.portfolio_variance_pct;
+                const pvColor = pvp == null ? 'gray' : (pvp > 20 ? 'red' : (pvp > 10 ? 'yellow' : 'green'));
+                html += '<div class="mb-3 text-sm">Portfolio: <span class="font-bold">' + _pfMoney(bv.portfolio_actual_burn) + '</span> vs target <span class="font-bold">' + _pfMoney(bv.portfolio_target_burn) + '</span> ';
+                html += '<span class="text-' + pvColor + '-600 font-semibold">(' + (pvp == null ? 'no targets' : (pvp > 0 ? '+' : '') + pvp + '%') + ')</span></div>';
+                if (bv.assignments && bv.assignments.length) {
+                    html += '<table class="min-w-full text-sm"><tbody>';
+                    bv.assignments.forEach(function(r) {
+                        const rc = r.status === 'critical' ? 'red' : (r.status === 'over' ? 'yellow' : 'green');
+                        html += '<tr class="border-b border-gray-100">';
+                        html += '<td class="py-1 pr-2 text-gray-800">' + r.name + '</td>';
+                        html += '<td class="py-1 pr-2 text-right text-gray-600">' + _pfMoney(r.actual_monthly_burn) + ' / ' + _pfMoney(r.target_monthly_burn) + '</td>';
+                        html += '<td class="py-1 text-right text-' + rc + '-600 font-semibold">' + (r.variance_pct > 0 ? '+' : '') + r.variance_pct + '%</td>';
+                        html += '</tr>';
+                    });
+                    html += '</tbody></table>';
+                } else {
+                    html += '<div class="text-sm text-gray-500">No assignments have a target monthly burn set.</div>';
+                }
+                if (bv.missing_target && bv.missing_target.length) {
+                    html += '<div class="text-xs text-gray-400 mt-2">No target set: ' + bv.missing_target.map(function(m){return m.name;}).join(', ') + '</div>';
+                }
+                html += '</div>';
+
+                html += '<div class="bg-white rounded-lg shadow p-6">';
+                html += '<h3 class="text-lg font-bold text-gray-800 mb-3">\uD83D\uDD0C Connector Health <span class="text-sm font-normal text-gray-500">(' + (ch.readiness_pct == null ? 'n/a' : ch.readiness_pct + '% ready') + ')</span></h3>';
+                const cmap = { ready: 'green', degraded: 'yellow', needs_credentials: 'red', disabled: 'gray' };
+                let anyConn = false;
+                (ch.connectors || []).forEach(function(c) {
+                    if (c.enabled_count === 0) return;
+                    anyConn = true;
+                    const col = cmap[c.status] || 'gray';
+                    html += '<div class="flex items-center justify-between py-1 border-b border-gray-100">';
+                    html += '<span class="text-sm font-medium text-gray-700 capitalize">' + c.connector + '</span>';
+                    html += '<span class="text-xs px-2 py-1 rounded-full bg-' + col + '-100 text-' + col + '-800">' + c.ready_count + '/' + c.enabled_count + ' ready \u2022 ' + c.status.replace('_',' ') + '</span>';
+                    html += '</div>';
+                });
+                if (!anyConn) html += '<div class="text-sm text-gray-500">No connectors enabled across active assignments.</div>';
+                html += '</div>';
+                html += '</div>';
+
+                html += '<div class="bg-white rounded-lg shadow p-6 mb-6">';
+                html += '<h3 class="text-lg font-bold text-gray-800 mb-3">\uD83D\uDCCA Assignment Ranking <span class="text-sm font-normal text-gray-500">(by attention need)</span></h3>';
+                if (rank.length === 0) {
+                    html += '<div class="text-sm text-gray-500">No active assignments.</div>';
+                } else {
+                    html += '<div class="overflow-x-auto"><table class="min-w-full text-sm">';
+                    html += '<thead><tr class="bg-gray-50 text-left text-gray-600">';
+                    html += '<th class="px-3 py-2">#</th><th class="px-3 py-2">Assignment</th><th class="px-3 py-2">Level</th><th class="px-3 py-2 text-right">Burn</th><th class="px-3 py-2 text-right">Variance</th><th class="px-3 py-2 text-right">Connectors</th>';
+                    html += '</tr></thead><tbody>';
+                    rank.forEach(function(r, i) {
+                        const lc = _pfBandColor(r.attention_level);
+                        html += '<tr class="border-b border-gray-100">';
+                        html += '<td class="px-3 py-2 text-gray-400">' + (i+1) + '</td>';
+                        html += '<td class="px-3 py-2 text-gray-800 font-medium">' + r.name + '</td>';
+                        html += '<td class="px-3 py-2"><span class="text-xs px-2 py-1 rounded-full bg-' + lc + '-100 text-' + lc + '-800 capitalize">' + r.attention_level.replace('_',' ') + '</span></td>';
+                        html += '<td class="px-3 py-2 text-right text-gray-700">' + _pfMoney(r.monthly_burn) + '</td>';
+                        html += '<td class="px-3 py-2 text-right text-gray-700">' + (r.variance_pct == null ? '\u2014' : (r.variance_pct > 0 ? '+' : '') + r.variance_pct + '%') + '</td>';
+                        html += '<td class="px-3 py-2 text-right text-gray-700">' + r.ready_connectors + '/' + r.enabled_connectors + '</td>';
+                        html += '</tr>';
+                    });
+                    html += '</tbody></table></div>';
+                }
+                html += '</div>';
+                return html;
+            }
             
             function generateOverviewContent(assignments) {
                 // Calculate statistics
@@ -2298,7 +2465,8 @@
                 const totalTeamSize = assignments.reduce((sum, a) => sum + (a.team_size || 0), 0);
                 const totalBurnRate = assignments.reduce((sum, a) => sum + (a.monthly_burn_rate || 0), 0);
                 
-                let html = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">';
+                let html = '<div id="portfolio-dashboard-section" class="mb-8"></div>';
+                html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">';
                 
                 // Status Cards
                 html += '<div class="bg-green-50 border border-green-200 rounded-lg p-4">';
@@ -3588,6 +3756,7 @@
                     document.getElementById('assignment-status').value = assignment.status || 'active';
                     document.getElementById('assignment-team-size').value = assignment.team_size || '';
                     document.getElementById('assignment-burn-rate').value = assignment.monthly_burn_rate || '';
+                    document.getElementById('assignment-target-burn').value = assignment.target_monthly_burn || '';
                     document.getElementById('assignment-start-date').value = assignment.start_date || '';
                     
                     // Load connectors for the assignment
@@ -3640,6 +3809,7 @@
                     status: document.getElementById('assignment-status').value,
                     team_size: parseInt(document.getElementById('assignment-team-size').value) || null,
                     monthly_burn_rate: parseInt(document.getElementById('assignment-burn-rate').value) || null,
+                    target_monthly_burn: parseInt(document.getElementById('assignment-target-burn').value) || null,
                     start_date: document.getElementById('assignment-start-date').value || null
                 };
                 
@@ -5256,6 +5426,7 @@ Backups are stored in: ./backups/
                 document.getElementById('assignment_description').value = '';
                 document.getElementById('team_size').value = '';
                 document.getElementById('monthly_burn_rate').value = '';
+                document.getElementById('target_monthly_burn').value = '';
                 document.getElementById('assignment_status').value = 'active';
                 document.getElementById('enable_github').checked = false;
                 document.getElementById('enable_jira').checked = false;
@@ -5282,6 +5453,7 @@ Backups are stored in: ./backups/
                     description: document.getElementById('assignment_description').value.trim(),
                     team_size: parseInt(document.getElementById('team_size').value) || null,
                     monthly_burn_rate: parseInt(document.getElementById('monthly_burn_rate').value) || null,
+                    target_monthly_burn: parseInt(document.getElementById('target_monthly_burn').value) || null,
                     status: document.getElementById('assignment_status').value,
                     workspace_id: currentWorkspace || 'default_workspace',
                     created_at: new Date().toISOString()
@@ -5644,7 +5816,7 @@ Backups are stored in: ./backups/
                             <textarea id="assignment_description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Brief description of this assignment..."></textarea>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Team Size</label>
                                 <input type="number" id="team_size" min="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="5">
@@ -5653,6 +5825,11 @@ Backups are stored in: ./backups/
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Monthly Budget</label>
                                 <input type="number" id="monthly_burn_rate" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="10000">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Target Monthly Burn</label>
+                                <input type="number" id="target_monthly_burn" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="10000">
                             </div>
 
                             <div>
