@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ content.hero.headline }} - CTO Dashboard</title>
+    <title>{{ content.hero.headline }} - CTO Lens</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .gradient-hero {
@@ -40,15 +40,16 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center py-4">
                 <div class="flex items-center">
-                    <div class="text-2xl font-bold text-gray-900">
-                        <span class="text-blue-600">CTO</span> Dashboard
-                    </div>
+                    <a href="/" class="text-2xl font-bold text-gray-900 hover:text-gray-700">
+                        <span class="text-blue-600">CTO</span> Lens
+                    </a>
+                    <span class="ml-2 text-xs text-gray-400 hidden sm:inline">by <a href="https://idpetech.com" class="hover:text-blue-600" target="_blank" rel="noopener noreferrer">idpetech.com</a></span>
                 </div>
                 <div class="flex items-center space-x-4">
                     <a href="/dashboard" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium">
                         Login
                     </a>
-                    <a href="/dashboard" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                    <a href="/dashboard?signup=1" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
                         Start Free
                     </a>
                 </div>
@@ -306,10 +307,13 @@
             <div class="grid md:grid-cols-4 gap-8">
                 <div>
                     <div class="text-2xl font-bold mb-4">
-                        <span class="text-blue-400">CTO</span> Dashboard
+                        <span class="text-blue-400">CTO</span> Lens
                     </div>
-                    <p class="text-gray-400 text-sm">
+                    <p class="text-gray-400 text-sm mb-2">
                         {{ content.footer.tagline }}
+                    </p>
+                    <p class="text-gray-500 text-xs">
+                        A product of <a href="https://idpetech.com" class="text-blue-400 hover:text-white" target="_blank" rel="noopener noreferrer">idpetech.com</a>
                     </p>
                 </div>
                 
@@ -318,7 +322,7 @@
                     <h4 class="font-semibold mb-4">{{ section.title }}</h4>
                     <ul class="space-y-2 text-sm text-gray-400">
                         {% for link in section.links %}
-                        <li><a href="{{ link.url }}" class="hover:text-white">{{ link.text }}</a></li>
+                        <li><a href="{{ link.url }}" class="hover:text-white"{% if link.url.startswith('http') %} target="_blank" rel="noopener noreferrer"{% endif %}>{{ link.text }}</a></li>
                         {% endfor %}
                     </ul>
                 </div>
@@ -326,7 +330,9 @@
             </div>
             
             <div class="border-t border-gray-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
-                <p class="text-gray-400 text-sm">{{ content.footer.copyright }}</p>
+                <p class="text-gray-400 text-sm">
+                    © 2026 <a href="https://idpetech.com" class="text-gray-400 hover:text-white underline" target="_blank" rel="noopener noreferrer">idpetech.com</a> All rights reserved.
+                </p>
                 <div class="flex space-x-6 mt-4 md:mt-0">
                     {% for social in content.footer.social_links %}
                     <a href="{{ social.url }}" class="text-gray-400 hover:text-white">

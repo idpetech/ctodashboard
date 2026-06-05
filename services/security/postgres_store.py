@@ -340,6 +340,37 @@ class SecureDatabaseManager:
             logger.error("get_assignment failed: %s", e)
             return None
 
+    def delete_assignment(self, workspace_id: str, assignment_id: str) -> bool:
+        """Permanently remove an assignment and its credentials from this workspace."""
+        try:
+            self.adapter.execute_update(
+                "DELETE FROM credentials WHERE workspace_id = %s AND assignment_id = %s",
+                (workspace_id, assignment_id),
+            )
+            self.adapter.execute_update(
+                "DELETE FROM assignments WHERE workspace_id = %s AND assignment_id = %s",
+                (workspace_id, assignment_id),
+            )
+            self._audit_log(
+                "delete",
+                "assignment",
+                assignment_id,
+                success=True,
+                workspace_id=workspace_id,
+            )
+            return True
+        except Exception as e:
+            logger.error("delete_assignment failed: %s", e)
+            self._audit_log(
+                "delete",
+                "assignment",
+                assignment_id,
+                success=False,
+                error=str(e),
+                workspace_id=workspace_id,
+            )
+            return False
+
     def get_workspace_assignments(self, workspace_id: str) -> List[Dict[str, Any]]:
         try:
             rows = self.adapter.execute_query(

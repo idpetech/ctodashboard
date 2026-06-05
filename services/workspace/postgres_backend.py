@@ -149,6 +149,20 @@ class PostgresWorkspaceBackend:
             workspace_id, assignment_id, {"status": "archived"}
         )
 
+    def delete_assignment(self, workspace_id: str, assignment_id: str) -> Dict[str, Any]:
+        existing = self.db.get_assignment(workspace_id, assignment_id)
+        if not existing:
+            return {
+                "success": False,
+                "error": f"Assignment '{assignment_id}' not found in workspace '{workspace_id}'",
+            }
+        if not self.db.delete_assignment(workspace_id, assignment_id):
+            return {"success": False, "error": "Failed to delete assignment"}
+        return {
+            "success": True,
+            "message": f"Assignment '{assignment_id}' deleted permanently",
+        }
+
     def update_workspace_settings(
         self, workspace_id: str, settings_data: Dict[str, Any]
     ) -> Dict[str, Any]:

@@ -4,7 +4,7 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>🚀 CTO Dashboard - All Services Integrated</title>
+        <title>🚀 CTO Lens - All Services Integrated</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
             .loading-spinner {
@@ -265,7 +265,7 @@
                 <!-- Login Form -->
                 <div id="login-form" class="p-6">
                     <div class="text-center mb-6">
-                        <h2 id="auth-title" class="text-2xl font-bold text-gray-800">🚀 CTO Dashboard</h2>
+                        <h2 id="auth-title" class="text-2xl font-bold text-gray-800">🚀 CTO Lens</h2>
                         <p id="auth-description" class="text-gray-600 mt-2">Phase 3 Authentication Required</p>
                     </div>
                     
@@ -323,7 +323,7 @@
                 <div id="register-form" class="p-6 hidden">
                     <div class="text-center mb-6">
                         <h2 class="text-2xl font-bold text-gray-800">Create Account</h2>
-                        <p class="text-gray-600 mt-2">Register for CTO Dashboard</p>
+                        <p class="text-gray-600 mt-2">Register for CTO Lens</p>
                     </div>
                     
                     <div id="register-error" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"></div>
@@ -576,7 +576,7 @@
 
         <div class="container mx-auto px-4 py-8">
             <header>
-                <h1 class="text-4xl font-bold text-blue-600 mb-8" role="banner">🚀 CTO Dashboard</h1>
+                <h1 class="text-4xl font-bold text-blue-600 mb-8" role="banner">🚀 CTO Lens</h1>
             </header>
             
             <!-- Phase 5C: Search/Filtering Overlay with Accessibility -->
@@ -678,12 +678,18 @@
                         </div>
                         
                         <div class="space-y-4">
-                            <div>
-                                <label for="import-file" class="block text-sm font-medium text-gray-700 mb-2">Select JSON File</label>
-                                <input type="file" id="import-file" accept=".json" 
+                            <div id="import-drop-zone"
+                                 class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors"
+                                 ondragover="event.preventDefault(); this.classList.add('border-blue-400','bg-blue-50');"
+                                 ondragleave="this.classList.remove('border-blue-400','bg-blue-50');"
+                                 ondrop="handleImportDrop(event)">
+                                <label for="import-file" class="block text-sm font-medium text-gray-700 mb-2">Upload File</label>
+                                <input type="file" id="import-file" accept=".json,.csv,.xlsx,.xlsm" 
                                        class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
-                                       aria-describedby="file-help">
-                                <div id="file-help" class="text-xs text-gray-500 mt-1">Choose a JSON file exported from CTO Dashboard</div>
+                                       aria-describedby="file-help"
+                                       onchange="updateImportDropLabel()">
+                                <div id="file-help" class="text-xs text-gray-500 mt-2">JSON export, CSV, or Excel (.xlsx). Drag and drop supported.</div>
+                                <div id="import-drop-label" class="text-sm text-gray-600 mt-2">Drop file here or click to browse</div>
                             </div>
                             
                             <div>
@@ -802,6 +808,20 @@
             </div>
         </div>
 
+        <footer id="app-footer" class="container mx-auto px-4 pb-20 pt-8 mt-4 border-t border-gray-200 text-center text-xs text-gray-500">
+            <p class="mb-1">
+                <span class="font-medium text-gray-600">CTO Lens</span>
+                <span class="mx-1">·</span>
+                A product of
+                <a href="https://idpetech.com" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">idpetech.com</a>
+            </p>
+            <p>
+                © 2026
+                <a href="https://idpetech.com" target="_blank" rel="noopener noreferrer" class="text-gray-600 hover:text-blue-600 underline">idpetech.com</a>
+                All rights reserved.
+            </p>
+        </footer>
+
         <!-- Chatbot Button -->
         <div id="chatbot-button" class="fixed bottom-6 right-6 z-50">
             <button onclick="toggleChatbot()" class="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg transition-colors">
@@ -835,7 +855,7 @@
                 <div id="chatbot-messages" class="flex-1 overflow-y-auto p-4 space-y-4">
                     <div class="text-center text-gray-500 py-8">
                         <div class="text-4xl mb-4">🤖</div>
-                        <h3 class="text-lg font-medium mb-2">Welcome to CTO Dashboard Assistant!</h3>
+                        <h3 class="text-lg font-medium mb-2">Welcome to CTO Lens Assistant!</h3>
                         <p class="text-sm">I can help you with questions about:</p>
                         <ul class="text-sm mt-2 space-y-1">
                             <li>• Your assignments and projects</li>
@@ -1176,9 +1196,12 @@
                 isAuthenticated = false;
                 window._pendingAuthRetry = null;
 
-                // Clear localStorage
+                // Clear localStorage auth + cached assignment data
                 localStorage.removeItem('auth_token');
                 localStorage.removeItem('current_user');
+                if (typeof cache !== 'undefined' && cache.clear) {
+                    cache.clear();
+                }
 
                 // Best-effort: also clear the server-side session cookie
                 try {
@@ -1203,10 +1226,15 @@
             }
 
             function authFetch(url, options = {}) {
+                const headers = { ...getAuthHeaders(), ...(options.headers || {}) };
+                // FormData needs the browser-set multipart boundary — do not force JSON Content-Type
+                if (options.body instanceof FormData) {
+                    delete headers['Content-Type'];
+                }
                 return fetch(url, {
                     credentials: 'include',
                     ...options,
-                    headers: { ...getAuthHeaders(), ...(options.headers || {}) },
+                    headers,
                 });
             }
             
@@ -1283,6 +1311,7 @@
                         } else if (workspaces.length === 1) {
                             // One workspace - auto-select and show simplified UI
                             currentWorkspace = workspaces[0].id;
+                            localStorage.setItem('selectedWorkspace', currentWorkspace);
                             showSingleWorkspaceUI(workspaces[0]);
                         } else {
                             // Multiple workspaces - show dropdown selector
@@ -1301,6 +1330,7 @@
                             // Auto-select default workspace or first available
                             const targetWorkspace = workspaces.find(w => w.id === defaultWorkspace) ? defaultWorkspace : workspaces[0].id;
                             currentWorkspace = targetWorkspace;
+                            localStorage.setItem('selectedWorkspace', currentWorkspace);
                             document.getElementById('workspace-select').value = currentWorkspace;
                             
                             // Show and load dashboard content
@@ -1471,7 +1501,7 @@
                     placeholder.className = 'text-center py-16';
                     placeholder.innerHTML = `
                         <div class="max-w-md mx-auto">
-                            <h2 class="text-xl font-semibold text-gray-600 mb-4">Welcome to CTO Dashboard</h2>
+                            <h2 class="text-xl font-semibold text-gray-600 mb-4">Welcome to CTO Lens</h2>
                             <p class="text-gray-500 mb-6">Create your workspace to get started with managing assignments and configuring connectors.</p>
                             <div class="text-6xl mb-4">🚀</div>
                         </div>
@@ -1538,16 +1568,26 @@
             function handleWorkspaceChange() {
                 const select = document.getElementById('workspace-select');
                 currentWorkspace = select.value;
-                
                 if (currentWorkspace) {
+                    localStorage.setItem('selectedWorkspace', currentWorkspace);
                     console.log('Workspace selected:', currentWorkspace);
-                    // Reload dashboard with new workspace context
-                    loadDashboard();
+                    cache.invalidateAssignments(currentWorkspace);
+                    loadDashboard(true);
                 }
             }
             
             function getCurrentWorkspace() {
                 return currentWorkspace;
+            }
+
+            /** Build workspace-scoped assignment API URL; returns null if no workspace selected. */
+            function workspaceAssignmentUrl(assignmentId) {
+                const ws = currentWorkspace;
+                if (!ws) {
+                    alert('Select your workspace before managing assignments.');
+                    return null;
+                }
+                return `/api/workspaces/${encodeURIComponent(ws)}/assignments/${encodeURIComponent(assignmentId)}`;
             }
             
             function openWorkspaceSettings() {
@@ -1567,7 +1607,7 @@
                                         <h2 class="text-2xl font-bold">⚙️ Setup Assignments & Connectors</h2>
                                         <p class="text-blue-100 mt-1">Manage your projects and configure integrations</p>
                                     </div>
-                                    <button onclick="loadDashboard()" class="bg-blue-500 hover:bg-blue-400 px-4 py-2 rounded text-sm">
+                                    <button onclick="loadDashboard(true)" class="bg-blue-500 hover:bg-blue-400 px-4 py-2 rounded text-sm">
                                         ← Back to Dashboard
                                     </button>
                                 </div>
@@ -1862,9 +1902,9 @@
                     loadSetupData();
                 } else {
                     if (typeof cache !== 'undefined' && cache.invalidateAssignments) {
-                        cache.invalidateAssignments();
+                        cache.invalidateAssignments(currentWorkspace);
                     }
-                    loadDashboard();
+                    loadDashboard(true);
                 }
             }
 
@@ -2195,22 +2235,28 @@
                 }
             }
             
-            async function loadDashboard() {
+            async function loadDashboard(forceRefresh) {
                 try {
-                    console.log('🔍 Loading assignments...');
-                    
-                    // Use workspace-scoped API if workspace is selected
-                    let apiUrl = '/api/assignments';
-                    if (currentWorkspace) {
-                        apiUrl = `/api/workspaces/${currentWorkspace}/assignments`;
-                        console.log('🏢 Using workspace context:', currentWorkspace);
+                    const workspaceId = currentWorkspace;
+                    if (!workspaceId) {
+                        document.getElementById('dashboard-content').innerHTML =
+                            '<div class="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded">Select a workspace before loading assignments.</div>';
+                        return;
                     }
-                    
-                    // Phase 5C: Use cached fetch with 3-minute TTL for assignments
-                    const cacheKey = `assignments_${currentWorkspace || 'default'}`;
-                    const response = await cachedFetch(apiUrl, {
-                        headers: getAuthHeaders()
-                    }, cacheKey, 3 * 60 * 1000);
+
+                    console.log('🔍 Loading assignments for workspace:', workspaceId, forceRefresh ? '(fresh)' : '');
+                    const apiUrl = `/api/workspaces/${workspaceId}/assignments`;
+                    const cacheKey = `assignments_${workspaceId}`;
+
+                    let response;
+                    if (forceRefresh) {
+                        cache.invalidateAssignments(workspaceId);
+                        response = await authFetch(apiUrl);
+                    } else {
+                        response = await cachedFetch(apiUrl, {
+                            headers: getAuthHeaders()
+                        }, cacheKey, 3 * 60 * 1000);
+                    }
                     console.log('📡 Response status:', response.status);
                     
                     const data = await response.json();
@@ -2228,10 +2274,17 @@
                     const assignmentsData = Array.isArray(data) ? data : data.assignments;
                     console.log('✅ Assignments to display:', assignmentsData);
                     
-                    // Store assignments globally for management functions
-                    assignments = assignmentsData;
+                    // Tag each row with workspace context; hide soft-archived rows from main UI
+                    const scoped = (assignmentsData || [])
+                        .filter(function(a) { return (a.status || 'active') !== 'archived'; })
+                        .map(function(a) {
+                            return Object.assign({}, a, { workspace_id: workspaceId });
+                        });
                     
-                    displayAssignments(assignmentsData);
+                    // Store assignments globally for management functions
+                    assignments = scoped;
+                    
+                    displayAssignments(scoped);
                     
                 } catch (error) {
                     document.getElementById('dashboard-content').innerHTML = 
@@ -2252,7 +2305,7 @@
                     html += `
                         <div class="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
                             <div class="text-6xl mb-4">🚀</div>
-                            <h2 class="text-2xl font-bold text-gray-800 mb-4">Welcome to CTO Dashboard!</h2>
+                            <h2 class="text-2xl font-bold text-gray-800 mb-4">Welcome to CTO Lens!</h2>
                             <p class="text-gray-600 mb-6 max-w-md mx-auto">
                                 Get started by creating your first assignment. Click the "Create Your First Assignment" tab above to add projects and configure integrations.
                             </p>
@@ -2315,6 +2368,8 @@
 
                 // Portfolio Dashboard MVP (renders only when ENABLE_PORTFOLIO_DASHBOARD is on)
                 loadPortfolioDashboard();
+                // Attention Engine briefing (ENABLE_ATTENTION_ENGINE)
+                loadAttentionBriefing();
             }
             
             // Modern UI: Handle "+" tab click for creating new assignments
@@ -2341,8 +2396,9 @@
                     const flagsResp = await fetch('/api/feature-flags');
                     const flags = await flagsResp.json();
                     if (!flags || !flags.portfolio_dashboard) { container.innerHTML = ''; return; }
+                    if (!currentWorkspace) { container.innerHTML = ''; return; }
 
-                    const resp = await fetch('/api/portfolio/summary', { headers: getAuthHeaders() });
+                    const resp = await fetch('/api/portfolio/summary?workspace_id=' + encodeURIComponent(currentWorkspace), { headers: getAuthHeaders() });
                     if (resp.status === 403) { container.innerHTML = ''; return; }
                     const data = await resp.json();
                     if (data.error) {
@@ -2500,7 +2556,8 @@
                 const totalTeamSize = assignments.reduce((sum, a) => sum + (a.team_size || 0), 0);
                 const totalBurnRate = assignments.reduce((sum, a) => sum + (a.monthly_burn_rate || 0), 0);
                 
-                let html = '<div id="portfolio-dashboard-section" class="mb-8"></div>';
+                let html = '<div id="attention-briefing-section" class="mb-8"></div>';
+                html += '<div id="portfolio-dashboard-section" class="mb-8"></div>';
                 html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">';
                 
                 // Status Cards
@@ -3622,7 +3679,7 @@
                         if (response.ok) {
                             // Clear messages and show welcome message
                             const messages = document.getElementById('chatbot-messages');
-                            messages.innerHTML = '<div class="text-center text-gray-500 py-8"><div class="text-4xl mb-4">🤖</div><h3 class="text-lg font-medium mb-2">Welcome to CTO Dashboard Assistant!</h3><p class="text-sm">I can help you with questions about:</p><ul class="text-sm mt-2 space-y-1"><li>• Your assignments and projects</li><li>• AWS costs and resource usage</li><li>• GitHub metrics and activity</li><li>• Jira project status</li><li>• Team information and tech stacks</li><li>• Service health and configuration</li></ul><p class="text-sm mt-4 text-gray-400">Try asking: "What is IdepTech status?" or "Show me IdepTech AWS costs"</p></div>';
+                            messages.innerHTML = '<div class="text-center text-gray-500 py-8"><div class="text-4xl mb-4">🤖</div><h3 class="text-lg font-medium mb-2">Welcome to CTO Lens Assistant!</h3><p class="text-sm">I can help you with questions about:</p><ul class="text-sm mt-2 space-y-1"><li>• Your assignments and projects</li><li>• AWS costs and resource usage</li><li>• GitHub metrics and activity</li><li>• Jira project status</li><li>• Team information and tech stacks</li><li>• Service health and configuration</li></ul><p class="text-sm mt-4 text-gray-400">Try asking: "What is IdepTech status?" or "Show me IdepTech AWS costs"</p></div>';
                         }
                     } catch (error) {
                         console.error('Error clearing chat history:', error);
@@ -3849,7 +3906,9 @@
                 };
                 
                 try {
-                    const response = await authFetch(`/api/assignments/${assignmentId}`, {
+                    const url = workspaceAssignmentUrl(assignmentId);
+                    if (!url) return;
+                    const response = await authFetch(url, {
                         method: 'PUT',
                         body: JSON.stringify(formData)
                     });
@@ -3859,18 +3918,11 @@
 
                     if (response.ok) {
                         showAssignmentEditMessage('Assignment updated successfully!', 'success');
-                        // Phase 5C: Invalidate cache when data changes
-                        cache.invalidateAssignments();
-                        // Update local assignments data
-                        const assignmentIndex = assignments.findIndex(a => a.id === assignmentId);
-                        if (assignmentIndex !== -1) {
-                            assignments[assignmentIndex] = { ...assignments[assignmentIndex], ...formData };
-                        }
-                        // Refresh the display
-                        setTimeout(() => {
+                        cache.invalidateAssignments(currentWorkspace);
+                        setTimeout(async () => {
                             hideAssignmentEditModal();
-                            loadDashboard(); // Reload to show changes
-                        }, 1500);
+                            await loadDashboard(true);
+                        }, 800);
                     } else if (response.status === 401) {
                         showAssignmentEditMessage('Your session has expired. Please sign in - your changes are kept and will be saved automatically after you log in.', 'error');
                         window._pendingAuthRetry = function() { saveAssignmentChanges(event); };
@@ -4175,12 +4227,10 @@
             
             async function updateAssignmentStatus(assignmentId, newStatus) {
                 try {
-                    const response = await fetch(`/api/assignments/${assignmentId}`, {
+                    const url = workspaceAssignmentUrl(assignmentId);
+                    if (!url) return;
+                    const response = await authFetch(url, {
                         method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        credentials: 'include',
                         body: JSON.stringify({ status: newStatus })
                     });
                     
@@ -4192,8 +4242,8 @@
                         if (assignmentIndex !== -1) {
                             assignments[assignmentIndex].status = newStatus;
                         }
-                        // Reload dashboard to show updated status
-                        loadDashboard();
+                        cache.invalidateAssignments(currentWorkspace);
+                        loadDashboard(true);
                     } else {
                         alert(data.error || 'Failed to update status');
                     }
@@ -4228,12 +4278,10 @@
             
             async function performAssignmentDeletion(assignmentId) {
                 try {
-                    const response = await fetch(`/api/assignments/${assignmentId}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        credentials: 'include'
+                    const url = workspaceAssignmentUrl(assignmentId);
+                    if (!url) return;
+                    const response = await authFetch(url, {
+                        method: 'DELETE'
                     });
                     
                     const data = await response.json();
@@ -4244,8 +4292,8 @@
                         if (assignmentIndex !== -1) {
                             assignments.splice(assignmentIndex, 1);
                         }
-                        // Reload dashboard to show removal
-                        loadDashboard();
+                        cache.invalidateAssignments(currentWorkspace);
+                        loadDashboard(true);
                         alert('Assignment deleted successfully');
                     } else {
                         alert(data.error || 'Failed to delete assignment');
@@ -4587,73 +4635,211 @@
                 document.getElementById('import-message').classList.add('hidden');
             }
             
+            function handleImportDrop(event) {
+                event.preventDefault();
+                const zone = document.getElementById('import-drop-zone');
+                zone.classList.remove('border-blue-400', 'bg-blue-50');
+                const fileInput = document.getElementById('import-file');
+                if (event.dataTransfer.files.length) {
+                    fileInput.files = event.dataTransfer.files;
+                    updateImportDropLabel();
+                }
+            }
+
+            function updateImportDropLabel() {
+                const fileInput = document.getElementById('import-file');
+                const label = document.getElementById('import-drop-label');
+                if (fileInput.files.length) {
+                    label.textContent = 'Selected: ' + fileInput.files[0].name;
+                } else {
+                    label.textContent = 'Drop file here or click to browse';
+                }
+            }
+
             async function performImport() {
                 const fileInput = document.getElementById('import-file');
                 const modeSelect = document.getElementById('import-mode');
-                const messageDiv = document.getElementById('import-message');
                 
                 if (!fileInput.files.length) {
-                    showImportMessage('Please select a JSON file to import.', 'error');
+                    showImportMessage('Please select a file to import.', 'error');
                     return;
                 }
                 
                 const file = fileInput.files[0];
                 const importMode = modeSelect.value;
+                const ext = (file.name.split('.').pop() || '').toLowerCase();
+                const workspaceId = currentWorkspace;
+                if (!workspaceId) {
+                    showImportMessage('Select your workspace before importing.', 'error');
+                    return;
+                }
                 
                 try {
-                    // Read file content
-                    const fileContent = await new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = (e) => resolve(e.target.result);
-                        reader.onerror = reject;
-                        reader.readAsText(file);
-                    });
-                    
-                    // Parse JSON
-                    const importData = JSON.parse(fileContent);
-                    
-                    // Validate structure
-                    if (!importData.assignments || !Array.isArray(importData.assignments)) {
-                        throw new Error('Invalid file format - missing assignments array');
+                    showImportMessage('Importing...', 'info');
+                    let response, result;
+
+                    if (ext === 'json') {
+                        const fileContent = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = (e) => resolve(e.target.result);
+                            reader.onerror = reject;
+                            reader.readAsText(file);
+                        });
+                        const importData = JSON.parse(fileContent);
+                        if (!importData.assignments || !Array.isArray(importData.assignments)) {
+                            throw new Error('Invalid JSON — missing assignments array');
+                        }
+                        response = await authFetch(`/api/workspaces/${workspaceId}/import?mode=${importMode}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(importData)
+                        });
+                    } else if (ext === 'csv' || ext === 'xlsx' || ext === 'xlsm') {
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        response = await authFetch(
+                            `/api/workspaces/${workspaceId}/import/file?mode=${importMode}`,
+                            { method: 'POST', body: formData }
+                        );
+                    } else {
+                        throw new Error('Unsupported file type. Use .json, .csv, or .xlsx');
                     }
-                    
-                    showImportMessage('Importing assignments...', 'info');
-                    
-                    // Send to server
-                    const currentWorkspace = localStorage.getItem('selectedWorkspace') || 'default_workspace';
-                    const response = await fetch(`/api/workspaces/${currentWorkspace}/import?mode=${importMode}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        credentials: 'include',
-                        body: JSON.stringify(importData)
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (result.success || response.status === 207) { // 207 = partial success
-                        const message = `Import completed! ${result.imported_assignments} assignments imported successfully.`;
-                        if (result.skipped_assignments > 0) {
-                            message += ` ${result.skipped_assignments} assignments were skipped.`;
+
+                    result = await response.json();
+
+                    if (result.duplicate_file) {
+                        showImportMessage(result.warnings?.[0] || 'This file was already imported.', 'info');
+                        return;
+                    }
+
+                    if (result.success || response.status === 207) {
+                        let message = `Import complete: ${result.imported_assignments || 0} created`;
+                        if (result.updated_assignments) message += `, ${result.updated_assignments} updated`;
+                        if (result.rows_parsed) message += ` (${result.rows_parsed} rows parsed)`;
+                        if (result.skipped_assignments) message += `, ${result.skipped_assignments} skipped`;
+                        if (result.errors && result.errors.length) {
+                            message += `. ${result.errors.length} error(s) — see console.`;
+                            console.warn('Import errors:', result.errors);
+                        }
+                        if (result.warnings && result.warnings.length) {
+                            console.warn('Import warnings:', result.warnings);
                         }
                         showImportMessage(message, 'success');
-                        
-                        // Phase 5C: Invalidate cache after import
-                        cache.invalidateAssignments();
-                        // Refresh dashboard after successful import
-                        setTimeout(() => {
-                            hideImportDialog();
-                            loadDashboard();
-                        }, 2000);
+
+                        hideImportDialog();
+                        await loadDashboard(true);
+                        if (result.attention_briefing) {
+                            loadAttentionBriefing();
+                        } else {
+                            refreshAttentionBriefing();
+                        }
                     } else {
-                        showImportMessage(result.error || 'Import failed', 'error');
+                        const errText = (result.errors && result.errors.join('; ')) || result.error || 'Import failed';
+                        showImportMessage(errText, 'error');
                     }
-                    
                 } catch (error) {
                     console.error('Import error:', error);
-                    showImportMessage(`Import failed: ${error.message}`, 'error');
+                    showImportMessage('Import failed: ' + error.message, 'error');
                 }
+            }
+
+            async function loadAttentionBriefing() {
+                const container = document.getElementById('attention-briefing-section');
+                if (!container) return;
+                try {
+                    const flagsResp = await fetch('/api/feature-flags');
+                    const flags = await flagsResp.json();
+                    if (!flags || !flags.attention_engine) { container.innerHTML = ''; return; }
+
+                    const ws = currentWorkspace;
+                    if (!ws) { container.innerHTML = ''; return; }
+                    const resp = await authFetch(`/api/workspaces/${ws}/attention/briefing`);
+                    if (resp.status === 403) { container.innerHTML = ''; return; }
+                    const data = await resp.json();
+                    container.innerHTML = renderAttentionBriefing(data.briefing, data.message);
+                } catch (e) {
+                    console.warn('Attention briefing load failed:', e);
+                    container.innerHTML = '';
+                }
+            }
+
+            async function refreshAttentionBriefing() {
+                const container = document.getElementById('attention-briefing-section');
+                if (!container) return;
+                try {
+                    const flagsResp = await fetch('/api/feature-flags');
+                    const flags = await flagsResp.json();
+                    if (!flags || !flags.attention_engine) return;
+
+                    const ws = currentWorkspace;
+                    if (!ws) return;
+                    container.innerHTML = '<div class="text-sm text-gray-500 p-4">Refreshing CTO briefing...</div>';
+                    const resp = await authFetch(`/api/workspaces/${ws}/attention/refresh`, { method: 'POST' });
+                    if (!resp.ok) return;
+                    const data = await resp.json();
+                    container.innerHTML = renderAttentionBriefing(data.briefing);
+                } catch (e) {
+                    console.warn('Attention refresh failed:', e);
+                }
+            }
+
+            function renderAttentionBriefing(briefing, emptyMessage) {
+                if (!briefing) {
+                    return '<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">' +
+                        (emptyMessage || 'No briefing yet. Import data or click Refresh.') +
+                        ' <button onclick="refreshAttentionBriefing()" class="text-blue-600 hover:underline ml-2">Refresh</button></div>';
+                }
+                const eb = briefing.executive_briefing || {};
+                const health = briefing.system_health_score || {};
+                const bandColor = _pfBandColor(health.band || 'healthy');
+                let html = '<div class="bg-white rounded-lg shadow p-6 mb-6">';
+                html += '<div class="flex items-center justify-between mb-4">';
+                html += '<h3 class="text-xl font-bold text-gray-800">\uD83C\uDFAF CTO Briefing</h3>';
+                html += '<button onclick="refreshAttentionBriefing()" class="text-sm text-blue-600 hover:underline">Refresh</button>';
+                html += '</div>';
+                html += '<div class="flex items-start gap-4 mb-4">';
+                html += '<div class="bg-' + bandColor + '-50 border border-' + bandColor + '-200 rounded-lg px-4 py-3 min-w-[120px] text-center">';
+                html += '<div class="text-2xl font-bold text-' + bandColor + '-600">' + (health.score != null ? health.score : '\u2014') + '</div>';
+                html += '<div class="text-xs text-' + bandColor + '-700 uppercase">' + (health.band || '').replace('_',' ') + '</div>';
+                html += '</div>';
+                html += '<div class="flex-1">';
+                html += '<div class="font-semibold text-gray-800 mb-1">' + (eb.headline || 'Executive Summary') + '</div>';
+                if (eb.bullets) {
+                    html += '<ul class="text-sm text-gray-700 list-disc ml-4">';
+                    eb.bullets.forEach(function(b) { html += '<li>' + b + '</li>'; });
+                    html += '</ul>';
+                }
+                html += '</div></div>';
+                if (briefing.cto_narrative) {
+                    html += '<p class="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded p-3 mb-4">' + briefing.cto_narrative + '</p>';
+                }
+                const risks = briefing.risk_signals || [];
+                const opps = briefing.opportunity_signals || [];
+                html += '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">';
+                html += '<div><h4 class="text-sm font-bold text-red-700 mb-2">Risk Signals (' + risks.length + ')</h4>';
+                if (!risks.length) {
+                    html += '<div class="text-xs text-green-700 bg-green-50 rounded p-2">No risks flagged</div>';
+                } else {
+                    risks.slice(0, 5).forEach(function(r) {
+                        const c = _pfSeverityColor(r.severity || 'warning');
+                        html += '<div class="text-xs border-l-2 border-' + c + '-400 pl-2 mb-2 text-gray-700">' + (r.detail || r.title) + '</div>';
+                    });
+                }
+                html += '</div>';
+                html += '<div><h4 class="text-sm font-bold text-green-700 mb-2">Opportunities (' + opps.length + ')</h4>';
+                if (!opps.length) {
+                    html += '<div class="text-xs text-gray-500 bg-gray-50 rounded p-2">None identified</div>';
+                } else {
+                    opps.slice(0, 5).forEach(function(o) {
+                        html += '<div class="text-xs border-l-2 border-green-400 pl-2 mb-2 text-gray-700">' + (o.detail || o.title) + '</div>';
+                    });
+                }
+                html += '</div></div>';
+                if (briefing.generated_at) {
+                    html += '<div class="text-xs text-gray-400 mt-3">Generated ' + new Date(briefing.generated_at).toLocaleString() + '</div>';
+                }
+                html += '</div>';
+                return html;
             }
             
             function showImportMessage(message, type) {
@@ -4744,7 +4930,7 @@
             // Phase 5C: Backup/Restore Information
             function showBackupInfo() {
                 const backupInfo = `
-CTO Dashboard Backup & Restore
+CTO Lens Backup & Restore
 
 📋 BACKUP OPTIONS:
 The system includes a CLI tool for complete data backup and restore.
@@ -4837,8 +5023,21 @@ Backups are stored in: ./backups/
                     });
                 }
                 
-                invalidateAssignments() {
-                    // Clear assignment-related cache when data changes
+                invalidateAssignments(workspaceId) {
+                    // Clear workspace-scoped keys (loadDashboard uses assignments_<workspaceId>)
+                    if (workspaceId) {
+                        this.delete('assignments_' + workspaceId);
+                    }
+                    // Clear any legacy or other workspace assignment caches
+                    try {
+                        Object.keys(localStorage).forEach(function(storageKey) {
+                            if (storageKey.startsWith('ctodash_cache_assignments')) {
+                                localStorage.removeItem(storageKey);
+                            }
+                        });
+                    } catch (e) {
+                        console.warn('Cache sweep failed:', e);
+                    }
                     this.delete('assignments');
                     this.delete('assignments_overview');
                 }
@@ -4900,8 +5099,9 @@ Backups are stored in: ./backups/
                     self.healthStatus.lastCheck = new Date().toISOString();
                 }, 5000);
                 
-                fetch('/api/assignments', {
-                    headers: getAuthHeaders()
+                fetch('/api/assignments?workspace_id=' + encodeURIComponent(currentWorkspace || ''), {
+                    headers: getAuthHeaders(),
+                    credentials: 'include'
                 }).then(function(apiResponse) {
                     clearTimeout(timeoutId);
                     var responseTime = Date.now() - startTime;
@@ -5078,11 +5278,11 @@ Backups are stored in: ./backups/
                             self.showUpdateNotification('Assignments updated - refreshing dashboard');
                             
                             // Clear cache to force fresh data
-                            cache.invalidateAssignments();
+                            cache.invalidateAssignments(currentWorkspace);
                             
-                            // Refresh dashboard
+                            // Refresh dashboard (bypass stale cache)
                             if (typeof loadDashboard === 'function') {
-                                loadDashboard().then(function() {
+                                loadDashboard(true).then(function() {
                                     self.captureCurrentState();
                                 });
                             } else {
@@ -5160,8 +5360,9 @@ Backups are stored in: ./backups/
                     }
                 }
                 
-                // Make actual request
-                return fetch(url, options).then(function(response) {
+                // Make actual request (always include cookies for session auth)
+                var fetchOptions = Object.assign({ credentials: 'include' }, options);
+                return fetch(url, fetchOptions).then(function(response) {
                     // Cache successful GET responses
                     if (response.ok && (!options.method || options.method === 'GET')) {
                         var responseClone = response.clone();

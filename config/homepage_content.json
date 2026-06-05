@@ -24,7 +24,7 @@
   },
   "problem": {
     "headline": "Current tools show data.",
-    "subheadline": "CTO Dashboard shows what needs attention.",
+    "subheadline": "CTO Lens shows what needs attention.",
     "challenges": [
       {
         "icon": "scatter",
@@ -166,7 +166,7 @@
         "features": ["Everything in Full", "Custom integrations", "Advanced analytics", "Priority support"],
         "cta": {
           "text": "Contact Sales",
-          "link": "/contact",
+          "link": "https://idpetech.com",
           "style": "secondary"
         }
       }
@@ -178,36 +178,31 @@
   },
   "footer": {
     "tagline": "Know what needs your attention before it becomes a problem.",
+    "company_url": "https://idpetech.com",
     "sections": [
       {
         "title": "Product",
         "links": [
-          {"text": "Features", "url": "/features"},
-          {"text": "Pricing", "url": "/pricing"},
-          {"text": "Integrations", "url": "/integrations"}
+          {"text": "CTO Lens", "url": "/"},
+          {"text": "Start Free Assessment", "url": "/dashboard?signup=1"},
+          {"text": "Login", "url": "/dashboard"}
         ]
       },
       {
         "title": "Company",
         "links": [
-          {"text": "About", "url": "/about"},
-          {"text": "Blog", "url": "/blog"},
-          {"text": "Careers", "url": "/careers"}
+          {"text": "IdepTech", "url": "https://idpetech.com"},
+          {"text": "Contact", "url": "https://idpetech.com"}
         ]
       },
       {
-        "title": "Support", 
+        "title": "Legal",
         "links": [
-          {"text": "Contact", "url": "/contact"},
-          {"text": "Help Center", "url": "/help"},
-          {"text": "Privacy", "url": "/privacy"}
+          {"text": "Privacy", "url": "https://idpetech.com"}
         ]
       }
     ],
-    "social_links": [
-      {"platform": "twitter", "url": "#"},
-      {"platform": "linkedin", "url": "#"}
-    ],
-    "copyright": "© 2024 CTO Dashboard. All rights reserved."
+    "social_links": [],
+    "copyright": "© 2026 idpetech.com All rights reserved."
   }
 }

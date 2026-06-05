@@ -265,7 +265,9 @@ def register_routes(app):
             "service_config_ui": os.getenv("ENABLE_SERVICE_CONFIG_UI", "false").lower() == "true",
             "advanced_billing": os.getenv("ENABLE_BILLING", "false").lower() == "true",
             "database_storage": os.getenv("ENABLE_DATABASE", "false").lower() == "true",
-            "portfolio_dashboard": os.getenv("ENABLE_PORTFOLIO_DASHBOARD", "false").lower() == "true"
+            "portfolio_dashboard": os.getenv("ENABLE_PORTFOLIO_DASHBOARD", "false").lower() == "true",
+            "csv_import": os.getenv("ENABLE_CSV_IMPORT", "false").lower() == "true",
+            "attention_engine": os.getenv("ENABLE_ATTENTION_ENGINE", "false").lower() == "true",
         })
 
     @app.route("/api/services/status")
@@ -301,42 +303,67 @@ def register_routes(app):
             return jsonify({"error": "Service configuration creation not implemented"}), 501
 
     @app.route("/api/assignments")
+    @get_require_auth()
     def get_assignments():
-        """Get all assignments from workspace store"""
-        # Aggregate assignments from all workspaces
+        """Get assignments for the authenticated user's workspaces only."""
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({"error": "Authentication required"}), 401
+
+        workspace_id = request.args.get("workspace_id")
+        user_workspace_ids = get_user_service().get_user_workspaces(
+            current_user.get("email")
+        ).get("workspaces", [])
+
+        if workspace_id:
+            if workspace_id not in user_workspace_ids:
+                return jsonify({"error": "Access denied to this workspace"}), 403
+            user_workspace_ids = [workspace_id]
+
         all_assignments = []
         try:
-            ws_list = get_workspace_service().list_workspaces().get("workspaces", [])
-            for ws in ws_list:
-                workspace_id = ws.get("id")
-                if not workspace_id:
-                    continue
-                result = get_workspace_service().get_workspace_assignments(workspace_id)
+            for ws_id in user_workspace_ids:
+                result = get_workspace_service().get_workspace_assignments(ws_id)
                 if "assignments" in result:
+                    for a in result["assignments"]:
+                        a["workspace_id"] = ws_id
                     all_assignments.extend(result["assignments"])
         except Exception as e:
             return jsonify({"error": f"Failed to load assignments: {str(e)}"}), 500
-        
+
         return jsonify(all_assignments)
 
     @app.route("/api/portfolio/summary")
+    @get_require_auth()
     def get_portfolio_summary():
         """Portfolio Dashboard MVP — on-demand portfolio intelligence.
 
-        Feature-flagged via ENABLE_PORTFOLIO_DASHBOARD (default off). Computed
-        entirely from current assignment rows; no new tables, jobs, or history.
+        Feature-flagged via ENABLE_PORTFOLIO_DASHBOARD (default off). Scoped to
+        the authenticated user's workspace(s); pass ?workspace_id= to narrow.
         """
         if not os.getenv("ENABLE_PORTFOLIO_DASHBOARD", "false").lower() == "true":
             return jsonify({"error": "Portfolio dashboard is disabled"}), 403
 
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({"error": "Authentication required"}), 401
+
+        workspace_id = request.args.get("workspace_id")
+        user_workspace_ids = get_user_service().get_user_workspaces(
+            current_user.get("email")
+        ).get("workspaces", [])
+
+        if workspace_id:
+            if workspace_id not in user_workspace_ids:
+                return jsonify({"error": "Access denied to this workspace"}), 403
+            scope_ids = [workspace_id]
+        else:
+            scope_ids = user_workspace_ids
+
         all_assignments = []
         try:
-            ws_list = get_workspace_service().list_workspaces().get("workspaces", [])
-            for ws in ws_list:
-                workspace_id = ws.get("id")
-                if not workspace_id:
-                    continue
-                result = get_workspace_service().get_workspace_assignments(workspace_id)
+            for ws_id in scope_ids:
+                result = get_workspace_service().get_workspace_assignments(ws_id)
                 if "assignments" in result:
                     all_assignments.extend(result["assignments"])
         except Exception as e:
@@ -394,26 +421,24 @@ def register_routes(app):
     @app.route("/api/assignments/<assignment_id>", methods=["PUT"])
     @get_require_auth()
     def update_assignment(assignment_id):
-        """Update assignment configuration - workspace-only"""
+        """Update assignment configuration — requires workspace_id query param."""
         data = request.get_json()
         if not data:
             return jsonify({"error": "No update data provided"}), 400
         
         workspace_id = request.args.get("workspace_id")
         if not workspace_id:
-            # Use the logged-in user's default workspace first
-            current_user = get_current_user()
-            if current_user and current_user.get("preferences", {}).get("default_workspace"):
-                workspace_id = current_user["preferences"]["default_workspace"]
-            else:
-                # Fallback to legacy resolution if user has no default workspace
-                find_result = get_workspace_service().find_assignment(assignment_id)
-                if find_result.get("status") == 200:
-                    workspace_id = find_result["workspace_id"]
-                elif find_result.get("status") == 409:
-                    return jsonify({"error": find_result["error"], "ambiguous_workspaces": find_result.get("ambiguous_workspaces", [])}), 409
-                else:
-                    return jsonify({"error": "Assignment not found and no workspace_id provided"}), 404
+            return jsonify({
+                "error": "workspace_id query parameter is required. "
+                "Use PUT /api/workspaces/<workspace_id>/assignments/<assignment_id> instead.",
+            }), 400
+        
+        current_user = get_current_user()
+        user_workspaces = get_user_service().get_user_workspaces(
+            current_user.get("email")
+        ).get("workspaces", [])
+        if workspace_id not in user_workspaces:
+            return jsonify({"error": "Access denied to this workspace"}), 403
         
         try:
             result = get_workspace_service().update_assignment(workspace_id, assignment_id, data)
@@ -427,31 +452,29 @@ def register_routes(app):
     @app.route("/api/assignments/<assignment_id>", methods=["DELETE"])
     @get_require_auth()
     def delete_assignment(assignment_id):
-        """Delete assignment (archive) - workspace-only"""
+        """Archive assignment — requires workspace_id query param."""
         workspace_id = request.args.get("workspace_id")
         if not workspace_id:
-            # Use the logged-in user's default workspace first
-            current_user = get_current_user()
-            if current_user and current_user.get("preferences", {}).get("default_workspace"):
-                workspace_id = current_user["preferences"]["default_workspace"]
-            else:
-                # Fallback to legacy resolution if user has no default workspace
-                find_result = get_workspace_service().find_assignment(assignment_id)
-                if find_result.get("status") == 200:
-                    workspace_id = find_result["workspace_id"]
-                elif find_result.get("status") == 409:
-                    return jsonify({"error": find_result["error"], "ambiguous_workspaces": find_result.get("ambiguous_workspaces", [])}), 409
-                else:
-                    return jsonify({"error": "Assignment not found and no workspace_id provided"}), 404
+            return jsonify({
+                "error": "workspace_id query parameter is required. "
+                "Use DELETE /api/workspaces/<workspace_id>/assignments/<assignment_id> instead.",
+            }), 400
+        
+        current_user = get_current_user()
+        user_workspaces = get_user_service().get_user_workspaces(
+            current_user.get("email")
+        ).get("workspaces", [])
+        if workspace_id not in user_workspaces:
+            return jsonify({"error": "Access denied to this workspace"}), 403
         
         try:
-            result = get_workspace_service().archive_assignment(workspace_id, assignment_id)
+            result = get_workspace_service().delete_assignment(workspace_id, assignment_id)
             if result.get("success"):
-                return jsonify({"success": True, "message": f"Assignment '{assignment_id}' archived successfully"})
+                return jsonify({"success": True, "message": result.get("message", f"Assignment '{assignment_id}' deleted")})
             else:
                 return jsonify({"error": result.get("error", f"Assignment '{assignment_id}' not found")}), 404
         except Exception as e:
-            return jsonify({"error": f"Failed to archive assignment: {str(e)}"}), 500
+            return jsonify({"error": f"Failed to delete assignment: {str(e)}"}), 500
 
     @app.route("/api/aws-metrics")
     def get_aws_metrics():
@@ -1000,6 +1023,7 @@ def register_routes(app):
                 return jsonify(result), 400
     
     @app.route("/api/workspaces/<workspace_id>/assignments", methods=["GET", "POST"])
+    @get_require_workspace_access()
     def workspace_assignments(workspace_id):
         """Workspace assignment management"""
         if request.method == "GET":
@@ -1033,35 +1057,35 @@ def register_routes(app):
             else:
                 return jsonify(result), 400
     
-    @app.route("/api/workspaces/<workspace_id>/assignments/<assignment_id>", methods=["GET", "PUT"])
+    @app.route("/api/workspaces/<workspace_id>/assignments/<assignment_id>", methods=["GET", "PUT", "DELETE"])
+    @get_require_workspace_access()
     def workspace_assignment_detail(workspace_id, assignment_id):
-        """Get or update specific assignment in workspace"""
+        """Get, update, or archive a specific assignment in one workspace."""
         if request.method == "GET":
-            # Get all assignments and find the specific one
-            result = get_workspace_service().get_workspace_assignments(workspace_id)
-            if "error" in result:
-                return jsonify(result), 404
-            
-            assignments = result.get("assignments", [])
-            assignment = next((a for a in assignments if a.get("id") == assignment_id), None)
-            
+            assignment = get_workspace_service().get_assignment(workspace_id, assignment_id)
             if not assignment:
                 return jsonify({"error": f"Assignment '{assignment_id}' not found in workspace '{workspace_id}'"}), 404
-            
             return jsonify(assignment)
         
         elif request.method == "PUT":
-            # Update assignment in workspace
             data = request.get_json()
             if not data:
                 return jsonify({"error": "No assignment data provided"}), 400
             
-            # Use workspace service to update assignment
             result = get_workspace_service().update_assignment(workspace_id, assignment_id, data)
-            if "error" in result:
-                return jsonify(result), 400
+            if not result.get("success"):
+                return jsonify({"error": result.get("error", "Update failed")}), 400
             
             return jsonify(result)
+        
+        elif request.method == "DELETE":
+            result = get_workspace_service().delete_assignment(workspace_id, assignment_id)
+            if result.get("success"):
+                return jsonify({
+                    "success": True,
+                    "message": result.get("message", f"Assignment '{assignment_id}' deleted"),
+                })
+            return jsonify({"error": result.get("error", "Delete failed")}), 404
     
     # ===== PHASE 3 WORKSPACE CREDENTIALS TEST ENDPOINT =====
     
@@ -1403,7 +1427,7 @@ def register_routes(app):
             return jsonify({"error": f"Export failed: {str(e)}"}), 500
     
     @app.route("/api/workspaces/<workspace_id>/import", methods=["POST"])
-    @get_require_auth()
+    @get_require_workspace_access()
     def import_workspace_data(workspace_id):
         """Enhanced import workspace data - Phase 2 Implementation with backward compatibility"""
         try:
@@ -1428,6 +1452,115 @@ def register_routes(app):
             
         except Exception as e:
             return jsonify({"error": f"Import failed: {str(e)}"}), 500
+
+    @app.route("/api/workspaces/<workspace_id>/import/file", methods=["POST"])
+    @get_require_workspace_access()
+    def import_workspace_file(workspace_id):
+        """Import assignments from CSV or Excel (.xlsx) upload.
+
+        Feature-flagged via ENABLE_CSV_IMPORT (default off).
+        """
+        if not os.getenv("ENABLE_CSV_IMPORT", "false").lower() == "true":
+            return jsonify({"error": "CSV/Excel import is disabled"}), 403
+
+        uploaded = request.files.get("file")
+        if not uploaded or not uploaded.filename:
+            return jsonify({"error": "No file uploaded (field name: file)"}), 400
+
+        filename = uploaded.filename
+        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+        if ext not in ("csv", "xlsx", "xlsm"):
+            return jsonify({
+                "error": f"Unsupported file type .{ext}. Upload .csv or .xlsx"
+            }), 400
+
+        import_mode = request.args.get("mode", "create_new")
+        force = request.args.get("force", "false").lower() == "true"
+
+        try:
+            content = uploaded.read()
+            if not content:
+                return jsonify({"error": "Uploaded file is empty"}), 400
+
+            results = get_import_service().import_from_spreadsheet(
+                workspace_id,
+                content,
+                filename,
+                import_mode=import_mode,
+                force=force,
+                run_attention=True,
+            )
+
+            if results.get("duplicate_file"):
+                return jsonify(results), 200
+            if results.get("success"):
+                status_code = 200
+            elif (results.get("imported_assignments", 0) > 0
+                  or results.get("updated_assignments", 0) > 0):
+                status_code = 207
+            else:
+                status_code = 400
+            return jsonify(results), status_code
+        except Exception as e:
+            logger.exception("File import failed")
+            return jsonify({"error": f"File import failed: {str(e)}"}), 500
+
+    @app.route("/api/workspaces/<workspace_id>/attention/briefing", methods=["GET"])
+    @get_require_workspace_access()
+    def get_attention_briefing(workspace_id):
+        """Retrieve stored CTO attention briefing for a workspace."""
+        if not os.getenv("ENABLE_ATTENTION_ENGINE", "false").lower() == "true":
+            return jsonify({"error": "Attention engine is disabled"}), 403
+
+        try:
+            from services.attention_engine import get_stored_briefing
+
+            from services.security.secure_database import secure_db
+
+            briefing = get_stored_briefing(secure_db, workspace_id)
+            if not briefing:
+                return jsonify({
+                    "workspace_id": workspace_id,
+                    "briefing": None,
+                    "message": "No briefing generated yet. Import data or refresh.",
+                })
+            return jsonify({"workspace_id": workspace_id, "briefing": briefing})
+        except Exception as e:
+            logger.exception("Failed to load attention briefing")
+            return jsonify({"error": f"Failed to load briefing: {str(e)}"}), 500
+
+    @app.route("/api/workspaces/<workspace_id>/attention/refresh", methods=["POST"])
+    @get_require_workspace_access()
+    def refresh_attention_briefing(workspace_id):
+        """Regenerate CTO attention briefing from current workspace data."""
+        if not os.getenv("ENABLE_ATTENTION_ENGINE", "false").lower() == "true":
+            return jsonify({"error": "Attention engine is disabled"}), 403
+
+        try:
+            from services.attention_engine import (
+                build_attention_briefing,
+                get_stored_briefing,
+                store_briefing_in_workspace,
+            )
+            from services.security.secure_database import secure_db
+
+            assignments = secure_db.get_workspace_assignments(workspace_id)
+            previous = get_stored_briefing(secure_db, workspace_id)
+            last_import = (secure_db.get_workspace(workspace_id) or {}).get("settings", {}).get("last_import")
+            briefing = build_attention_briefing(
+                assignments,
+                previous_briefing=previous,
+                import_metadata=last_import,
+            )
+            store_briefing_in_workspace(secure_db, workspace_id, briefing)
+            return jsonify({
+                "workspace_id": workspace_id,
+                "briefing": briefing,
+                "refreshed_at": briefing.get("generated_at"),
+            })
+        except Exception as e:
+            logger.exception("Attention briefing refresh failed")
+            return jsonify({"error": f"Refresh failed: {str(e)}"}), 500
     
     @app.route("/api/assignments/export", methods=["GET"])
     @get_require_auth()  

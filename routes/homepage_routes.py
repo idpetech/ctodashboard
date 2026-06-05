@@ -28,7 +28,7 @@ def homepage():
                 "cta_link": "/dashboard?signup=1",
                 "preview_items": []
             },
-            "problem": {"headline": "Current tools show data.", "subheadline": "CTO Dashboard shows what needs attention.", "challenges": [
+            "problem": {"headline": "Current tools show data.", "subheadline": "CTO Lens shows what needs attention.", "challenges": [
                 {"icon": "scatter", "title": "Too many tools", "description": "Scattered platforms"},
                 {"icon": "view", "title": "No single view", "description": "Missing connections"},
                 {"icon": "warning", "title": "Hidden risks", "description": "Problems surface late"}
@@ -50,7 +50,7 @@ def homepage():
             "pricing": {"title": "Simple Pricing", "subtitle": "Scale as you grow", "plans": [
                 {"name": "Free", "price": "$0", "period": "", "description": "Get started", "features": ["Basic monitoring"], "cta": {"text": "Start Free", "link": "/dashboard?signup=1", "style": "primary"}}
             ], "bottom_cta": {"text": "Get Started", "link": "/dashboard?signup=1"}},
-            "footer": {"tagline": "CTO Dashboard", "sections": [], "social_links": [], "copyright": "© 2024 CTO Dashboard"}
+            "footer": {"tagline": "CTO Lens by IdepTech", "company_url": "https://idpetech.com", "sections": [], "social_links": [], "copyright": "© 2026 idpetech.com All rights reserved."}
         }
         return render_template('homepage.html', content=fallback_content)
 

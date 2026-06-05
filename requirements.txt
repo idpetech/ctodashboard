@@ -35,3 +35,4 @@ cryptography>=3.4.8
 
 # Database dependencies
 psycopg2-binary>=2.9.0
+openpyxl>=3.1.0

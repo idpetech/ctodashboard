@@ -1,0 +1,6 @@
+assignment_id,name,description,team_size,monthly_burn_rate,target_monthly_burn,status,github,jira,aws
+acme_web,Acme Web Platform,Customer-facing SaaS rebuild,6,28000,25000,active,yes,yes,no
+mobile_beta,Mobile Beta App,iOS and Android MVP,4,18000,20000,active,true,false,no
+data_pipeline,Data Pipeline,ETL and reporting stack,3,12000,15000,active,no,no,yes
+legacy_cleanup,Legacy Cleanup,Decommission old monolith,2,8000,10000,paused,false,true,no
+internal_tools,Internal Tools,Admin dashboards and scripts,2,9000,8000,active,yes,no,no

@@ -121,3 +121,36 @@ export ENABLE_WORKSPACES=true
 - Restart Flask after pull
 - Confirm Railway `DATABASE_URL` + `ctodashboard` search_path
 - Re-save connector credentials if forms are empty
+
+---
+
+## CSV/Excel Import + Attention Engine (feature-flagged)
+
+**Flags:** `ENABLE_CSV_IMPORT`, `ENABLE_ATTENTION_ENGINE` (both default `false`).
+
+### CSV/Excel Import Pipeline
+- **Parser:** `services/import_parser.py` — pure CSV/XLSX parsing with flexible
+  column aliases; per-row errors; no DB I/O.
+- **Orchestration:** `services/data_import_service.import_from_spreadsheet()` —
+  parses → maps to assignment dicts → reuses existing `import_workspace_data()`.
+- **API:** `POST /api/workspaces/<id>/import/file` (multipart `file` field).
+  JSON import unchanged at `POST /api/workspaces/<id>/import`.
+- **Idempotency:** SHA-256 file hash stored in `workspace.settings.import_history`;
+  duplicate uploads skipped in `create_new` mode unless `force=true`.
+- **Storage:** Assignments in Postgres; import metadata + parsed row cache in
+  `workspace.settings.last_import` (no new tables).
+- **Dependency:** `openpyxl` for `.xlsx`.
+
+### Attention Engine
+- **Service:** `services/attention_engine.py` — deterministic, rule-based CTO
+  briefing. Reuses `portfolio_service` computations. No external APIs.
+- **Outputs (JSON):** executive briefing, risk signals, opportunity signals,
+  system health score (0–100), CTO narrative (5–10 sentences).
+- **Storage:** `workspace.settings.attention_briefing` (no new tables).
+- **API:**
+  - `GET /api/workspaces/<id>/attention/briefing` — retrieve stored briefing
+  - `POST /api/workspaces/<id>/attention/refresh` — regenerate from current data
+- **Triggers:** Runs automatically after CSV/Excel import (when flag on); manual
+  refresh via Overview UI button or refresh endpoint.
+- **UI:** `#attention-briefing-section` in Overview tab; import dialog accepts
+  `.json`, `.csv`, `.xlsx` with drag-and-drop.

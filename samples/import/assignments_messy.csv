@@ -1,0 +1,5 @@
+Project ID,Project Name,Headcount,Monthly Budget,Target Budget,State,Enable GitHub,Enable Jira
+PROJ-101,Phoenix Rewrite,8,"32,000",$30000,Active,1,yes
+PROJ-102,Ops Automation,5,22000,20000,active,on,off
+PROJ-103,Security Audit,2,$15000,12000,On Hold,no,yes
+PROJ-104,API Gateway,4,19000,18000,active,true,true

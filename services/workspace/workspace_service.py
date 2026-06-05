@@ -361,4 +361,9 @@ class WorkspaceService:
         if not self.feature_enabled:
             return {"success": False, "error": "Workspace functionality is disabled"}
         return self._store.archive_assignment(workspace_id, assignment_id)
+
+    def delete_assignment(self, workspace_id: str, assignment_id: str) -> Dict[str, Any]:
+        if not self.feature_enabled:
+            return {"success": False, "error": "Workspace functionality is disabled"}
+        return self._store.delete_assignment(workspace_id, assignment_id)
     

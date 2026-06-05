@@ -11,7 +11,9 @@ FEATURE_FLAGS = {
     "service_config_ui": os.getenv("ENABLE_SERVICE_CONFIG_UI", "false").lower() == "true",
     "advanced_billing": os.getenv("ENABLE_BILLING", "false").lower() == "true",
     "database_storage": os.getenv("ENABLE_DATABASE", "false").lower() == "true",
-    "portfolio_dashboard": os.getenv("ENABLE_PORTFOLIO_DASHBOARD", "false").lower() == "true"
+    "portfolio_dashboard": os.getenv("ENABLE_PORTFOLIO_DASHBOARD", "false").lower() == "true",
+    "csv_import": os.getenv("ENABLE_CSV_IMPORT", "false").lower() == "true",
+    "attention_engine": os.getenv("ENABLE_ATTENTION_ENGINE", "false").lower() == "true",
 }
 
 class ServiceManager:
