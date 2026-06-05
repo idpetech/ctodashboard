@@ -10,7 +10,7 @@ import hashlib
 import secrets
 import time
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from flask import request
@@ -53,6 +53,19 @@ class SecureUserService:
 
         salt = secrets.token_urlsafe(32)
         password_hash = self._hash_password(password, salt)
+
+        # New signups default to the Free plan with a time-boxed trial.
+        # FREE_TRIAL_DAYS sets the window (default 7). Enforcement of the
+        # limit (the access guardrail) is handled separately; here we only
+        # stamp the account so that logic has something to read.
+        trial_days = int(os.getenv("FREE_TRIAL_DAYS", "7"))
+        _now = datetime.utcnow()
+        trial_info = {
+            "plan": "free",
+            "trial_days": trial_days,
+            "started_at": _now.isoformat(),
+            "expires_at": (_now + timedelta(days=trial_days)).isoformat(),
+        }
         user_data = {
             "email": email,
             "display_name": display_name or email.split("@")[0],
@@ -61,8 +74,13 @@ class SecureUserService:
             "workspaces": [f"{email.split('@')[0]}_workspace"],
             "role": "user",
             "status": "active",
-            "preferences": {"theme": "light", "timezone": "UTC"},
-            "created_at": datetime.utcnow().isoformat(),
+            "preferences": {
+                "theme": "light",
+                "timezone": "UTC",
+                "plan": "free",
+                "trial": trial_info,
+            },
+            "created_at": _now.isoformat(),
             "last_login": None,
         }
 

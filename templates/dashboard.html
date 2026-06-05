@@ -307,6 +307,12 @@
                             Need an account? Register here
                         </button>
                     </div>
+
+                    <div class="mt-3 text-center">
+                        <button type="button" onclick="cancelAuth()" class="text-gray-500 hover:text-gray-700 hover:underline text-sm">
+                            &larr; Cancel and return to home
+                        </button>
+                    </div>
                     
                     <div class="mt-6 text-center">
                         <p class="text-xs text-gray-500">Test Account: admin@example.com / admin123</p>
@@ -346,6 +352,12 @@
                     <div class="mt-4 text-center">
                         <button onclick="showLoginForm()" class="text-blue-600 hover:underline text-sm">
                             Already have an account? Sign in
+                        </button>
+                    </div>
+
+                    <div class="mt-3 text-center">
+                        <button type="button" onclick="cancelAuth()" class="text-gray-500 hover:text-gray-700 hover:underline text-sm">
+                            &larr; Cancel and return to home
                         </button>
                     </div>
                 </div>
@@ -967,6 +979,13 @@
             function showAuthOverlay() {
                 document.getElementById('auth-overlay').classList.remove('hidden');
                 document.getElementById('user-info').classList.add('hidden');
+                // Arriving via the "Start Free Assessment" CTA? Default to signup.
+                try {
+                    const params = new URLSearchParams(window.location.search);
+                    if (params.get('signup') === '1') {
+                        showRegisterForm();
+                    }
+                } catch (e) {}
             }
             
             function hideAuthOverlay() {
@@ -993,6 +1012,13 @@
                 document.getElementById('register-form').classList.add('hidden');
                 clearAuthError();
                 clearRegisterError();
+            }
+
+            function cancelAuth() {
+                // Abandon any queued save/create and return to the landing / CTA page
+                window._pendingAuthRetry = null;
+                hideAuthOverlay();
+                window.location.href = '/';
             }
             
             function showRegisterForm() {
@@ -1057,11 +1083,20 @@
                         // Success - save token and user data
                         authToken = data.token;
                         currentUser = data.user;
-                        
+                        isAuthenticated = true;
+
                         localStorage.setItem('auth_token', authToken);
                         localStorage.setItem('current_user', JSON.stringify(currentUser));
-                        
-                        showDashboard();
+
+                        // Resume a save/create that was interrupted by an expired session
+                        if (window._pendingAuthRetry) {
+                            const retry = window._pendingAuthRetry;
+                            window._pendingAuthRetry = null;
+                            hideAuthOverlay();
+                            setTimeout(retry, 100);
+                        } else {
+                            showDashboard();
+                        }
                     } else {
                         showAuthError(data.error || 'Login failed. Please check your credentials.');
                     }
@@ -1133,27 +1168,27 @@
                 }
             }
             
-            function handleLogout() {
-                // Clear auth state
+            async function handleLogout() {
+                // Clear client auth state
                 authToken = null;
                 currentUser = null;
                 currentWorkspace = null;
-                
+                isAuthenticated = false;
+                window._pendingAuthRetry = null;
+
                 // Clear localStorage
                 localStorage.removeItem('auth_token');
                 localStorage.removeItem('current_user');
-                
-                // Hide workspace selector
-                document.getElementById('workspace-selector').classList.add('hidden');
-                
-                // Show auth overlay
-                showAuthOverlay();
-                
-                // Clear dashboard content
-                const dashboardContent = document.getElementById('dashboard-content');
-                if (dashboardContent) {
-                    dashboardContent.innerHTML = '<div class="text-center py-8"><span class="text-gray-600">Please sign in to view dashboard content.</span></div>';
+
+                // Best-effort: also clear the server-side session cookie
+                try {
+                    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+                } catch (e) {
+                    console.warn('Server logout failed (continuing):', e);
                 }
+
+                // Return to the landing / CTA page (not the login dialog)
+                window.location.href = '/';
             }
             
             // Helper function to get authorization headers for API calls
@@ -3814,17 +3849,14 @@
                 };
                 
                 try {
-                    const response = await fetch(`/api/assignments/${assignmentId}`, {
+                    const response = await authFetch(`/api/assignments/${assignmentId}`, {
                         method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        credentials: 'include',
                         body: JSON.stringify(formData)
                     });
-                    
-                    const data = await response.json();
-                    
+
+                    let data = {};
+                    try { data = await response.json(); } catch (e) { data = {}; }
+
                     if (response.ok) {
                         showAssignmentEditMessage('Assignment updated successfully!', 'success');
                         // Phase 5C: Invalidate cache when data changes
@@ -3839,12 +3871,17 @@
                             hideAssignmentEditModal();
                             loadDashboard(); // Reload to show changes
                         }, 1500);
+                    } else if (response.status === 401) {
+                        showAssignmentEditMessage('Your session has expired. Please sign in - your changes are kept and will be saved automatically after you log in.', 'error');
+                        window._pendingAuthRetry = function() { saveAssignmentChanges(event); };
+                        showAuthOverlay();
+                        showLoginForm();
                     } else {
-                        showAssignmentEditMessage(data.error || 'Failed to update assignment', 'error');
+                        showAssignmentEditMessage(data.error || ('Failed to update assignment (HTTP ' + response.status + ')'), 'error');
                     }
                 } catch (error) {
                     console.error('Error updating assignment:', error);
-                    showAssignmentEditMessage('Connection error. Please try again.', 'error');
+                    showAssignmentEditMessage('Connection error - your changes are still here. Please try again.', 'error');
                 } finally {
                     // Phase 5C: Clean up loading states
                     setTimeout(() => {
@@ -5517,11 +5554,16 @@ Backups are stored in: ./backups/
                             closeCreateAssignmentModal();
                             refreshAssignmentsUI();
                         }, 2000);
+                    } else if (response.status === 401) {
+                        showAssignmentMessage('Your session has expired. Please sign in - your entries are kept and will be submitted automatically after you log in.', 'error');
+                        window._pendingAuthRetry = function() { createAssignment(event); };
+                        showAuthOverlay();
+                        showLoginForm();
                     } else {
                         showAssignmentMessage(`❌ Failed to create assignment: ${result.error || 'Unknown error'}`, 'error');
                     }
                 } catch (error) {
-                    showAssignmentMessage(`❌ Error creating assignment: ${error.message}`, 'error');
+                    showAssignmentMessage(`❌ Error creating assignment - your entries are still here: ${error.message}`, 'error');
                 }
             }
 

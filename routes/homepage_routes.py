@@ -25,7 +25,7 @@ def homepage():
                 "headline": "Know what needs your attention before it becomes a problem.",
                 "subheadline": "Connect GitHub, Jira, Railway and spreadsheets to get a daily CTO briefing.",
                 "cta_text": "Start Free Assessment",
-                "cta_link": "/assessment",
+                "cta_link": "/dashboard?signup=1",
                 "preview_items": []
             },
             "problem": {"headline": "Current tools show data.", "subheadline": "CTO Dashboard shows what needs attention.", "challenges": [
@@ -48,8 +48,8 @@ def homepage():
                 {"icon": "📊", "level": "info", "title": "System Status", "description": "All systems operational"}
             ], "cta": {"text": "View Dashboard", "link": "/dashboard"}},
             "pricing": {"title": "Simple Pricing", "subtitle": "Scale as you grow", "plans": [
-                {"name": "Free", "price": "$0", "period": "", "description": "Get started", "features": ["Basic monitoring"], "cta": {"text": "Start Free", "link": "/assessment", "style": "primary"}}
-            ], "bottom_cta": {"text": "Get Started", "link": "/assessment"}},
+                {"name": "Free", "price": "$0", "period": "", "description": "Get started", "features": ["Basic monitoring"], "cta": {"text": "Start Free", "link": "/dashboard?signup=1", "style": "primary"}}
+            ], "bottom_cta": {"text": "Get Started", "link": "/dashboard?signup=1"}},
             "footer": {"tagline": "CTO Dashboard", "sections": [], "social_links": [], "copyright": "© 2024 CTO Dashboard"}
         }
         return render_template('homepage.html', content=fallback_content)

@@ -3,7 +3,7 @@
     "headline": "Know what needs your attention before it becomes a problem.",
     "subheadline": "Connect GitHub, Jira, Railway and spreadsheets to get a daily CTO briefing.",
     "cta_text": "Start Free Assessment",
-    "cta_link": "/dashboard",
+    "cta_link": "/dashboard?signup=1",
     "preview_items": [
       {
         "icon": "🚨",
@@ -141,7 +141,7 @@
         "features": ["Connect 2 services", "Basic health check", "CTO report"],
         "cta": {
           "text": "Start Assessment",
-          "link": "/dashboard",
+          "link": "/dashboard?signup=1",
           "style": "secondary"
         }
       },
@@ -173,7 +173,7 @@
     ],
     "bottom_cta": {
       "text": "Get Started Today",
-      "link": "/assessment"
+      "link": "/dashboard?signup=1"
     }
   },
   "footer": {
