@@ -2776,7 +2776,9 @@
                 if (trend.previous != null) {
                     const ch = trend.change;
                     const chColor = ch > 0 ? 'text-green-600' : (ch < 0 ? 'text-red-600' : 'text-gray-500');
-                    const chText = ch != null ? ' <span class="' + chColor + ' text-xs">(' + (ch > 0 ? '+' : '') + ch + ')</span>' : '';
+                    const chText = ch != null
+                        ? ' <span class="' + chColor + ' text-xs">(' + (ch > 0 ? '+' : '') + ch + (ch === 0 ? ', no change' : '') + ')</span>'
+                        : '';
                     html += trend.previous + ' \u2192 ' + trend.current + chText;
                 } else {
                     html += trend.current + ' <span class="text-xs text-gray-400">(first snapshot)</span>';
@@ -2918,14 +2920,11 @@
                 const tipItems = allLines.map(function(t) {
                     return '<li class="mb-1 leading-snug">' + _pfEscapeHtml(t) + '</li>';
                 }).join('');
-                const titleFallback = tips.drivers.length
-                    ? tips.drivers.slice(0, 2).join(' ')
-                    : tips.formula;
                 return (
                     '<span class="relative inline-flex align-middle group" onclick="event.stopPropagation()">' +
                     '<button type="button" class="w-5 h-5 rounded-full bg-white/80 border border-current text-[10px] font-bold leading-none ' +
                     'opacity-80 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-400" ' +
-                    'aria-label="How health score is calculated" title="' + _pfEscapeHtml(titleFallback) + '">?</button>' +
+                    'aria-label="How health score is calculated">?</button>' +
                     '<span class="pointer-events-none absolute left-0 top-full mt-2 w-72 sm:w-96 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl ' +
                     'opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible z-50 transition-opacity">' +
                     '<div class="font-semibold mb-2 text-sm">Why this score?</div>' +
@@ -2938,7 +2937,8 @@
                 const h = data.health_score || {};
                 const band = h.band || 'healthy';
                 const bandColor = _pfBandColor(band);
-                const trends = briefing && briefing.score_trends;
+                const trends = (data && data.score_trends) || (briefing && briefing.score_trends);
+                const trendsSince = data && data.score_trends_since;
                 let html = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-2">';
                 html += '<div class="bg-' + bandColor + '-50 border border-' + bandColor + '-200 rounded-lg p-4 relative">';
                 html += '<div class="text-sm font-medium text-' + bandColor + '-800 flex items-center gap-1">';
@@ -2984,7 +2984,14 @@
                 }
                 if (trends) {
                     html += '<div class="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-3">';
-                    html += '<div class="text-xs font-semibold text-gray-600 uppercase mb-2">Score Trends</div>';
+                    html += '<div class="text-xs font-semibold text-gray-600 uppercase mb-1">Score Trends</div>';
+                    html += '<div class="text-xs text-gray-400 mb-2">Live scores vs last saved snapshot';
+                    if (trendsSince) {
+                        try {
+                            html += ' (' + new Date(trendsSince).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) + ')';
+                        } catch (e) { /* ignore */ }
+                    }
+                    html += '. Refresh briefing after changes to update the baseline.</div>';
                     html += _renderScoreTrendRow('Health Score', trends.health);
                     html += _renderScoreTrendRow('Financial Score', trends.financial);
                     html += _renderScoreTrendRow('Connector Score', trends.connector);

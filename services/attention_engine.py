@@ -445,8 +445,16 @@ def append_health_score_history(
 
     history: List[Dict[str, Any]] = list(settings.get("health_score_history") or [])
     trends = compute_score_trends(history, entry)
-    history.append(entry)
-    settings["health_score_history"] = history[-52:]
+
+    def _same_scores(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
+        for key in ("health", "financial", "connector", "delivery"):
+            if a.get(key) != b.get(key):
+                return False
+        return True
+
+    if not history or not _same_scores(history[-1], entry):
+        history.append(entry)
+        settings["health_score_history"] = history[-52:]
     briefing["score_trends"] = trends
     return settings
 

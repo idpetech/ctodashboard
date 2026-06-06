@@ -245,7 +245,8 @@ def _refresh_workspace_attention_briefing(workspace_id: str) -> None:
         )
         from services.security.secure_database import secure_db
 
-        assignments = secure_db.get_workspace_assignments(workspace_id)
+        ws_result = get_workspace_service().get_workspace_assignments(workspace_id)
+        assignments = ws_result.get("assignments") or []
         previous = get_stored_briefing(secure_db, workspace_id)
         last_import = (secure_db.get_workspace(workspace_id) or {}).get("settings", {}).get("last_import")
         briefing = build_attention_briefing(
@@ -440,7 +441,25 @@ def register_routes(app):
             return jsonify({"error": f"Failed to load assignments: {str(e)}"}), 500
 
         try:
-            return jsonify(build_portfolio_overview(all_assignments))
+            overview = build_portfolio_overview(all_assignments)
+            if len(scope_ids) == 1:
+                from services.attention_engine import compute_score_trends
+                from services.security.secure_database import secure_db
+
+                ws = secure_db.get_workspace(scope_ids[0])
+                history = (ws.get("settings") or {}).get("health_score_history") or []
+                health = overview.get("health_score") or {}
+                comps = health.get("components") or {}
+                entry = {
+                    "health": health.get("overall_score"),
+                    "financial": comps.get("financial"),
+                    "connector": comps.get("connector"),
+                    "delivery": comps.get("delivery"),
+                }
+                overview["score_trends"] = compute_score_trends(history, entry)
+                if history:
+                    overview["score_trends_since"] = history[-1].get("generated_at")
+            return jsonify(overview)
         except Exception as e:
             logger.exception("Portfolio overview computation failed")
             return jsonify({"error": f"Failed to build portfolio overview: {str(e)}"}), 500
@@ -1898,7 +1917,8 @@ def register_routes(app):
             )
             from services.security.secure_database import secure_db
 
-            assignments = secure_db.get_workspace_assignments(workspace_id)
+            ws_result = get_workspace_service().get_workspace_assignments(workspace_id)
+            assignments = ws_result.get("assignments") or []
             previous = get_stored_briefing(secure_db, workspace_id)
             last_import = (secure_db.get_workspace(workspace_id) or {}).get("settings", {}).get("last_import")
             briefing = build_attention_briefing(
