@@ -16,7 +16,13 @@ from services.embedded.github_metrics import EmbeddedGitHubMetrics
 from services.embedded.jira_metrics import EmbeddedJiraMetrics
 from services.embedded.railway_metrics import RailwayMetrics
 from connectors.registry import ConnectorRegistry
-from services.chatbot_service import process_question, process_question_stream, get_conversation_history, clear_conversation_history
+from services.chatbot_service import (
+    process_question,
+    process_question_stream,
+    process_question_stream_with_workspace,
+    get_conversation_history,
+    clear_conversation_history,
+)
 from services.workspace.workspace_service import WorkspaceService
 from services.auth.secure_user_service import SecureUserService
 from services.auth.auth_middleware import create_auth_decorators, get_current_user
@@ -662,19 +668,31 @@ def register_routes(app):
 
     @app.route("/api/chatbot/ask-stream", methods=["POST"])
     def ask_chatbot_stream():
-        """AI-powered chatbot with streaming response"""
+        """AI-powered chatbot with streaming response and workspace context"""
         try:
             data = request.get_json()
             question = data.get("question", "")
             user_id = data.get("user_id", "default")
+            workspace_id = data.get("workspace_id")
+            assignment_id = data.get("assignment_id")
+            fetch_metrics = bool(data.get("fetch_metrics", False))
+            skip_metrics_fetch = bool(data.get("skip_metrics_fetch", False))
             
             if not question:
                 return jsonify({"error": "No question provided"}), 400
             
-            # Return streaming response
             from flask import Response
+            if workspace_id:
+                stream_gen = process_question_stream_with_workspace(
+                    question, user_id, workspace_id, assignment_id,
+                    fetch_metrics=fetch_metrics,
+                    skip_metrics_fetch=skip_metrics_fetch,
+                )
+            else:
+                stream_gen = process_question_stream(question, user_id)
+
             return Response(
-                process_question_stream(question, user_id),
+                stream_gen,
                 mimetype='text/event-stream',
                 headers={
                     'Cache-Control': 'no-cache',
@@ -686,17 +704,39 @@ def register_routes(app):
 
     @app.route("/api/chatbot/ask", methods=["POST"])
     def ask_chatbot():
-        """AI-powered chatbot endpoint"""
+        """AI-powered chatbot endpoint with workspace context"""
         try:
             data = request.get_json()
             question = data.get("question", "")
             user_id = data.get("user_id", "default")
+            workspace_id = data.get("workspace_id")
+            assignment_id = data.get("assignment_id")
+            fetch_metrics = bool(data.get("fetch_metrics", False))
+            skip_metrics_fetch = bool(data.get("skip_metrics_fetch", False))
+            
+            logger.info("Chatbot request received", extra={
+                "question": question,
+                "user_id": user_id,
+                "workspace_id": workspace_id,
+                "assignment_id": assignment_id,
+                "fetch_metrics": fetch_metrics,
+                "has_workspace": bool(workspace_id),
+                "has_assignment": bool(assignment_id)
+            })
             
             if not question:
                 return jsonify({"error": "No question provided"}), 400
             
-            # Use AI chatbot service
-            result = process_question(question, user_id)
+            if workspace_id:
+                from services.chatbot_service import process_question_with_workspace
+                result = process_question_with_workspace(
+                    question, user_id, workspace_id, assignment_id,
+                    fetch_metrics=fetch_metrics,
+                    skip_metrics_fetch=skip_metrics_fetch,
+                )
+            else:
+                result = process_question(question, user_id)
+            
             return jsonify(result)
         except Exception as e:
             return jsonify({"error": str(e)}), 500

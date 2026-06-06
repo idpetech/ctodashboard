@@ -33,13 +33,12 @@ from mcp.types import (
 )
 
 # Import our existing services
-from services.assignment_service import AssignmentService
-from services.metrics_aggregator import MetricsAggregator
+from services.workspace.workspace_service import WorkspaceService
 from services.embedded.aws_metrics import EmbeddedAWSMetrics as AWSMetrics
 from services.embedded.github_metrics import EmbeddedGitHubMetrics as GitHubMetrics
 from services.embedded.jira_metrics import EmbeddedJiraMetrics as JiraMetrics
 from services.embedded.railway_metrics import RailwayMetrics
-from services.chatbot_service import process_question, get_conversation_history, clear_conversation_history
+from services.chatbot_service import process_question, get_conversation_history, clear_conversation_history, process_question_with_workspace
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -48,14 +47,18 @@ logger = logging.getLogger(__name__)
 class CTODashboardMCPServer:
     """MCP Server for CTO Dashboard services"""
     
-    def __init__(self):
+    def __init__(self, user_context=None, workspace_context=None):
         self.server = Server("cto-dashboard-mcp")
-        self.assignment_service = AssignmentService()
-        self.metrics_aggregator = MetricsAggregator()
+        self.workspace_service = WorkspaceService()
         self.aws_metrics = AWSMetrics()
         self.github_metrics = GitHubMetrics()
         self.jira_metrics = JiraMetrics()
         self.railway_metrics = RailwayMetrics()
+        
+        # Context for authentication and workspace isolation
+        self.user_context = user_context or {}
+        self.workspace_context = workspace_context or {}
+        self.workspace_id = getattr(self, 'workspace_id', None)
         
         # Register handlers
         self._register_handlers()
@@ -70,15 +73,14 @@ class CTODashboardMCPServer:
                 tools=[
                     # Assignment Management Tools
                     Tool(
-                        name="get_assignments",
-                        description="Get all assignments with optional archived filter",
+                        name="get_workspace_assignments",
+                        description="Get all assignments in the current workspace",
                         inputSchema={
                             "type": "object",
                             "properties": {
-                                "include_archived": {
-                                    "type": "boolean",
-                                    "description": "Include archived assignments",
-                                    "default": False
+                                "workspace_id": {
+                                    "type": "string",
+                                    "description": "Workspace ID (optional, uses context if not provided)"
                                 }
                             }
                         }
@@ -270,6 +272,28 @@ class CTODashboardMCPServer:
                         }
                     ),
                     Tool(
+                        name="ask_workspace_chatbot",
+                        description="Ask the AI chatbot with full workspace and assignment context",
+                        inputSchema={
+                            "type": "object",
+                            "properties": {
+                                "question": {
+                                    "type": "string",
+                                    "description": "The question to ask the chatbot"
+                                },
+                                "workspace_id": {
+                                    "type": "string",
+                                    "description": "Workspace ID (optional, uses context if not provided)"
+                                },
+                                "assignment_id": {
+                                    "type": "string",
+                                    "description": "Assignment ID for additional context (optional)"
+                                }
+                            },
+                            "required": ["question"]
+                        }
+                    ),
+                    Tool(
                         name="get_chatbot_history",
                         description="Get chatbot conversation history for a user",
                         inputSchema={
@@ -309,80 +333,53 @@ class CTODashboardMCPServer:
         async def call_tool(name: str, arguments: Dict[str, Any]) -> CallToolResult:
             """Handle tool calls"""
             try:
-                if name == "get_assignments":
-                    include_archived = arguments.get("include_archived", False)
-                    assignments = self.assignment_service.get_all_assignments(include_archived=include_archived)
-                    return CallToolResult(
-                        content=[TextContent(
-                            type="text",
-                            text=json.dumps(assignments, indent=2)
-                        )]
-                    )
-                
-                elif name == "get_assignment":
-                    assignment_id = arguments["assignment_id"]
-                    assignment = self.assignment_service.get_assignment(assignment_id)
-                    if not assignment:
+                if name == "get_workspace_assignments":
+                    workspace_id = arguments.get("workspace_id") or self.workspace_id
+                    if not workspace_id:
                         return CallToolResult(
                             content=[TextContent(
                                 type="text",
-                                text=f"Assignment {assignment_id} not found"
+                                text=json.dumps({"error": "No workspace context available"}, indent=2)
                             )]
                         )
+                    
+                    assignments_result = self.workspace_service.get_workspace_assignments(workspace_id)
                     return CallToolResult(
                         content=[TextContent(
                             type="text",
-                            text=json.dumps(assignment, indent=2)
+                            text=json.dumps(assignments_result, indent=2)
                         )]
                     )
                 
-                elif name == "create_assignment":
-                    assignment_data = arguments["assignment_data"]
-                    success = self.assignment_service.create_assignment(assignment_data)
+                elif name == "ask_workspace_chatbot":
+                    question = arguments["question"]
+                    workspace_id = arguments.get("workspace_id") or self.workspace_id
+                    assignment_id = arguments.get("assignment_id")
+                    user_id = self.user_context.get("user_id", "default")
+                    
+                    if not workspace_id:
+                        return CallToolResult(
+                            content=[TextContent(
+                                type="text",
+                                text=json.dumps({"error": "No workspace context available"}, indent=2)
+                            )]
+                        )
+                    
+                    # Use workspace-aware chatbot
+                    response = process_question_with_workspace(question, user_id, workspace_id, assignment_id)
                     return CallToolResult(
                         content=[TextContent(
                             type="text",
-                            text=f"Assignment creation {'successful' if success else 'failed'}"
-                        )]
-                    )
-                
-                elif name == "update_assignment":
-                    assignment_id = arguments["assignment_id"]
-                    assignment_data = arguments["assignment_data"]
-                    success = self.assignment_service.update_assignment(assignment_id, assignment_data)
-                    return CallToolResult(
-                        content=[TextContent(
-                            type="text",
-                            text=f"Assignment update {'successful' if success else 'failed'}"
-                        )]
-                    )
-                
-                elif name == "archive_assignment":
-                    assignment_id = arguments["assignment_id"]
-                    success = self.assignment_service.archive_assignment(assignment_id)
-                    return CallToolResult(
-                        content=[TextContent(
-                            type="text",
-                            text=f"Assignment archiving {'successful' if success else 'failed'}"
+                            text=json.dumps(response, indent=2)
                         )]
                     )
                 
                 elif name == "get_assignment_metrics":
-                    assignment_id = arguments["assignment_id"]
-                    assignment_config = self.assignment_service.get_assignment(assignment_id)
-                    if not assignment_config:
-                        return CallToolResult(
-                            content=[TextContent(
-                                type="text",
-                                text=f"Assignment {assignment_id} not found"
-                            )]
-                        )
-                    
-                    metrics = await self.metrics_aggregator.get_all_metrics(assignment_config)
+                    # TODO: Implement workspace-based assignment metrics
                     return CallToolResult(
                         content=[TextContent(
                             type="text",
-                            text=json.dumps(metrics, indent=2)
+                            text=json.dumps({"error": "Assignment metrics not implemented in workspace mode"}, indent=2)
                         )]
                     )
                 
@@ -426,32 +423,9 @@ class CTODashboardMCPServer:
                     )
                 
                 elif name == "get_cto_insights":
-                    assignment_id = arguments["assignment_id"]
-                    assignment_config = self.assignment_service.get_assignment(assignment_id)
-                    if not assignment_config:
-                        return CallToolResult(
-                            content=[TextContent(
-                                type="text",
-                                text=f"Assignment {assignment_id} not found"
-                            )]
-                        )
-                    
-                    aws_config = assignment_config.get("metrics_config", {}).get("aws", {})
-                    if not aws_config.get("enabled", False):
-                        return CallToolResult(
-                            content=[TextContent(
-                                type="text",
-                                text="AWS metrics not enabled for this assignment"
-                            )]
-                        )
-                    
+                    # TODO: Implement workspace-based CTO insights
                     comprehensive_report = self.aws_metrics.get_comprehensive_aws_report()
-                    comprehensive_report["assignment_info"] = {
-                        "id": assignment_config.get("id"),
-                        "name": assignment_config.get("name"),
-                        "monthly_burn_rate": assignment_config.get("monthly_burn_rate"),
-                        "team_size": assignment_config.get("team_size")
-                    }
+                    comprehensive_report["workspace_id"] = self.workspace_id
                     
                     return CallToolResult(
                         content=[TextContent(
@@ -614,32 +588,46 @@ class CTODashboardMCPServer:
             """Read a specific resource"""
             try:
                 if uri == "assignments://active":
-                    assignments = self.assignment_service.get_all_assignments(include_archived=False)
-                    return ReadResourceResult(
-                        contents=[TextContent(
-                            type="text",
-                            text=json.dumps(assignments, indent=2)
-                        )]
-                    )
+                    if self.workspace_id:
+                        assignments_result = self.workspace_service.get_workspace_assignments(self.workspace_id)
+                        return ReadResourceResult(
+                            contents=[TextContent(
+                                type="text",
+                                text=json.dumps(assignments_result, indent=2)
+                            )]
+                        )
+                    else:
+                        return ReadResourceResult(
+                            contents=[TextContent(
+                                type="text",
+                                text=json.dumps({"error": "No workspace context"}, indent=2)
+                            )]
+                        )
                 
                 elif uri == "assignments://archived":
-                    assignments = self.assignment_service.get_all_assignments(include_archived=True)
-                    archived = [a for a in assignments if a.get("status") == "archived"]
                     return ReadResourceResult(
                         contents=[TextContent(
                             type="text",
-                            text=json.dumps(archived, indent=2)
+                            text=json.dumps({"error": "Archived assignments not implemented in workspace mode"}, indent=2)
                         )]
                     )
                 
                 elif uri == "assignments://all":
-                    assignments = self.assignment_service.get_all_assignments(include_archived=True)
-                    return ReadResourceResult(
-                        contents=[TextContent(
-                            type="text",
-                            text=json.dumps(assignments, indent=2)
-                        )]
-                    )
+                    if self.workspace_id:
+                        assignments_result = self.workspace_service.get_workspace_assignments(self.workspace_id)
+                        return ReadResourceResult(
+                            contents=[TextContent(
+                                type="text",
+                                text=json.dumps(assignments_result, indent=2)
+                            )]
+                        )
+                    else:
+                        return ReadResourceResult(
+                            contents=[TextContent(
+                                type="text",
+                                text=json.dumps({"error": "No workspace context"}, indent=2)
+                            )]
+                        )
                 
                 elif uri == "config://service-status":
                     config_status = {

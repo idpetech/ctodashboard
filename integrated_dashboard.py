@@ -38,6 +38,12 @@ FEATURE_FLAGS = {
 # Configure Flask paths
 app = Flask(__name__, template_folder='templates')
 
+def _is_railway_production() -> bool:
+    return os.getenv("RAILWAY_ENVIRONMENT", "").lower() in ("true", "1", "production")
+
+# Reload templates on every request in local dev (RAILWAY_ENVIRONMENT=false must not disable this)
+app.config["TEMPLATES_AUTO_RELOAD"] = not _is_railway_production()
+
 # Log application startup
 logger.info("CTOLens application starting up", extra={
     "operation": "startup",
@@ -70,9 +76,13 @@ CORS(app, supports_credentials=True, origins=["http://127.0.0.1:8520", "http://l
 from routes.api_routes import register_routes
 from routes.database_admin import register_database_admin_routes
 from routes.homepage_routes import homepage_bp
+from routes.mcp_routes import mcp_bp
 
 # Register homepage routes first to claim root route
 app.register_blueprint(homepage_bp)
+
+# Register MCP routes for external secure access
+app.register_blueprint(mcp_bp)
 
 register_routes(app)
 register_database_admin_routes(app)
@@ -251,8 +261,8 @@ def test_database_write():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8520))  # Use allocated CTO Dashboard port
     
-    # Enable debug mode only in development, not in production (Railway)
-    debug_mode = not os.getenv("RAILWAY_ENVIRONMENT")
+    # Enable debug mode only in production (Railway); "false" in .env.local is not production
+    debug_mode = not _is_railway_production()
     
     logger.info("Starting Flask application server", extra={
         "operation": "server_start",

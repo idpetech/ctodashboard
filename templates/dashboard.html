@@ -865,37 +865,21 @@
                             <li>• Team information and tech stacks</li>
                             <li>• Service health and configuration</li>
                         </ul>
-                        <p class="text-sm mt-4 text-gray-400">Try asking: "What is IdepTech status?" or "Show me IdepTech AWS costs"</p>
+                        <p id="chatbot-welcome-hint" class="text-sm mt-4 text-gray-400">Try asking about your current assignment, costs, or team details.</p>
                     </div>
                 </div>
                 
                 <!-- Chatbot Input -->
                 <div class="p-4 border-t">
                     <div class="flex space-x-2">
-                        <input type="text" id="chatbot-input" placeholder="Ask me about IdepTech, assignments, costs, metrics..." class="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" onkeypress="handleChatbotKeyPress(event)">
+                        <input type="text" id="chatbot-input" placeholder="Ask me about assignments, costs, metrics..." class="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" onkeypress="handleChatbotKeyPress(event)">
                         <button onclick="sendChatbotMessage()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
                             Send
                         </button>
                     </div>
                     
-                    <!-- Quick action buttons -->
-                    <div class="flex flex-wrap gap-2 mt-2">
-                        <button onclick="setChatbotInput('What is the status of IdepTech assignment?')" class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors">
-                            IdepTech Status
-                        </button>
-                        <button onclick="setChatbotInput('Show me IdepTech AWS costs')" class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors">
-                            IdepTech AWS Costs
-                        </button>
-                        <button onclick="setChatbotInput('What is IdepTech monthly burn rate?')" class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors">
-                            IdepTech Burn Rate
-                        </button>
-                        <button onclick="setChatbotInput('Show me IdepTech GitHub activity')" class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors">
-                            IdepTech GitHub
-                        </button>
-                        <button onclick="setChatbotInput('What is IdepTech team size?')" class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors">
-                            IdepTech Team
-                        </button>
-                    </div>
+                    <!-- Quick action buttons (updated per active assignment tab) -->
+                    <div id="chatbot-quick-actions" class="flex flex-wrap gap-2 mt-2"></div>
                 </div>
             </div>
         </div>
@@ -1991,18 +1975,37 @@
             }
             
             function selectAssignment(assignmentId, assignmentName) {
+                console.log('🎯 Selecting assignment:', assignmentId, assignmentName);
                 selectedAssignmentId = assignmentId;
                 
-                // Update visual selection
+                // Update visual selection in setup cards
                 document.querySelectorAll('.assignment-card').forEach(card => {
                     card.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50');
                 });
-                document.getElementById(`assignment-${assignmentId}`).classList.add('ring-2', 'ring-blue-500', 'bg-blue-50');
+                const assignmentCard = document.getElementById(`assignment-${assignmentId}`);
+                if (assignmentCard) {
+                    assignmentCard.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50');
+                }
+                
+                // Refresh assignment display to show selection in table
+                const currentTab = document.querySelector('.tab-button.active-tab');
+                if (currentTab && currentTab.id.includes('assignment')) {
+                    // Refresh current assignment view
+                    const currentAssignmentId = currentTab.id.replace('tab-assignment-', '');
+                    showTab(`assignment-${currentAssignmentId}`);
+                } else {
+                    // Refresh overview to update table selection
+                    showTab('overview');
+                }
                 
                 // Show detail section and hide "no selection" message
-                document.getElementById('noAssignmentSelected').classList.add('hidden');
-                document.getElementById('assignmentConnectors').classList.remove('hidden');
-                document.getElementById('selectedAssignmentName').textContent = assignmentName;
+                const noSelectionEl = document.getElementById('noAssignmentSelected');
+                const connectorsEl = document.getElementById('assignmentConnectors');
+                const selectedNameEl = document.getElementById('selectedAssignmentName');
+                
+                if (noSelectionEl) noSelectionEl.classList.add('hidden');
+                if (connectorsEl) connectorsEl.classList.remove('hidden');
+                if (selectedNameEl) selectedNameEl.textContent = assignmentName;
                 
                 // Load connectors for selected assignment
                 loadAssignmentConnectors(assignmentId);
@@ -2366,10 +2369,8 @@
                 // Initialize metrics after displaying assignments
                 initializeAssignmentMetrics();
 
-                // Portfolio Dashboard MVP (renders only when ENABLE_PORTFOLIO_DASHBOARD is on)
-                loadPortfolioDashboard();
-                // Attention Engine briefing (ENABLE_ATTENTION_ENGINE)
-                loadAttentionBriefing();
+                loadOverviewPanels();
+                updateChatbotPrompts();
             }
             
             // Modern UI: Handle "+" tab click for creating new assignments
@@ -2388,73 +2389,76 @@
                 }
             }
 
-            // ===== Portfolio Dashboard MVP (feature-flagged: ENABLE_PORTFOLIO_DASHBOARD) =====
-            async function loadPortfolioDashboard() {
-                const container = document.getElementById('portfolio-dashboard-section');
-                if (!container) return;
-                try {
-                    const flagsResp = await fetch('/api/feature-flags');
-                    const flags = await flagsResp.json();
-                    if (!flags || !flags.portfolio_dashboard) { container.innerHTML = ''; return; }
-                    if (!currentWorkspace) { container.innerHTML = ''; return; }
-
-                    const resp = await fetch('/api/portfolio/summary?workspace_id=' + encodeURIComponent(currentWorkspace), { headers: getAuthHeaders() });
-                    if (resp.status === 403) { container.innerHTML = ''; return; }
-                    const data = await resp.json();
-                    if (data.error) {
-                        container.innerHTML = '<div class="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg mb-6">Portfolio dashboard unavailable: ' + data.error + '</div>';
-                        return;
-                    }
-                    container.innerHTML = renderPortfolioDashboard(data);
-                } catch (e) {
-                    console.warn('Portfolio dashboard load failed:', e);
-                    container.innerHTML = '';
+            // ===== Overview executive panels (Attention → Health → Briefing → Details) =====
+            function renderOverviewCollapsible(key, title, subtitle, bodyHtml, expanded) {
+                const bodyId = 'overview-' + key + '-body';
+                const icon = expanded ? '\uD83D\uDD3D' : '\u25B6\uFE0F';
+                const hiddenClass = expanded ? '' : ' hidden';
+                let html = '<div class="bg-white rounded-lg shadow mb-4 overflow-hidden">';
+                html += '<div class="cursor-pointer p-4 flex items-center justify-between hover:bg-gray-50 border-b border-gray-100" onclick="toggleSection(\'' + bodyId + '\')">';
+                html += '<div><h3 class="text-lg font-bold text-gray-800">' + title + '</h3>';
+                if (subtitle) {
+                    html += '<p class="text-sm text-gray-500 mt-0.5">' + subtitle + '</p>';
                 }
+                html += '</div><span id="' + bodyId + '-icon" class="text-gray-500 ml-4">' + icon + '</span></div>';
+                html += '<div id="' + bodyId + '" class="p-4' + hiddenClass + '">' + bodyHtml + '</div></div>';
+                return html;
             }
 
-            function _pfMoney(n) { return '$' + (Number(n) || 0).toLocaleString(); }
-            function _pfBandColor(band) { return band === 'healthy' ? 'green' : (band === 'at_risk' ? 'yellow' : 'red'); }
-            function _pfSeverityColor(sev) { return sev === 'critical' ? 'red' : (sev === 'warning' ? 'yellow' : 'blue'); }
+            function collectAttentionItems(portfolioData, briefingData) {
+                const items = [];
+                const ac = portfolioData && portfolioData.attention_center;
+                if (ac && ac.items) {
+                    ac.items.forEach(function(it) {
+                        items.push({ severity: it.severity, message: it.message });
+                    });
+                }
+                const briefing = briefingData && briefingData.briefing;
+                const risks = briefing && briefing.risk_signals;
+                if (items.length === 0 && risks && risks.length) {
+                    risks.slice(0, 8).forEach(function(r) {
+                        items.push({ severity: r.severity || 'warning', message: r.detail || r.title });
+                    });
+                }
+                return items;
+            }
 
-            function renderPortfolioDashboard(data) {
+            function renderAttentionItemsBody(items) {
+                if (!items.length) {
+                    return '<div class="text-sm text-green-700 bg-green-50 border border-green-200 rounded p-3">Nothing needs attention right now.</div>';
+                }
+                let html = '';
+                items.forEach(function(it) {
+                    const c = _pfSeverityColor(it.severity);
+                    html += '<div class="flex items-start gap-2 border-l-4 border-' + c + '-400 bg-' + c + '-50 px-3 py-2 mb-2 rounded-r">';
+                    html += '<span class="text-xs font-semibold uppercase text-' + c + '-700 shrink-0">' + (it.severity || 'info') + '</span>';
+                    html += '<span class="text-sm text-gray-700">' + it.message + '</span></div>';
+                });
+                return html;
+            }
+
+            function renderPortfolioHealthBody(data) {
                 const s = data.summary || {};
                 const h = data.health_score || {};
-                const bv = data.budget_variance || {};
-                const ch = data.connector_health || {};
-                const ac = data.attention_center || {};
-                const rank = data.assignment_ranking || [];
                 const band = h.band || 'healthy';
                 const bandColor = _pfBandColor(band);
-
-                let html = '<div class="bg-white rounded-lg shadow p-6 mb-6">';
-                html += '<div class="flex items-center justify-between mb-4">';
-                html += '<h3 class="text-xl font-bold text-gray-800">\uD83E\uDDED Portfolio Health</h3>';
-                html += '<span class="text-xs text-gray-400">Computed live on load</span>';
-                html += '</div>';
-
-                html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-2">';
+                let html = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-2">';
                 html += '<div class="bg-' + bandColor + '-50 border border-' + bandColor + '-200 rounded-lg p-4">';
                 html += '<div class="text-sm font-medium text-' + bandColor + '-800">Health Score</div>';
                 html += '<div class="text-3xl font-bold text-' + bandColor + '-600">' + (h.overall_score != null ? h.overall_score : '\u2014') + '<span class="text-base font-medium">/100</span></div>';
-                html += '<div class="text-xs text-' + bandColor + '-700 mt-1 uppercase">' + band.replace('_',' ') + '</div>';
-                html += '</div>';
+                html += '<div class="text-xs text-' + bandColor + '-700 mt-1 uppercase">' + band.replace('_', ' ') + '</div></div>';
                 html += '<div class="bg-gray-50 border border-gray-200 rounded-lg p-4">';
                 html += '<div class="text-sm font-medium text-gray-600">Active Assignments</div>';
                 html += '<div class="text-3xl font-bold text-gray-800">' + (s.active_assignments || 0) + '</div>';
-                html += '<div class="text-xs text-gray-500 mt-1">of ' + (s.total_assignments || 0) + ' total</div>';
-                html += '</div>';
+                html += '<div class="text-xs text-gray-500 mt-1">of ' + (s.total_assignments || 0) + ' total</div></div>';
                 html += '<div class="bg-gray-50 border border-gray-200 rounded-lg p-4">';
                 html += '<div class="text-sm font-medium text-gray-600">Monthly Burn</div>';
                 html += '<div class="text-3xl font-bold text-gray-800">' + _pfMoney(s.total_monthly_burn) + '</div>';
-                html += '<div class="text-xs text-gray-500 mt-1">target ' + _pfMoney(s.total_target_burn) + '</div>';
-                html += '</div>';
+                html += '<div class="text-xs text-gray-500 mt-1">target ' + _pfMoney(s.total_target_burn) + '</div></div>';
                 html += '<div class="bg-gray-50 border border-gray-200 rounded-lg p-4">';
                 html += '<div class="text-sm font-medium text-gray-600">Total Team</div>';
                 html += '<div class="text-3xl font-bold text-gray-800">' + (s.total_team_size || 0) + '</div>';
-                html += '<div class="text-xs text-gray-500 mt-1">across active</div>';
-                html += '</div>';
-                html += '</div>';
-
+                html += '<div class="text-xs text-gray-500 mt-1">across active</div></div></div>';
                 if (h.components) {
                     const comps = [];
                     if (h.components.financial != null) comps.push('Financial ' + h.components.financial);
@@ -2462,26 +2466,60 @@
                     if (h.components.delivery != null) comps.push('Delivery ' + h.components.delivery);
                     if (comps.length) html += '<div class="text-xs text-gray-500">Breakdown: ' + comps.join(' \u00B7 ') + '</div>';
                 }
-                html += '</div>';
+                return html;
+            }
 
-                html += '<div class="bg-white rounded-lg shadow p-6 mb-6">';
-                html += '<h3 class="text-lg font-bold text-gray-800 mb-3">\uD83D\uDEA8 Attention Center <span class="text-sm font-normal text-gray-500">(' + (ac.total || 0) + ')</span></h3>';
-                if (!ac.items || ac.items.length === 0) {
-                    html += '<div class="text-sm text-green-700 bg-green-50 border border-green-200 rounded p-3">Nothing needs attention right now.</div>';
+            function renderBriefingPanelBody(briefing, emptyMessage) {
+                if (!briefing) {
+                    return '<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">' +
+                        (emptyMessage || 'No briefing yet. Import data or click Refresh.') +
+                        ' <button type="button" onclick="refreshAttentionBriefing()" class="text-blue-600 hover:underline ml-2">Refresh</button></div>';
+                }
+                const eb = briefing.executive_briefing || {};
+                let html = '<div class="flex justify-end mb-3"><button type="button" onclick="refreshAttentionBriefing()" class="text-sm text-blue-600 hover:underline">Refresh briefing</button></div>';
+                if (eb.bullets && eb.bullets.length) {
+                    html += '<ul class="text-sm text-gray-700 list-disc ml-4 mb-4">';
+                    eb.bullets.forEach(function(b) { html += '<li>' + b + '</li>'; });
+                    html += '</ul>';
+                }
+                if (briefing.cto_narrative) {
+                    html += '<p class="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded p-3 mb-4">' + briefing.cto_narrative + '</p>';
+                }
+                const risks = briefing.risk_signals || [];
+                const opps = briefing.opportunity_signals || [];
+                html += '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">';
+                html += '<div><h4 class="text-sm font-bold text-red-700 mb-2">Risk Signals (' + risks.length + ')</h4>';
+                if (!risks.length) {
+                    html += '<div class="text-xs text-green-700 bg-green-50 rounded p-2">No risks flagged</div>';
                 } else {
-                    ac.items.forEach(function(it) {
-                        const c = _pfSeverityColor(it.severity);
-                        html += '<div class="flex items-start gap-2 border-l-4 border-' + c + '-400 bg-' + c + '-50 px-3 py-2 mb-2 rounded-r">';
-                        html += '<span class="text-xs font-semibold uppercase text-' + c + '-700">' + it.severity + '</span>';
-                        html += '<span class="text-sm text-gray-700">' + it.message + '</span>';
-                        html += '</div>';
+                    risks.slice(0, 5).forEach(function(r) {
+                        const c = _pfSeverityColor(r.severity || 'warning');
+                        html += '<div class="text-xs border-l-2 border-' + c + '-400 pl-2 mb-2 text-gray-700">' + (r.detail || r.title) + '</div>';
                     });
                 }
                 html += '</div>';
+                html += '<div><h4 class="text-sm font-bold text-green-700 mb-2">Opportunities (' + opps.length + ')</h4>';
+                if (!opps.length) {
+                    html += '<div class="text-xs text-gray-500 bg-gray-50 rounded p-2">None identified</div>';
+                } else {
+                    opps.slice(0, 5).forEach(function(o) {
+                        html += '<div class="text-xs border-l-2 border-green-400 pl-2 mb-2 text-gray-700">' + (o.detail || o.title) + '</div>';
+                    });
+                }
+                html += '</div></div>';
+                if (briefing.generated_at) {
+                    html += '<div class="text-xs text-gray-400 mt-3">Generated ' + new Date(briefing.generated_at).toLocaleString() + '</div>';
+                }
+                return html;
+            }
 
-                html += '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">';
-                html += '<div class="bg-white rounded-lg shadow p-6">';
-                html += '<h3 class="text-lg font-bold text-gray-800 mb-3">\uD83D\uDCB0 Budget Variance</h3>';
+            function renderPortfolioDetailsBody(data) {
+                const bv = data.budget_variance || {};
+                const ch = data.connector_health || {};
+                const rank = data.assignment_ranking || [];
+                let html = '';
+
+                html += '<div class="mb-6"><h4 class="text-md font-bold text-gray-800 mb-3">\uD83D\uDCB0 Budget Variance</h4>';
                 const pvp = bv.portfolio_variance_pct;
                 const pvColor = pvp == null ? 'gray' : (pvp > 20 ? 'red' : (pvp > 10 ? 'yellow' : 'green'));
                 html += '<div class="mb-3 text-sm">Portfolio: <span class="font-bold">' + _pfMoney(bv.portfolio_actual_burn) + '</span> vs target <span class="font-bold">' + _pfMoney(bv.portfolio_target_burn) + '</span> ';
@@ -2490,23 +2528,17 @@
                     html += '<table class="min-w-full text-sm"><tbody>';
                     bv.assignments.forEach(function(r) {
                         const rc = r.status === 'critical' ? 'red' : (r.status === 'over' ? 'yellow' : 'green');
-                        html += '<tr class="border-b border-gray-100">';
-                        html += '<td class="py-1 pr-2 text-gray-800">' + r.name + '</td>';
+                        html += '<tr class="border-b border-gray-100"><td class="py-1 pr-2 text-gray-800">' + r.name + '</td>';
                         html += '<td class="py-1 pr-2 text-right text-gray-600">' + _pfMoney(r.actual_monthly_burn) + ' / ' + _pfMoney(r.target_monthly_burn) + '</td>';
-                        html += '<td class="py-1 text-right text-' + rc + '-600 font-semibold">' + (r.variance_pct > 0 ? '+' : '') + r.variance_pct + '%</td>';
-                        html += '</tr>';
+                        html += '<td class="py-1 text-right text-' + rc + '-600 font-semibold">' + (r.variance_pct > 0 ? '+' : '') + r.variance_pct + '%</td></tr>';
                     });
                     html += '</tbody></table>';
                 } else {
                     html += '<div class="text-sm text-gray-500">No assignments have a target monthly burn set.</div>';
                 }
-                if (bv.missing_target && bv.missing_target.length) {
-                    html += '<div class="text-xs text-gray-400 mt-2">No target set: ' + bv.missing_target.map(function(m){return m.name;}).join(', ') + '</div>';
-                }
                 html += '</div>';
 
-                html += '<div class="bg-white rounded-lg shadow p-6">';
-                html += '<h3 class="text-lg font-bold text-gray-800 mb-3">\uD83D\uDD0C Connector Health <span class="text-sm font-normal text-gray-500">(' + (ch.readiness_pct == null ? 'n/a' : ch.readiness_pct + '% ready') + ')</span></h3>';
+                html += '<div class="mb-6"><h4 class="text-md font-bold text-gray-800 mb-3">\uD83D\uDD0C Connector Health <span class="text-sm font-normal text-gray-500">(' + (ch.readiness_pct == null ? 'n/a' : ch.readiness_pct + '% ready') + ')</span></h4>';
                 const cmap = { ready: 'green', degraded: 'yellow', needs_credentials: 'red', disabled: 'gray' };
                 let anyConn = false;
                 (ch.connectors || []).forEach(function(c) {
@@ -2515,39 +2547,146 @@
                     const col = cmap[c.status] || 'gray';
                     html += '<div class="flex items-center justify-between py-1 border-b border-gray-100">';
                     html += '<span class="text-sm font-medium text-gray-700 capitalize">' + c.connector + '</span>';
-                    html += '<span class="text-xs px-2 py-1 rounded-full bg-' + col + '-100 text-' + col + '-800">' + c.ready_count + '/' + c.enabled_count + ' ready \u2022 ' + c.status.replace('_',' ') + '</span>';
-                    html += '</div>';
+                    html += '<span class="text-xs px-2 py-1 rounded-full bg-' + col + '-100 text-' + col + '-800">' + c.ready_count + '/' + c.enabled_count + ' ready \u2022 ' + c.status.replace('_', ' ') + '</span></div>';
                 });
                 if (!anyConn) html += '<div class="text-sm text-gray-500">No connectors enabled across active assignments.</div>';
                 html += '</div>';
-                html += '</div>';
 
-                html += '<div class="bg-white rounded-lg shadow p-6 mb-6">';
-                html += '<h3 class="text-lg font-bold text-gray-800 mb-3">\uD83D\uDCCA Assignment Ranking <span class="text-sm font-normal text-gray-500">(by attention need)</span></h3>';
+                html += '<div><h4 class="text-md font-bold text-gray-800 mb-3">\uD83D\uDCCA Assignment Ranking <span class="text-sm font-normal text-gray-500">(by attention need)</span></h4>';
                 if (rank.length === 0) {
                     html += '<div class="text-sm text-gray-500">No active assignments.</div>';
                 } else {
-                    html += '<div class="overflow-x-auto"><table class="min-w-full text-sm">';
-                    html += '<thead><tr class="bg-gray-50 text-left text-gray-600">';
+                    html += '<div class="overflow-x-auto"><table class="min-w-full text-sm"><thead><tr class="bg-gray-50 text-left text-gray-600">';
                     html += '<th class="px-3 py-2">#</th><th class="px-3 py-2">Assignment</th><th class="px-3 py-2">Level</th><th class="px-3 py-2 text-right">Burn</th><th class="px-3 py-2 text-right">Variance</th><th class="px-3 py-2 text-right">Connectors</th>';
                     html += '</tr></thead><tbody>';
                     rank.forEach(function(r, i) {
                         const lc = _pfBandColor(r.attention_level);
-                        html += '<tr class="border-b border-gray-100">';
-                        html += '<td class="px-3 py-2 text-gray-400">' + (i+1) + '</td>';
+                        html += '<tr class="border-b border-gray-100"><td class="px-3 py-2 text-gray-400">' + (i + 1) + '</td>';
                         html += '<td class="px-3 py-2 text-gray-800 font-medium">' + r.name + '</td>';
-                        html += '<td class="px-3 py-2"><span class="text-xs px-2 py-1 rounded-full bg-' + lc + '-100 text-' + lc + '-800 capitalize">' + r.attention_level.replace('_',' ') + '</span></td>';
+                        html += '<td class="px-3 py-2"><span class="text-xs px-2 py-1 rounded-full bg-' + lc + '-100 text-' + lc + '-800 capitalize">' + r.attention_level.replace('_', ' ') + '</span></td>';
                         html += '<td class="px-3 py-2 text-right text-gray-700">' + _pfMoney(r.monthly_burn) + '</td>';
                         html += '<td class="px-3 py-2 text-right text-gray-700">' + (r.variance_pct == null ? '\u2014' : (r.variance_pct > 0 ? '+' : '') + r.variance_pct + '%') + '</td>';
-                        html += '<td class="px-3 py-2 text-right text-gray-700">' + r.ready_connectors + '/' + r.enabled_connectors + '</td>';
-                        html += '</tr>';
+                        html += '<td class="px-3 py-2 text-right text-gray-700">' + r.ready_connectors + '/' + r.enabled_connectors + '</td></tr>';
                     });
                     html += '</tbody></table></div>';
                 }
                 html += '</div>';
                 return html;
             }
-            
+
+            function renderOverviewPanelsLayout(portfolioData, briefingData, portfolioOn, attentionOn) {
+                let html = '';
+                const attentionItems = collectAttentionItems(portfolioData, briefingData);
+                const attentionCount = attentionItems.length;
+                const attentionExpanded = attentionCount > 0;
+
+                if (portfolioOn || attentionOn) {
+                    html += renderOverviewCollapsible(
+                        'attention',
+                        '\uD83D\uDEA8 Needs Attention' + (attentionCount ? ' (' + attentionCount + ')' : ''),
+                        attentionCount ? 'Items requiring your action' : 'All clear',
+                        renderAttentionItemsBody(attentionItems),
+                        attentionExpanded
+                    );
+                }
+
+                if (portfolioOn && portfolioData && !portfolioData.error) {
+                    const h = portfolioData.health_score || {};
+                    const band = (h.band || 'healthy').replace('_', ' ');
+                    html += renderOverviewCollapsible(
+                        'health',
+                        '\uD83E\uDDED Portfolio Health',
+                        'Score ' + (h.overall_score != null ? h.overall_score : '\u2014') + '/100 \u2022 ' + band,
+                        renderPortfolioHealthBody(portfolioData),
+                        true
+                    );
+                    html += renderOverviewCollapsible(
+                        'details',
+                        '\uD83D\uDCCA Portfolio Details',
+                        'Budget variance, connectors, assignment ranking',
+                        renderPortfolioDetailsBody(portfolioData),
+                        false
+                    );
+                } else if (portfolioOn && portfolioData && portfolioData.error) {
+                    html += '<div class="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg mb-4">Portfolio dashboard unavailable: ' + portfolioData.error + '</div>';
+                }
+
+                if (attentionOn) {
+                    const briefing = briefingData && briefingData.briefing;
+                    const eb = briefing && briefing.executive_briefing;
+                    const briefingSubtitle = (eb && eb.headline) ? eb.headline : 'Executive narrative and signals';
+                    html += renderOverviewCollapsible(
+                        'briefing',
+                        '\uD83C\uDFAF Daily CTO Briefing',
+                        briefingSubtitle,
+                        renderBriefingPanelBody(briefing, briefingData && briefingData.message),
+                        false
+                    );
+                }
+
+                return html;
+            }
+
+            async function loadOverviewPanels() {
+                const root = document.getElementById('overview-panels-root');
+                if (!root) return;
+                try {
+                    const flagsResp = await fetch('/api/feature-flags');
+                    const flags = await flagsResp.json();
+                    const portfolioOn = flags && flags.portfolio_dashboard;
+                    const attentionOn = flags && flags.attention_engine;
+                    if (!portfolioOn && !attentionOn) {
+                        root.innerHTML = '';
+                        return;
+                    }
+                    if (!currentWorkspace) {
+                        root.innerHTML = '';
+                        return;
+                    }
+
+                    root.innerHTML = '<div class="text-sm text-gray-500 p-4">Loading overview...</div>';
+
+                    let portfolioData = null;
+                    let briefingData = null;
+                    const tasks = [];
+
+                    if (portfolioOn) {
+                        tasks.push(
+                            fetch('/api/portfolio/summary?workspace_id=' + encodeURIComponent(currentWorkspace), { headers: getAuthHeaders() })
+                                .then(function(resp) {
+                                    if (resp.status === 403) return null;
+                                    return resp.json();
+                                })
+                                .then(function(d) { portfolioData = d; })
+                        );
+                    }
+                    if (attentionOn) {
+                        tasks.push(
+                            authFetch('/api/workspaces/' + currentWorkspace + '/attention/briefing')
+                                .then(function(resp) {
+                                    if (resp.status === 403) return null;
+                                    return resp.json();
+                                })
+                                .then(function(d) { briefingData = d; })
+                        );
+                    }
+                    await Promise.all(tasks);
+
+                    root.innerHTML = renderOverviewPanelsLayout(portfolioData, briefingData, portfolioOn, attentionOn);
+                } catch (e) {
+                    console.warn('Overview panels load failed:', e);
+                    root.innerHTML = '';
+                }
+            }
+
+            async function loadPortfolioDashboard() {
+                return loadOverviewPanels();
+            }
+
+            function _pfMoney(n) { return '$' + (Number(n) || 0).toLocaleString(); }
+            function _pfBandColor(band) { return band === 'healthy' ? 'green' : (band === 'at_risk' ? 'yellow' : 'red'); }
+            function _pfSeverityColor(sev) { return sev === 'critical' ? 'red' : (sev === 'warning' ? 'yellow' : 'blue'); }
+
             function generateOverviewContent(assignments) {
                 // Calculate statistics
                 const activeCount = assignments.filter(a => a.status === 'active').length;
@@ -2556,8 +2695,7 @@
                 const totalTeamSize = assignments.reduce((sum, a) => sum + (a.team_size || 0), 0);
                 const totalBurnRate = assignments.reduce((sum, a) => sum + (a.monthly_burn_rate || 0), 0);
                 
-                let html = '<div id="attention-briefing-section" class="mb-8"></div>';
-                html += '<div id="portfolio-dashboard-section" class="mb-8"></div>';
+                let html = '<div id="overview-panels-root" class="mb-8"></div>';
                 html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">';
                 
                 // Status Cards
@@ -2619,9 +2757,10 @@
                     const statusEmoji = assignment.status === 'active' ? '🟢' : 
                                        assignment.status === 'completed' ? '🔵' : '🟡';
                     
-                    html += '<tr class="border-b border-gray-200">';
+                    const selectedClass = selectedAssignmentId === assignment.id ? ' bg-blue-100 border-blue-200' : '';
+                    html += '<tr class="border-b border-gray-200 hover:bg-blue-50 cursor-pointer' + selectedClass + '" onclick="selectAssignment(\'' + assignment.id + '\', \'' + (assignment.name || assignment.id) + '\')">';
                     html += '<td class="px-4 py-3">';
-                    html += '<div class="font-medium text-gray-900">' + (assignment.name || assignment.id) + '</div>';
+                    html += '<div class="font-medium text-gray-900">' + (assignment.name || assignment.id) + (selectedAssignmentId === assignment.id ? ' <span class="text-blue-600 text-xs">✓ Selected</span>' : '') + '</div>';
                     html += '<div class="text-sm text-gray-500">' + (assignment.description || '') + '</div>';
                     html += '</td>';
                     html += '<td class="px-4 py-3">';
@@ -3617,6 +3756,73 @@
                 if (selectedButton) {
                     selectedButton.classList.add('active-tab');
                 }
+
+                // Keep chatbot assignment context in sync with active assignment tab
+                if (tabId && tabId.startsWith('assignment-')) {
+                    selectedAssignmentId = tabId.replace('assignment-', '');
+                } else if (tabId === 'overview') {
+                    selectedAssignmentId = null;
+                }
+                updateChatbotPrompts();
+            }
+
+            function getActiveAssignmentId() {
+                if (selectedAssignmentId) {
+                    return selectedAssignmentId;
+                }
+                const activeTab = document.querySelector('.tab-button.active-tab');
+                if (activeTab && activeTab.id.startsWith('tab-assignment-')) {
+                    return activeTab.id.replace('tab-assignment-', '');
+                }
+                return null;
+            }
+
+            function getActiveAssignmentLabel() {
+                const id = getActiveAssignmentId();
+                if (!id) return null;
+                const list = window.assignments || assignments || [];
+                const match = list.find(a => a.id === id);
+                return match ? (match.name || match.id) : id;
+            }
+
+            function updateChatbotPrompts() {
+                const label = getActiveAssignmentLabel();
+                const input = document.getElementById('chatbot-input');
+                const quickActions = document.getElementById('chatbot-quick-actions');
+                const welcomeHint = document.getElementById('chatbot-welcome-hint');
+                if (!input || !quickActions) return;
+
+                const btnClass = 'px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors';
+
+                function addQuickButton(container, text, prompt) {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = btnClass;
+                    btn.textContent = text;
+                    btn.onclick = () => setChatbotInput(prompt);
+                    container.appendChild(btn);
+                }
+
+                quickActions.innerHTML = '';
+
+                if (label) {
+                    input.placeholder = 'Ask me about ' + label + ', costs, metrics, team...';
+                    if (welcomeHint) {
+                        welcomeHint.textContent = 'Try asking: "What is ' + label + ' status?" or "Show me ' + label + ' AWS costs"';
+                    }
+                    addQuickButton(quickActions, label + ' Status', 'What is the status of ' + label + '?');
+                    addQuickButton(quickActions, label + ' AWS Costs', 'Show me ' + label + ' AWS costs');
+                    addQuickButton(quickActions, label + ' Burn Rate', 'What is ' + label + ' monthly burn rate?');
+                    addQuickButton(quickActions, label + ' GitHub', 'Show me ' + label + ' GitHub activity');
+                    addQuickButton(quickActions, label + ' Team', 'What is ' + label + ' team size?');
+                } else {
+                    input.placeholder = 'Ask me about assignments, costs, metrics...';
+                    if (welcomeHint) {
+                        welcomeHint.textContent = 'Open an assignment tab for specific prompts, or ask: "How many assignments do I have?"';
+                    }
+                    addQuickButton(quickActions, 'All Assignments', 'How many assignments do I have?');
+                    addQuickButton(quickActions, 'Workspace Overview', 'Summarize my workspace assignments');
+                }
             }
             
             // Chatbot Functions
@@ -3626,6 +3832,7 @@
                 
                 // Load conversation history when opening
                 if (!modal.classList.contains('hidden')) {
+                    updateChatbotPrompts();
                     loadChatbotHistory();
                 }
             }
@@ -3643,15 +3850,16 @@
                         // Clear existing messages except welcome message
                         messages.innerHTML = '';
                         
-                        // Add conversation history
+                        // Add conversation history (backend stores role/content)
                         data.history.forEach(msg => {
                             const messageDiv = document.createElement('div');
-                            if (msg.user_id === 'dashboard_user') {
+                            const text = msg.content || msg.question || msg.response || '';
+                            if (msg.role === 'user') {
                                 messageDiv.className = 'flex justify-end';
-                                messageDiv.innerHTML = '<div class="max-w-[80%] rounded-lg px-4 py-2 bg-blue-500 text-white"><div class="whitespace-pre-wrap">' + msg.question + '</div></div>';
+                                messageDiv.innerHTML = '<div class="max-w-[80%] rounded-lg px-4 py-2 bg-blue-500 text-white"><div class="whitespace-pre-wrap">' + text + '</div></div>';
                             } else {
                                 messageDiv.className = 'flex justify-start';
-                                messageDiv.innerHTML = '<div class="max-w-[80%] rounded-lg px-4 py-2 bg-gray-100 text-gray-900"><div class="whitespace-pre-wrap">' + msg.response + '</div></div>';
+                                messageDiv.innerHTML = '<div class="max-w-[80%] rounded-lg px-4 py-2 bg-gray-100 text-gray-900"><div class="whitespace-pre-wrap">' + text + '</div></div>';
                             }
                             messages.appendChild(messageDiv);
                         });
@@ -3679,7 +3887,8 @@
                         if (response.ok) {
                             // Clear messages and show welcome message
                             const messages = document.getElementById('chatbot-messages');
-                            messages.innerHTML = '<div class="text-center text-gray-500 py-8"><div class="text-4xl mb-4">🤖</div><h3 class="text-lg font-medium mb-2">Welcome to CTO Lens Assistant!</h3><p class="text-sm">I can help you with questions about:</p><ul class="text-sm mt-2 space-y-1"><li>• Your assignments and projects</li><li>• AWS costs and resource usage</li><li>• GitHub metrics and activity</li><li>• Jira project status</li><li>• Team information and tech stacks</li><li>• Service health and configuration</li></ul><p class="text-sm mt-4 text-gray-400">Try asking: "What is IdepTech status?" or "Show me IdepTech AWS costs"</p></div>';
+                            messages.innerHTML = '<div class="text-center text-gray-500 py-8"><div class="text-4xl mb-4">🤖</div><h3 class="text-lg font-medium mb-2">Welcome to CTO Lens Assistant!</h3><p class="text-sm">I can help you with questions about:</p><ul class="text-sm mt-2 space-y-1"><li>• Your assignments and projects</li><li>• AWS costs and resource usage</li><li>• GitHub metrics and activity</li><li>• Jira project status</li><li>• Team information and tech stacks</li><li>• Service health and configuration</li></ul><p id="chatbot-welcome-hint" class="text-sm mt-4 text-gray-400">Open an assignment tab for specific prompts, or ask about your workspace.</p></div>';
+                            updateChatbotPrompts();
                         }
                     } catch (error) {
                         console.error('Error clearing chat history:', error);
@@ -3699,28 +3908,52 @@
                 input.focus();
             }
 
-            async function sendChatbotMessage() {
-                console.log('🤖 sendChatbotMessage called (STREAMING)');
-                const input = document.getElementById('chatbot-input');
-                const messages = document.getElementById('chatbot-messages');
-                const question = input.value.trim();
-                console.log('📝 Question:', question);
-                
-                if (!question) {
-                    console.log('⚠️ No question, returning');
-                    return;
-                }
-                
-                // Add user message
+            function appendChatbotUserMessage(messages, text) {
                 const userMessage = document.createElement('div');
                 userMessage.className = 'flex justify-end';
-                userMessage.innerHTML = '<div class="max-w-[80%] rounded-lg px-4 py-2 bg-blue-500 text-white"><div class="whitespace-pre-wrap">' + question + '</div></div>';
+                userMessage.innerHTML = '<div class="max-w-[80%] rounded-lg px-4 py-2 bg-blue-500 text-white"><div class="whitespace-pre-wrap">' + text + '</div></div>';
                 messages.appendChild(userMessage);
-                
-                // Clear input
-                input.value = '';
-                
-                // Create bot message container for streaming
+            }
+
+            function showMetricsConsentButtons(messages, pendingQuestion) {
+                const row = document.createElement('div');
+                row.className = 'flex justify-start gap-2 mt-2';
+                row.innerHTML = `
+                    <button type="button" class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">Yes, fetch metrics (90+ sec)</button>
+                    <button type="button" class="bg-gray-500 text-white px-3 py-1 rounded text-sm hover:bg-gray-600">No, use details only</button>
+                `;
+                const yesBtn = row.querySelector('button:first-child');
+                const noBtn = row.querySelector('button:last-child');
+                yesBtn.onclick = () => {
+                    row.remove();
+                    sendChatbotMessage(pendingQuestion, { fetch_metrics: true, showUserBubble: false });
+                };
+                noBtn.onclick = () => {
+                    row.remove();
+                    sendChatbotMessage(pendingQuestion, { skip_metrics_fetch: true, showUserBubble: false });
+                };
+                messages.appendChild(row);
+                messages.scrollTop = messages.scrollHeight;
+            }
+
+            async function sendChatbotMessage(questionOverride, options = {}) {
+                const input = document.getElementById('chatbot-input');
+                const messages = document.getElementById('chatbot-messages');
+                const question = (questionOverride || input.value || '').trim();
+                const assignmentId = getActiveAssignmentId();
+                const fetch_metrics = !!options.fetch_metrics;
+                const skip_metrics_fetch = !!options.skip_metrics_fetch;
+                const showUserBubble = options.showUserBubble !== false;
+
+                if (!question) {
+                    return;
+                }
+
+                if (showUserBubble) {
+                    appendChatbotUserMessage(messages, question);
+                    input.value = '';
+                }
+
                 const botMessageContainer = document.createElement('div');
                 botMessageContainer.className = 'flex justify-start';
                 const botMessageContent = document.createElement('div');
@@ -3731,30 +3964,32 @@
                 botMessageContent.appendChild(botMessageText);
                 botMessageContainer.appendChild(botMessageContent);
                 messages.appendChild(botMessageContainer);
-                
-                // Scroll to bottom
                 messages.scrollTop = messages.scrollHeight;
-                
+
                 try {
-                    console.log('📡 Sending to /api/chatbot/ask-stream (STREAMING)...');
                     const response = await fetch('/api/chatbot/ask-stream', {
                         method: 'POST',
                         headers: getAuthHeaders(),
                         body: JSON.stringify({
                             question: question,
-                            user_id: 'dashboard_user'
+                            user_id: 'dashboard_user',
+                            workspace_id: currentWorkspace,
+                            assignment_id: assignmentId,
+                            fetch_metrics: fetch_metrics,
+                            skip_metrics_fetch: skip_metrics_fetch,
                         })
                     });
-                    
-                    console.log('📊 Stream started, status:', response.status);
-                    
+
                     if (!response.ok) {
                         throw new Error('Stream request failed');
                     }
+
                     const reader = response.body.getReader();
                     const decoder = new TextDecoder();
                     let fullResponse = '';
                     let receivedAny = false;
+                    let pendingQuestion = null;
+
                     while (true) {
                         const {done, value} = await reader.read();
                         if (done) break;
@@ -3762,61 +3997,72 @@
                         const lines = chunk.split('\n');
                         for (const line of lines) {
                             if (!line.startsWith('data: ')) continue;
+                            let data;
                             try {
-                                const data = JSON.parse(line.substring(6));
-                                if (data.init) {
-                                    // clear placeholder if needed
+                                data = JSON.parse(line.substring(6));
+                            } catch (parseErr) {
+                                continue;
+                            }
+                            if (data.status === 'fetching_metrics') {
+                                botMessageText.textContent = data.message || 'Loading metrics...';
+                                continue;
+                            }
+                            if (data.init) {
+                                if (!fetch_metrics) {
                                     botMessageText.textContent = '';
-                                    continue;
                                 }
-                                if (data.token) {
-                                    receivedAny = true;
-                                    fullResponse += data.token;
-                                    botMessageText.textContent = fullResponse + '▋';
-                                    messages.scrollTop = messages.scrollHeight;
-                                    continue;
+                                continue;
+                            }
+                            if (data.token) {
+                                receivedAny = true;
+                                fullResponse += data.token;
+                                botMessageText.textContent = fullResponse + '▋';
+                                messages.scrollTop = messages.scrollHeight;
+                                continue;
+                            }
+                            if (data.done) {
+                                botMessageText.textContent = data.full_response || fullResponse || '(no response)';
+                                if (data.metrics_action_required === 'confirm_fetch' && data.pending_question) {
+                                    pendingQuestion = data.pending_question;
+                                    showMetricsConsentButtons(messages, pendingQuestion);
                                 }
-                                if (data.done) {
-                                    botMessageText.textContent = data.full_response || fullResponse || '(no response)';
-                                    console.log('✅ Streaming complete');
-                                    continue;
-                                }
-                                if (data.error) {
-                                    throw new Error(data.error);
-                                }
-                            } catch (e) { /* ignore */ }
+                                continue;
+                            }
+                            if (data.error) {
+                                throw new Error(data.error);
+                            }
                         }
                     }
-                    if (!receivedAny) {
-                        // fallback: fetch non-streaming result if nothing streamed
-                        try {
-                            const fallback = await fetch('/api/chatbot/ask', {
-                                method: 'POST',
-                                headers: getAuthHeaders(),
-                                body: JSON.stringify({ question, user_id: 'dashboard_user' })
-                            });
-                            const json = await fallback.json();
-                            botMessageText.textContent = (json && json.response) ? json.response : '(no response)';
-                        } catch (e) {
-                            botMessageText.textContent = '(no response)';
+
+                    if (!receivedAny && !pendingQuestion) {
+                        const fallback = await fetch('/api/chatbot/ask', {
+                            method: 'POST',
+                            headers: getAuthHeaders(),
+                            body: JSON.stringify({
+                                question,
+                                user_id: 'dashboard_user',
+                                workspace_id: currentWorkspace,
+                                assignment_id: assignmentId,
+                                fetch_metrics: fetch_metrics,
+                                skip_metrics_fetch: skip_metrics_fetch,
+                            })
+                        });
+                        const json = await fallback.json();
+                        botMessageText.textContent = (json && json.response) ? json.response : '(no response)';
+                        if (json && json.metrics_action_required === 'confirm_fetch' && json.pending_question) {
+                            showMetricsConsentButtons(messages, json.pending_question);
                         }
                     }
-                    
+
                 } catch (error) {
-                    console.error('❌ Chatbot error:', error);
-                    console.error('❌ Error details:', error.message, error.stack);
-                    
-                    // Remove loading message
-                    loadingMessage.remove();
-                    
-                    // Add error message
+                    console.error('Chatbot error:', error);
+                    botMessageContainer.remove();
                     const errorMessage = document.createElement('div');
                     errorMessage.className = 'flex justify-start';
                     errorMessage.innerHTML = '<div class="max-w-[80%] rounded-lg px-4 py-2 bg-red-100 text-red-800"><div class="whitespace-pre-wrap">Sorry, I encountered an error. Please try again.</div></div>';
                     messages.appendChild(errorMessage);
                 }
-                
-                // Scroll to bottom
+
                 messages.scrollTop = messages.scrollHeight;
             }
 
@@ -4728,11 +4974,7 @@
 
                         hideImportDialog();
                         await loadDashboard(true);
-                        if (result.attention_briefing) {
-                            loadAttentionBriefing();
-                        } else {
-                            refreshAttentionBriefing();
-                        }
+                        loadOverviewPanels();
                     } else {
                         const errText = (result.errors && result.errors.join('; ')) || result.error || 'Import failed';
                         showImportMessage(errText, 'error');
@@ -4744,102 +4986,28 @@
             }
 
             async function loadAttentionBriefing() {
-                const container = document.getElementById('attention-briefing-section');
-                if (!container) return;
-                try {
-                    const flagsResp = await fetch('/api/feature-flags');
-                    const flags = await flagsResp.json();
-                    if (!flags || !flags.attention_engine) { container.innerHTML = ''; return; }
-
-                    const ws = currentWorkspace;
-                    if (!ws) { container.innerHTML = ''; return; }
-                    const resp = await authFetch(`/api/workspaces/${ws}/attention/briefing`);
-                    if (resp.status === 403) { container.innerHTML = ''; return; }
-                    const data = await resp.json();
-                    container.innerHTML = renderAttentionBriefing(data.briefing, data.message);
-                } catch (e) {
-                    console.warn('Attention briefing load failed:', e);
-                    container.innerHTML = '';
-                }
+                return loadOverviewPanels();
             }
 
             async function refreshAttentionBriefing() {
-                const container = document.getElementById('attention-briefing-section');
-                if (!container) return;
+                const root = document.getElementById('overview-panels-root');
+                if (!root || !currentWorkspace) return;
                 try {
                     const flagsResp = await fetch('/api/feature-flags');
                     const flags = await flagsResp.json();
                     if (!flags || !flags.attention_engine) return;
 
-                    const ws = currentWorkspace;
-                    if (!ws) return;
-                    container.innerHTML = '<div class="text-sm text-gray-500 p-4">Refreshing CTO briefing...</div>';
-                    const resp = await authFetch(`/api/workspaces/${ws}/attention/refresh`, { method: 'POST' });
-                    if (!resp.ok) return;
-                    const data = await resp.json();
-                    container.innerHTML = renderAttentionBriefing(data.briefing);
+                    root.innerHTML = '<div class="text-sm text-gray-500 p-4">Refreshing CTO briefing...</div>';
+                    const resp = await authFetch('/api/workspaces/' + currentWorkspace + '/attention/refresh', { method: 'POST' });
+                    if (!resp.ok) {
+                        await loadOverviewPanels();
+                        return;
+                    }
+                    await loadOverviewPanels();
                 } catch (e) {
                     console.warn('Attention refresh failed:', e);
+                    await loadOverviewPanels();
                 }
-            }
-
-            function renderAttentionBriefing(briefing, emptyMessage) {
-                if (!briefing) {
-                    return '<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">' +
-                        (emptyMessage || 'No briefing yet. Import data or click Refresh.') +
-                        ' <button onclick="refreshAttentionBriefing()" class="text-blue-600 hover:underline ml-2">Refresh</button></div>';
-                }
-                const eb = briefing.executive_briefing || {};
-                const health = briefing.system_health_score || {};
-                const bandColor = _pfBandColor(health.band || 'healthy');
-                let html = '<div class="bg-white rounded-lg shadow p-6 mb-6">';
-                html += '<div class="flex items-center justify-between mb-4">';
-                html += '<h3 class="text-xl font-bold text-gray-800">\uD83C\uDFAF CTO Briefing</h3>';
-                html += '<button onclick="refreshAttentionBriefing()" class="text-sm text-blue-600 hover:underline">Refresh</button>';
-                html += '</div>';
-                html += '<div class="flex items-start gap-4 mb-4">';
-                html += '<div class="bg-' + bandColor + '-50 border border-' + bandColor + '-200 rounded-lg px-4 py-3 min-w-[120px] text-center">';
-                html += '<div class="text-2xl font-bold text-' + bandColor + '-600">' + (health.score != null ? health.score : '\u2014') + '</div>';
-                html += '<div class="text-xs text-' + bandColor + '-700 uppercase">' + (health.band || '').replace('_',' ') + '</div>';
-                html += '</div>';
-                html += '<div class="flex-1">';
-                html += '<div class="font-semibold text-gray-800 mb-1">' + (eb.headline || 'Executive Summary') + '</div>';
-                if (eb.bullets) {
-                    html += '<ul class="text-sm text-gray-700 list-disc ml-4">';
-                    eb.bullets.forEach(function(b) { html += '<li>' + b + '</li>'; });
-                    html += '</ul>';
-                }
-                html += '</div></div>';
-                if (briefing.cto_narrative) {
-                    html += '<p class="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded p-3 mb-4">' + briefing.cto_narrative + '</p>';
-                }
-                const risks = briefing.risk_signals || [];
-                const opps = briefing.opportunity_signals || [];
-                html += '<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">';
-                html += '<div><h4 class="text-sm font-bold text-red-700 mb-2">Risk Signals (' + risks.length + ')</h4>';
-                if (!risks.length) {
-                    html += '<div class="text-xs text-green-700 bg-green-50 rounded p-2">No risks flagged</div>';
-                } else {
-                    risks.slice(0, 5).forEach(function(r) {
-                        const c = _pfSeverityColor(r.severity || 'warning');
-                        html += '<div class="text-xs border-l-2 border-' + c + '-400 pl-2 mb-2 text-gray-700">' + (r.detail || r.title) + '</div>';
-                    });
-                }
-                html += '</div>';
-                html += '<div><h4 class="text-sm font-bold text-green-700 mb-2">Opportunities (' + opps.length + ')</h4>';
-                if (!opps.length) {
-                    html += '<div class="text-xs text-gray-500 bg-gray-50 rounded p-2">None identified</div>';
-                } else {
-                    opps.slice(0, 5).forEach(function(o) {
-                        html += '<div class="text-xs border-l-2 border-green-400 pl-2 mb-2 text-gray-700">' + (o.detail || o.title) + '</div>';
-                    });
-                }
-                html += '</div></div>';
-                if (briefing.generated_at) {
-                    html += '<div class="text-xs text-gray-400 mt-3">Generated ' + new Date(briefing.generated_at).toLocaleString() + '</div>';
-                }
-                html += '</div>';
-                return html;
             }
             
             function showImportMessage(message, type) {
