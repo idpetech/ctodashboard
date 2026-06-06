@@ -1,4 +1,3 @@
-    return '''
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -364,50 +363,6 @@
             </div>
         </div>
 
-        <!-- User Info & Logout (shown when authenticated) -->
-        <div id="user-info" class="fixed top-4 right-4 z-40 hidden">
-            <div class="bg-white rounded-lg shadow p-3 flex items-center space-x-3">
-                <div class="text-sm">
-                    <div class="font-medium text-gray-800" id="user-display-name"></div>
-                    <div class="text-gray-500" id="user-email"></div>
-                </div>
-                <!-- Phase 5A: Essential Profile Management -->
-                <span id="admin-badge" class="hidden px-2 py-0.5 bg-purple-100 text-purple-800 text-xs font-semibold rounded">Admin</span>
-                <button onclick="showProfileModal()" class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200">
-                    👤 Profile
-                </button>
-                <button onclick="handleLogout()" class="text-red-600 hover:text-red-700 text-sm">
-                    Logout
-                </button>
-            </div>
-        </div>
-
-        <!-- Workspace Selection (shown when authenticated) -->
-        <div id="workspace-selector" class="fixed top-20 left-4 z-40 hidden">
-            <div class="bg-white rounded-lg shadow p-3 min-w-64">
-                <div class="flex justify-between items-center mb-2">
-                    <div class="text-sm font-medium text-gray-700">Workspace:</div>
-                    <div class="flex space-x-2">
-                        <button onclick="showImportMenu()" class="text-purple-600 hover:text-purple-700 text-sm font-medium" title="Import Workspace Data">
-                            📥 Import
-                        </button>
-                        <button onclick="showExportMenu()" class="text-green-600 hover:text-green-700 text-sm font-medium" title="Export Workspace Data">
-                            📤 Export
-                        </button>
-                        <button onclick="openWorkspaceSettings()" class="text-blue-600 hover:text-blue-700 text-sm font-medium" title="Configure Workspace Settings">
-                            🛠️ Setup
-                        </button>
-                    </div>
-                </div>
-                <select id="workspace-select" onchange="handleWorkspaceChange()" class="text-sm border border-gray-300 rounded px-2 py-1 w-full focus:outline-none focus:border-blue-500">
-                    <option value="">Select Workspace...</option>
-                </select>
-                <div class="text-xs text-gray-500 mt-1">
-                    💡 Click "Setup" to configure GitHub, Jira, AWS & other connectors
-                </div>
-            </div>
-        </div>
-
         <!-- Phase 5A: Profile Management Modal -->
         <div id="profile-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 hidden">
             <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
@@ -608,8 +563,51 @@
         </div>
 
         <div class="container mx-auto px-4 py-8">
-            <header>
-                <h1 class="text-4xl font-bold text-blue-600 mb-8" role="banner">🚀 CTO Lens</h1>
+            <header class="mb-8">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <h1 class="text-4xl font-bold text-blue-600" role="banner">🚀 CTO Lens</h1>
+                    <!-- User Info & Logout (shown when authenticated) -->
+                    <div id="user-info" class="hidden shrink-0 w-full sm:w-auto">
+                        <div class="bg-white rounded-lg shadow p-3 flex flex-wrap items-center gap-2 sm:gap-3">
+                            <div class="text-sm min-w-0">
+                                <div class="font-medium text-gray-800 truncate" id="user-display-name"></div>
+                                <div class="text-gray-500 truncate" id="user-email"></div>
+                            </div>
+                            <span id="admin-badge" class="hidden px-2 py-0.5 bg-purple-100 text-purple-800 text-xs font-semibold rounded">Admin</span>
+                            <button onclick="showProfileModal()" class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200 whitespace-nowrap">
+                                👤 Profile
+                            </button>
+                            <button onclick="handleLogout()" class="text-red-600 hover:text-red-700 text-sm whitespace-nowrap">
+                                Logout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Workspace Selection (shown when authenticated, multi-workspace only) -->
+                <div id="workspace-selector" class="hidden mt-4 w-full max-w-md">
+                    <div class="bg-white rounded-lg shadow p-3 min-w-64">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="text-sm font-medium text-gray-700">Workspace:</div>
+                            <div class="flex space-x-2">
+                                <button onclick="showImportMenu()" class="text-purple-600 hover:text-purple-700 text-sm font-medium" title="Import Workspace Data">
+                                    📥 Import
+                                </button>
+                                <button onclick="showExportMenu()" class="text-green-600 hover:text-green-700 text-sm font-medium" title="Export Workspace Data">
+                                    📤 Export
+                                </button>
+                                <button onclick="openWorkspaceSettings()" class="text-blue-600 hover:text-blue-700 text-sm font-medium" title="Configure Workspace Settings">
+                                    🛠️ Setup
+                                </button>
+                            </div>
+                        </div>
+                        <select id="workspace-select" onchange="handleWorkspaceChange()" class="text-sm border border-gray-300 rounded px-2 py-1 w-full focus:outline-none focus:border-blue-500">
+                            <option value="">Select Workspace...</option>
+                        </select>
+                        <div class="text-xs text-gray-500 mt-1">
+                            💡 Click "Setup" to configure GitHub, Jira, AWS & other connectors
+                        </div>
+                    </div>
+                </div>
             </header>
             
             <!-- Phase 5C: Search/Filtering Overlay with Accessibility -->
@@ -1323,9 +1321,7 @@
                         currentUser.display_name || currentUser.name || currentUser.email;
                     document.getElementById('user-email').textContent = currentUser.email;
                     updateAdminUI();
-                    
-                    // Show workspace selector
-                    document.getElementById('workspace-selector').classList.remove('hidden');
+                    // Workspace selector visibility is set by loadWorkspaces() (multi-workspace only)
                 }
             }
             
@@ -1730,18 +1726,8 @@
             }
             
             function showSingleWorkspaceUI(workspace) {
-                // Show single workspace with minimal UI
-                const selector = document.getElementById('workspace-selector');
-                selector.innerHTML = `
-                    <div class="workspace-selector">
-                        <div class="text-sm font-medium text-gray-700 mb-2">
-                            👨‍💼 ${workspace.name || workspace.id}
-                        </div>
-                    </div>
-                `;
-                selector.classList.remove('hidden');
-                
-                // Show and load dashboard content for this workspace
+                // Single workspace: hide selector (no redundant label overlapping header)
+                document.getElementById('workspace-selector').classList.add('hidden');
                 showDashboardContent();
                 loadDashboard();
             }
@@ -7486,4 +7472,3 @@ Backups are stored in: ./backups/
 
     </body>
     </html>
-    '''
