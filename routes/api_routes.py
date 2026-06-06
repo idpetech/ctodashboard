@@ -233,6 +233,31 @@ def collect_assignment_metrics(workspace_id: str, assignment_id: str, assignment
     return metrics
 
 
+def _refresh_workspace_attention_briefing(workspace_id: str) -> None:
+    """Rebuild stored CTO briefing after assignment/budget changes (best-effort)."""
+    if os.getenv("ENABLE_ATTENTION_ENGINE", "false").lower() != "true":
+        return
+    try:
+        from services.attention_engine import (
+            build_attention_briefing,
+            get_stored_briefing,
+            store_briefing_in_workspace,
+        )
+        from services.security.secure_database import secure_db
+
+        assignments = secure_db.get_workspace_assignments(workspace_id)
+        previous = get_stored_briefing(secure_db, workspace_id)
+        last_import = (secure_db.get_workspace(workspace_id) or {}).get("settings", {}).get("last_import")
+        briefing = build_attention_briefing(
+            assignments,
+            previous_briefing=previous,
+            import_metadata=last_import,
+        )
+        store_briefing_in_workspace(secure_db, workspace_id, briefing)
+    except Exception as e:
+        logger.warning("Attention briefing auto-refresh failed for %s: %s", workspace_id, e)
+
+
 def register_routes(app):
     """Register all routes with the Flask app"""
     
@@ -1304,7 +1329,8 @@ def register_routes(app):
             result = get_workspace_service().update_assignment(workspace_id, assignment_id, data)
             if not result.get("success"):
                 return jsonify({"error": result.get("error", "Update failed")}), 400
-            
+
+            _refresh_workspace_attention_briefing(workspace_id)
             return jsonify(result)
         
         elif request.method == "DELETE":

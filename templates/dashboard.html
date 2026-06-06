@@ -2739,6 +2739,15 @@
             }
 
             function collectAttentionItems(portfolioData, briefingData) {
+                // Prefer live portfolio attention (updates when assignments/budgets change).
+                const ac = portfolioData && portfolioData.attention_center;
+                if (ac && Array.isArray(ac.items)) {
+                    return ac.items.map(function(it) {
+                        return { severity: it.severity, message: it.message };
+                    });
+                }
+
+                // Fallback when portfolio dashboard is off but attention briefing exists.
                 const briefing = briefingData && briefingData.briefing;
                 if (briefing && briefing.founder_attention_items && briefing.founder_attention_items.length) {
                     return briefing.founder_attention_items.map(function(it) {
@@ -2746,7 +2755,6 @@
                     });
                 }
                 const items = [];
-                const ac = portfolioData && portfolioData.attention_center;
                 if (ac && ac.items) {
                     ac.items.forEach(function(it) {
                         items.push({ severity: it.severity, message: it.message });
@@ -4539,6 +4547,9 @@
                         setTimeout(async () => {
                             hideAssignmentEditModal();
                             await loadDashboard(true);
+                            if (typeof refreshAttentionBriefing === 'function') {
+                                refreshAttentionBriefing();
+                            }
                         }, 800);
                     } else if (response.status === 401) {
                         showAssignmentEditMessage('Your session has expired. Please sign in - your changes are kept and will be saved automatically after you log in.', 'error');
