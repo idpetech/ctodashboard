@@ -31,6 +31,15 @@ from services.data_import_service import DataImportService
 from services.portfolio_service import build_portfolio_overview
 from services.trial_guard import require_trial_write_access
 from services.trial_service import normalize_trial_fields, admin_trial_summary
+from services.user_access import resolve_account_state
+from services.stripe_billing_service import (
+    is_billing_enabled,
+    create_checkout_session,
+    confirm_checkout_session,
+    create_portal_session,
+    handle_webhook,
+    billing_summary,
+)
 
 # Initialize logging
 logger = get_logger(__name__)
@@ -299,7 +308,7 @@ def register_routes(app):
             "multi_tenancy": os.getenv("ENABLE_MULTI_TENANCY", "false").lower() == "true",
             "workstream_management": os.getenv("ENABLE_WORKSTREAM_MGMT", "false").lower() == "true",
             "service_config_ui": os.getenv("ENABLE_SERVICE_CONFIG_UI", "false").lower() == "true",
-            "advanced_billing": os.getenv("ENABLE_BILLING", "false").lower() == "true",
+            "advanced_billing": is_billing_enabled(),
             "database_storage": os.getenv("ENABLE_DATABASE", "false").lower() == "true",
             "portfolio_dashboard": os.getenv("ENABLE_PORTFOLIO_DASHBOARD", "false").lower() == "true",
             "csv_import": os.getenv("ENABLE_CSV_IMPORT", "false").lower() == "true",
@@ -953,15 +962,124 @@ def register_routes(app):
     @app.route("/api/auth/trial", methods=["GET"])
     @get_require_auth()
     def get_trial_status():
-        """Current user's trial status for dashboard banner and UI."""
+        """Current user's trial + billing status for dashboard banner and UI."""
         current_user = get_current_user()
         if not current_user:
             return jsonify({"error": "Authentication required"}), 401
         full = get_user_service().get_user_by_email(current_user.get("email"))
         if not full:
             return jsonify({"error": "User not found"}), 404
-        trial = normalize_trial_fields(full)
-        return jsonify(trial)
+        return jsonify(resolve_account_state(full))
+
+    @app.route("/api/billing/status", methods=["GET"])
+    @get_require_auth()
+    def get_billing_status():
+        """Billing summary for the current user."""
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({"error": "Authentication required"}), 401
+        full = get_user_service().get_user_by_email(current_user.get("email"))
+        if not full:
+            return jsonify({"error": "User not found"}), 404
+        return jsonify(resolve_account_state(full))
+
+    @app.route("/api/billing/checkout", methods=["POST"])
+    @get_require_auth()
+    def billing_checkout():
+        """Create a Stripe Checkout session for subscription upgrade."""
+        if not is_billing_enabled():
+            return jsonify({"error": "Billing is not enabled"}), 503
+
+        current_user = get_current_user()
+        data = request.get_json() or {}
+        plan = (data.get("plan") or "").strip().lower()
+        if plan not in ("starter", "professional"):
+            return jsonify({"error": "Invalid plan. Choose starter or professional."}), 400
+
+        full = get_user_service().get_user_by_email(current_user.get("email"))
+        if not full:
+            return jsonify({"error": "User not found"}), 404
+
+        billing = billing_summary(full)
+        base_url = request.host_url.rstrip("/")
+        try:
+            session = create_checkout_session(
+                full["email"],
+                plan,
+                success_url=f"{base_url}/dashboard?billing=success&session_id={{CHECKOUT_SESSION_ID}}",
+                cancel_url=f"{base_url}/dashboard?billing=canceled",
+                existing_customer_id=billing.get("stripe_customer_id"),
+            )
+            return jsonify(session)
+        except Exception as e:
+            logger.error("Checkout session failed: %s", e)
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/billing/confirm", methods=["POST"])
+    @get_require_auth()
+    def billing_confirm():
+        """Confirm checkout after redirect (no webhook required)."""
+        if not is_billing_enabled():
+            return jsonify({"error": "Billing is not enabled"}), 503
+
+        current_user = get_current_user()
+        data = request.get_json() or {}
+        session_id = (data.get("session_id") or "").strip()
+        if not session_id:
+            return jsonify({"error": "session_id is required"}), 400
+
+        try:
+            confirm_checkout_session(session_id, current_user.get("email"))
+            full = get_user_service().get_user_by_email(current_user.get("email"))
+            return jsonify(resolve_account_state(full))
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        except Exception as e:
+            logger.error("Billing confirm failed: %s", e)
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/billing/portal", methods=["POST"])
+    @get_require_auth()
+    def billing_portal():
+        """Create a Stripe Billing Portal session."""
+        if not is_billing_enabled():
+            return jsonify({"error": "Billing is not enabled"}), 503
+
+        current_user = get_current_user()
+        full = get_user_service().get_user_by_email(current_user.get("email"))
+        if not full:
+            return jsonify({"error": "User not found"}), 404
+
+        billing = billing_summary(full)
+        customer_id = billing.get("stripe_customer_id")
+        if not customer_id:
+            return jsonify({"error": "No billing account found. Upgrade first."}), 400
+
+        base_url = request.host_url.rstrip("/")
+        try:
+            session = create_portal_session(customer_id, return_url=f"{base_url}/dashboard")
+            return jsonify(session)
+        except Exception as e:
+            logger.error("Portal session failed: %s", e)
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/billing/webhook", methods=["POST"])
+    def billing_webhook():
+        """Stripe webhook handler (no auth — verified by signature)."""
+        if not is_billing_enabled():
+            return jsonify({"error": "Billing is not enabled"}), 503
+
+        payload = request.get_data()
+        sig = request.headers.get("Stripe-Signature", "")
+        try:
+            result = handle_webhook(payload, sig)
+            return jsonify(result)
+        except ValueError as e:
+            logger.warning("Invalid webhook payload: %s", e)
+            return jsonify({"error": "Invalid payload"}), 400
+        except Exception as e:
+            logger.error("Webhook error: %s", e)
+            return jsonify({"error": str(e)}), 400
     
     @app.route("/api/auth/users/<user_email>/workspaces", methods=["POST"])
     @get_require_auth()

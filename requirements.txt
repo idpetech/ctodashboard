@@ -37,3 +37,4 @@ cryptography>=3.4.8
 psycopg2-binary>=2.9.0
 openpyxl>=3.1.0
 
+stripe>=8.0.0

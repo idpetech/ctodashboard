@@ -113,9 +113,8 @@ def trial_prefs_for_new_user(start: Optional[datetime] = None, days: Optional[in
 
 
 def can_write(user_data: Optional[Dict[str, Any]]) -> bool:
-    if not user_data:
-        return False
-    return normalize_trial_fields(user_data)["can_write"]
+    from services.user_access import can_write as unified_can_write
+    return unified_can_write(user_data)
 
 
 def trial_write_denied_response():
@@ -129,14 +128,18 @@ def trial_write_denied_response():
 
 
 def admin_trial_summary(user_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Trial fields for admin user list."""
-    info = normalize_trial_fields(user_data)
+    """Trial + billing fields for admin user list."""
+    from services.user_access import resolve_account_state
+
+    info = resolve_account_state(user_data)
     return {
         "email": user_data.get("email"),
         "display_name": user_data.get("display_name"),
         "role": user_data.get("role"),
-        "trial_start_date": info["trial_start_date"],
-        "trial_end_date": info["trial_end_date"],
-        "trial_status": info["trial_status"],
-        "days_remaining": info["days_remaining"],
+        "trial_start_date": info.get("trial_start_date"),
+        "trial_end_date": info.get("trial_end_date"),
+        "trial_status": info.get("trial_status"),
+        "days_remaining": info.get("days_remaining"),
+        "plan": info.get("plan_name"),
+        "billing_status": info.get("billing_status"),
     }

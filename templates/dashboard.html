@@ -440,6 +440,23 @@
                             </div>
                         </div>
 
+                        <div id="profile-billing-section" class="hidden bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-sm">
+                            <h3 class="font-semibold text-gray-800 mb-2">Billing</h3>
+                            <div class="grid grid-cols-2 gap-2 text-gray-600 mb-3">
+                                <span>Plan</span><span id="profile-billing-plan" class="font-medium text-gray-800 text-right"></span>
+                                <span>Status</span><span id="profile-billing-status" class="font-medium text-right"></span>
+                                <span>Renews</span><span id="profile-billing-renewal" class="text-right"></span>
+                            </div>
+                            <div id="profile-billing-upgrade" class="hidden space-y-2 mb-2">
+                                <p class="text-xs text-gray-500">Choose a plan to upgrade from trial:</p>
+                                <div class="flex flex-wrap gap-2">
+                                    <button type="button" onclick="startBillingCheckout('starter')" class="px-3 py-1.5 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700">Starter — $49/mo</button>
+                                    <button type="button" onclick="startBillingCheckout('professional')" class="px-3 py-1.5 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700">Professional — $149/mo</button>
+                                </div>
+                            </div>
+                            <button type="button" id="profile-billing-manage-btn" onclick="openBillingPortal()" class="hidden w-full px-3 py-1.5 bg-white border border-indigo-300 text-indigo-700 rounded text-xs hover:bg-indigo-100">Manage Billing</button>
+                        </div>
+
                         <div id="admin-trial-panel" class="hidden border-t border-gray-200 pt-4 mt-2">
                             <h3 class="text-sm font-semibold text-gray-800 mb-2">Admin — User Trials</h3>
                             <div id="admin-trial-list" class="text-xs text-gray-600 max-h-40 overflow-y-auto space-y-1"></div>
@@ -988,12 +1005,90 @@
 
                 const trialInfo = document.getElementById('profile-trial-info');
                 if (trialInfo && trial) {
-                    trialInfo.classList.remove('hidden');
-                    document.getElementById('profile-trial-status').textContent = trial.trial_status || '—';
-                    document.getElementById('profile-trial-start').textContent = formatTrialDate(trial.trial_start_date);
-                    document.getElementById('profile-trial-end').textContent = formatTrialDate(trial.trial_end_date);
-                    document.getElementById('profile-trial-days').textContent =
-                        trial.days_remaining != null ? trial.days_remaining : (trial.trial_status === 'paid' ? 'N/A (paid)' : '—');
+                    const onPaidPlan = trial.billing_status === 'active' || trial.trial_status === 'paid';
+                    trialInfo.classList.toggle('hidden', onPaidPlan);
+                    if (!onPaidPlan) {
+                        document.getElementById('profile-trial-status').textContent = trial.trial_status || '—';
+                        document.getElementById('profile-trial-start').textContent = formatTrialDate(trial.trial_start_date);
+                        document.getElementById('profile-trial-end').textContent = formatTrialDate(trial.trial_end_date);
+                        document.getElementById('profile-trial-days').textContent =
+                            trial.days_remaining != null ? trial.days_remaining : '—';
+                    }
+                }
+
+                applyBillingUI(trial);
+            }
+
+            function formatBillingStatus(status) {
+                const labels = {
+                    trial: 'Trial',
+                    active: 'Active',
+                    canceled: 'Canceled',
+                    past_due: 'Past due',
+                };
+                return labels[status] || status || '—';
+            }
+
+            function applyBillingUI(state) {
+                const section = document.getElementById('profile-billing-section');
+                if (!section || !state) return;
+
+                const billingEnabled = state.enabled === true;
+                section.classList.toggle('hidden', !billingEnabled);
+                if (!billingEnabled) return;
+
+                document.getElementById('profile-billing-plan').textContent = state.plan_name || 'Trial';
+                document.getElementById('profile-billing-status').textContent = formatBillingStatus(state.billing_status);
+                document.getElementById('profile-billing-renewal').textContent =
+                    state.renewal_date ? formatTrialDate(state.renewal_date) : '—';
+
+                const showUpgrade = state.billing_status !== 'active';
+                const upgradeBlock = document.getElementById('profile-billing-upgrade');
+                if (upgradeBlock) {
+                    upgradeBlock.classList.toggle('hidden', !showUpgrade);
+                }
+
+                const manageBtn = document.getElementById('profile-billing-manage-btn');
+                if (manageBtn) {
+                    manageBtn.classList.toggle('hidden', !state.can_manage_billing);
+                }
+            }
+
+            async function startBillingCheckout(plan) {
+                try {
+                    const resp = await authFetch('/api/billing/checkout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ plan }),
+                    });
+                    const data = await resp.json();
+                    if (!resp.ok) {
+                        alert(data.error || 'Could not start checkout');
+                        return;
+                    }
+                    if (data.checkout_url) {
+                        window.location.href = data.checkout_url;
+                    }
+                } catch (e) {
+                    console.error('Checkout failed:', e);
+                    alert('Could not start checkout. Please try again.');
+                }
+            }
+
+            async function openBillingPortal() {
+                try {
+                    const resp = await authFetch('/api/billing/portal', { method: 'POST' });
+                    const data = await resp.json();
+                    if (!resp.ok) {
+                        alert(data.error || 'Could not open billing portal');
+                        return;
+                    }
+                    if (data.portal_url) {
+                        window.location.href = data.portal_url;
+                    }
+                } catch (e) {
+                    console.error('Billing portal failed:', e);
+                    alert('Could not open billing portal. Please try again.');
                 }
             }
 
@@ -1004,6 +1099,32 @@
                     if (resp.ok) {
                         const trial = await resp.json();
                         applyTrialUI(trial);
+                    }
+                    const params = new URLSearchParams(window.location.search);
+                    if (params.get('billing') === 'success') {
+                        const sessionId = params.get('session_id');
+                        if (sessionId) {
+                            try {
+                                const confirmResp = await authFetch('/api/billing/confirm', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ session_id: sessionId }),
+                                });
+                                if (confirmResp.ok) {
+                                    const state = await confirmResp.json();
+                                    applyTrialUI(state);
+                                }
+                            } catch (confirmErr) {
+                                console.warn('Billing confirm failed:', confirmErr);
+                            }
+                        }
+                        const msg = document.getElementById('profile-message');
+                        if (msg) {
+                            msg.textContent = 'Subscription activated. Thank you!';
+                            msg.className = 'mb-4 p-3 rounded bg-green-100 text-green-800 border border-green-200';
+                            msg.classList.remove('hidden');
+                        }
+                        window.history.replaceState({}, '', window.location.pathname);
                     }
                 } catch (e) {
                     console.warn('Trial status load failed:', e);
