@@ -391,6 +391,10 @@ def build_attention_briefing(
         },
     }
 
+    from services.executive_language import enrich_briefing_for_executives
+
+    briefing = enrich_briefing_for_executives(briefing, attention)
+
     logger.info(
         "Attention briefing built: score=%s risks=%d opportunities=%d",
         score,
@@ -398,6 +402,53 @@ def build_attention_briefing(
         len(opportunities),
     )
     return briefing
+
+
+def compute_score_trends(
+    history: List[Dict[str, Any]],
+    current: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Compare current scores to the previous history entry."""
+    prev = history[-1] if len(history) >= 1 else None
+    trends: Dict[str, Any] = {}
+
+    def _delta(key: str) -> Optional[Dict[str, Any]]:
+        cur = current.get(key)
+        if cur is None:
+            return None
+        if not prev or prev.get(key) is None:
+            return {"current": cur, "previous": None, "change": None}
+        change = int(cur) - int(prev[key])
+        return {"current": cur, "previous": prev[key], "change": change}
+
+    for metric in ("health", "financial", "connector", "delivery"):
+        row = _delta(metric)
+        if row:
+            trends[metric] = row
+    return trends
+
+
+def append_health_score_history(
+    settings: Dict[str, Any],
+    briefing: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Append score snapshot to settings history and attach trends to briefing."""
+    health = briefing.get("system_health_score") or {}
+    comps = health.get("components") or {}
+    entry = {
+        "generated_at": briefing.get("generated_at"),
+        "health": health.get("score"),
+        "financial": comps.get("financial"),
+        "connector": comps.get("connector"),
+        "delivery": comps.get("delivery"),
+    }
+
+    history: List[Dict[str, Any]] = list(settings.get("health_score_history") or [])
+    trends = compute_score_trends(history, entry)
+    history.append(entry)
+    settings["health_score_history"] = history[-52:]
+    briefing["score_trends"] = trends
+    return settings
 
 
 def store_briefing_in_workspace(
@@ -411,6 +462,7 @@ def store_briefing_in_workspace(
         if not ws:
             return False
         settings = ws.get("settings") or {}
+        settings = append_health_score_history(settings, briefing)
         settings["attention_briefing"] = briefing
         settings["attention_briefing_updated_at"] = briefing.get("generated_at")
         return secure_db.store_workspace(

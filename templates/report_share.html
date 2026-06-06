@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ portfolio_name }} — Executive Report</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+    <div class="max-w-3xl mx-auto px-4 py-6 sm:py-10">
+        {% if error %}
+        <div class="bg-white rounded-xl shadow p-8 text-center">
+            <h1 class="text-xl font-bold text-slate-800 mb-2">Report unavailable</h1>
+            <p class="text-slate-600">{{ error }}</p>
+        </div>
+        {% else %}
+        <!-- Header -->
+        <header class="bg-slate-900 text-white rounded-xl p-6 mb-6">
+            <p class="text-slate-300 text-sm mb-1">Executive Portfolio Report</p>
+            <h1 class="text-2xl sm:text-3xl font-bold">{{ portfolio_name }}</h1>
+            <p class="text-slate-400 text-sm mt-2">Generated {{ generated_display }}</p>
+        </header>
+
+        <!-- Portfolio Status + Health -->
+        <section class="bg-white rounded-xl shadow p-6 mb-6">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-slate-500 uppercase tracking-wide">Portfolio Status</p>
+                    <p class="text-3xl font-bold mt-1
+                        {% if portfolio_status == 'Critical' %}text-red-600
+                        {% elif portfolio_status == 'Needs Attention' %}text-amber-600
+                        {% else %}text-emerald-600{% endif %}">
+                        {{ portfolio_status }}
+                    </p>
+                </div>
+                <div class="text-left sm:text-right">
+                    <p class="text-sm text-slate-500">Health Score</p>
+                    <p class="text-4xl font-bold text-blue-600">{{ health_score }}<span class="text-lg text-slate-400">/100</span></p>
+                    {% if score_trends and score_trends.health %}
+                    {% set ht = score_trends.health %}
+                    {% if ht.previous is not none %}
+                    <p class="text-sm text-slate-600 mt-1">
+                        {{ ht.previous }} → {{ ht.current }}
+                        {% if ht.change is not none %}
+                        <span class="{% if ht.change > 0 %}text-emerald-600{% elif ht.change < 0 %}text-red-600{% else %}text-slate-500{% endif %} font-semibold">
+                            ({{ '+' if ht.change > 0 else '' }}{{ ht.change }})
+                        </span>
+                        {% endif %}
+                    </p>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+
+        <!-- Top 3 Risks -->
+        <section class="bg-white rounded-xl shadow p-6 mb-6">
+            <h2 class="text-lg font-bold text-red-700 mb-4">Top 3 Risks</h2>
+            {% if top_risks %}
+            <ol class="space-y-4 list-decimal list-inside">
+                {% for risk in top_risks %}
+                <li class="text-sm text-slate-700 leading-relaxed">
+                    <span class="font-medium">{{ risk.detail }}</span>
+                    {% if risk.executive_framing %}
+                    <div class="mt-2 ml-5 text-xs text-slate-500 space-y-1">
+                        <p><span class="font-semibold text-slate-600">Impact:</span> {{ risk.executive_framing.business_impact }}</p>
+                        <p><span class="font-semibold text-slate-600">Action:</span> {{ risk.executive_framing.recommended_action }}</p>
+                    </div>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ol>
+            {% else %}
+            <p class="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-3">No critical risks flagged in this report.</p>
+            {% endif %}
+        </section>
+
+        <!-- Top 3 Recommendations -->
+        <section class="bg-white rounded-xl shadow p-6 mb-6">
+            <h2 class="text-lg font-bold text-emerald-700 mb-4">Top 3 Recommendations</h2>
+            {% if top_recommendations %}
+            <ol class="space-y-4 list-decimal list-inside">
+                {% for rec in top_recommendations %}
+                <li class="text-sm text-slate-700 leading-relaxed">
+                    <span class="font-medium">{{ rec.detail }}</span>
+                    {% if rec.executive_framing %}
+                    <div class="mt-2 ml-5 text-xs text-slate-500">
+                        <p><span class="font-semibold text-slate-600">Action:</span> {{ rec.executive_framing.recommended_action }}</p>
+                    </div>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ol>
+            {% else %}
+            <p class="text-sm text-slate-500 bg-slate-50 rounded-lg p-3">No specific recommendations at this time.</p>
+            {% endif %}
+        </section>
+
+        <!-- Executive Summary -->
+        <section class="bg-white rounded-xl shadow p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 mb-3">Executive Summary</h2>
+            {% if headline %}
+            <p class="font-semibold text-slate-800 mb-3">{{ headline }}</p>
+            {% endif %}
+            {% if bullets %}
+            <ul class="list-disc ml-5 text-sm text-slate-700 space-y-2">
+                {% for b in bullets %}
+                <li>{{ b }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+            {% if narrative %}
+            <p class="text-sm text-slate-600 mt-4 leading-relaxed bg-slate-50 rounded-lg p-4">{{ narrative }}</p>
+            {% endif %}
+        </section>
+
+        <!-- Needs Attention -->
+        <section class="bg-white rounded-xl shadow p-6 mb-6">
+            <h2 class="text-lg font-bold text-amber-700 mb-3">Needs Attention</h2>
+            {% if attention_items %}
+            <div class="space-y-3">
+                {% for item in attention_items %}
+                <div class="border-l-4 {% if item.severity == 'critical' %}border-red-400 bg-red-50{% elif item.severity == 'warning' %}border-amber-400 bg-amber-50{% else %}border-blue-300 bg-blue-50{% endif %} px-4 py-3 rounded-r">
+                    <span class="text-xs font-bold uppercase {% if item.severity == 'critical' %}text-red-700{% elif item.severity == 'warning' %}text-amber-700{% else %}text-blue-700{% endif %}">{{ item.severity }}</span>
+                    <p class="text-sm text-slate-700 mt-1">{{ item.message }}</p>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-emerald-700">All clear — nothing needs immediate attention.</p>
+            {% endif %}
+        </section>
+
+        <!-- Score Trends -->
+        {% if score_trends %}
+        <section class="bg-white rounded-xl shadow p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 mb-4">Score Trends</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {% for label, key in [('Health', 'health'), ('Financial', 'financial'), ('Connectors', 'connector'), ('Delivery', 'delivery')] %}
+                {% if score_trends.get(key) %}
+                {% set t = score_trends[key] %}
+                <div class="bg-slate-50 rounded-lg p-4">
+                    <p class="text-xs font-medium text-slate-500 uppercase">{{ label }}</p>
+                    <p class="text-2xl font-bold text-slate-800 mt-1">{{ t.current }}{% if label != 'Health' %}<span class="text-sm text-slate-400">/100</span>{% endif %}</p>
+                    {% if t.previous is not none %}
+                    <p class="text-sm text-slate-600 mt-1">
+                        {{ t.previous }} → {{ t.current }}
+                        {% if t.change is not none %}
+                        <span class="font-semibold {% if t.change > 0 %}text-emerald-600{% elif t.change < 0 %}text-red-600{% endif %}">
+                            ({{ '+' if t.change > 0 else '' }}{{ t.change }})
+                        </span>
+                        {% endif %}
+                    </p>
+                    {% else %}
+                    <p class="text-xs text-slate-400 mt-1">First recorded snapshot</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- Portfolio Metrics -->
+        <section class="bg-white rounded-xl shadow p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 mb-4">Portfolio Metrics</h2>
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                <div class="bg-slate-50 rounded-lg p-4">
+                    <p class="text-slate-500">Active Assignments</p>
+                    <p class="text-xl font-bold">{{ summary.active_assignments }} <span class="text-sm font-normal text-slate-400">/ {{ summary.total_assignments }}</span></p>
+                </div>
+                <div class="bg-slate-50 rounded-lg p-4">
+                    <p class="text-slate-500">Monthly Burn</p>
+                    <p class="text-xl font-bold">${{ "{:,}".format(summary.total_monthly_burn or 0) }}</p>
+                </div>
+                <div class="bg-slate-50 rounded-lg p-4">
+                    <p class="text-slate-500">Target Burn</p>
+                    <p class="text-xl font-bold">${{ "{:,}".format(summary.total_target_burn or 0) }}</p>
+                </div>
+                <div class="bg-slate-50 rounded-lg p-4">
+                    <p class="text-slate-500">Total Team</p>
+                    <p class="text-xl font-bold">{{ summary.total_team_size or 0 }}</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- All Risks & Opportunities (collapsed detail) -->
+        {% if all_risks %}
+        <section class="bg-white rounded-xl shadow p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 mb-3">All Risk Signals</h2>
+            <ul class="text-sm text-slate-700 space-y-2">
+                {% for r in all_risks %}
+                <li class="border-l-2 border-red-300 pl-3">{{ r.detail }}</li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+
+        {% if all_opportunities %}
+        <section class="bg-white rounded-xl shadow p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 mb-3">All Opportunities</h2>
+            <ul class="text-sm text-slate-700 space-y-2">
+                {% for o in all_opportunities %}
+                <li class="border-l-2 border-emerald-300 pl-3">{{ o.detail }}</li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+
+        <footer class="text-center text-sm text-slate-400 py-6 border-t border-slate-200">
+            Powered by CTO Lens
+        </footer>
+        {% endif %}
+    </div>
+</body>
+</html>

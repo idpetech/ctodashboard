@@ -3,7 +3,7 @@ API Routes for CTO Dashboard
 Extracted from integrated_dashboard.py for clean separation
 """
 
-from flask import jsonify, render_template, request, send_from_directory
+from flask import Response, jsonify, render_template, request, send_from_directory
 import os
 import json
 import time
@@ -29,6 +29,8 @@ from services.auth.auth_middleware import create_auth_decorators, get_current_us
 from services.data_export_service import DataExportService
 from services.data_import_service import DataImportService
 from services.portfolio_service import build_portfolio_overview
+from services.trial_guard import require_trial_write_access
+from services.trial_service import normalize_trial_fields, admin_trial_summary
 
 # Initialize logging
 logger = get_logger(__name__)
@@ -225,6 +227,34 @@ def collect_assignment_metrics(workspace_id: str, assignment_id: str, assignment
 def register_routes(app):
     """Register all routes with the Flask app"""
     
+    @app.route("/r/<share_token>")
+    def public_shared_report(share_token):
+        """Public read-only executive report (no login)."""
+        try:
+            from services.report_share_service import (
+                build_report_template_context,
+                get_share_report,
+            )
+            from services.security.secure_database import secure_db
+
+            report, err = get_share_report(
+                secure_db,
+                share_token,
+                user_agent=request.headers.get("User-Agent", ""),
+                record_view=True,
+            )
+            if err:
+                return render_template("report_share.html", error=err), 404
+
+            ctx = build_report_template_context(report)
+            return render_template("report_share.html", error=None, **ctx)
+        except Exception as e:
+            logger.exception("Public report view failed")
+            return render_template(
+                "report_share.html",
+                error="Unable to load this report right now.",
+            ), 500
+
     @app.route("/dashboard")
     def dashboard():
         """Main dashboard page - moved from root to /dashboard"""
@@ -892,8 +922,46 @@ def register_routes(app):
         if current_user.get("role") != "admin":
             return jsonify({"error": "Admin access required"}), 403
         
-        users = get_user_service().list_users()
+        users = []
+        for row in get_user_service().list_users():
+            full = get_user_service().get_user_by_email(row.get("email"))
+            if full:
+                users.append(admin_trial_summary(full))
+            else:
+                users.append(row)
         return jsonify({"users": users})
+
+    @app.route("/api/auth/users/<user_email>/trial", methods=["PATCH"])
+    @get_require_auth()
+    def admin_update_user_trial(user_email):
+        """Update trial status for a user (admin only)."""
+        current_user = get_current_user()
+        if current_user.get("role") != "admin":
+            return jsonify({"error": "Admin access required"}), 403
+
+        data = request.get_json() or {}
+        result = get_user_service().set_user_trial(
+            user_email,
+            trial_status=data.get("trial_status"),
+            trial_end_date=data.get("trial_end_date"),
+            extend_days=data.get("extend_days"),
+        )
+        if result.get("success"):
+            return jsonify(result)
+        return jsonify(result), 400
+
+    @app.route("/api/auth/trial", methods=["GET"])
+    @get_require_auth()
+    def get_trial_status():
+        """Current user's trial status for dashboard banner and UI."""
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({"error": "Authentication required"}), 401
+        full = get_user_service().get_user_by_email(current_user.get("email"))
+        if not full:
+            return jsonify({"error": "User not found"}), 404
+        trial = normalize_trial_fields(full)
+        return jsonify(trial)
     
     @app.route("/api/auth/users/<user_email>/workspaces", methods=["POST"])
     @get_require_auth()
@@ -1074,6 +1142,9 @@ def register_routes(app):
             return jsonify(result)
         
         elif request.method == "POST":
+            denied = require_trial_write_access()
+            if denied:
+                return denied
             # Add assignment to workspace
             data = request.get_json()
             if not data:
@@ -1261,6 +1332,9 @@ def register_routes(app):
     
     @app.route("/api/workspaces/<workspace_id>/assignments/from-template", methods=["POST"])
     def create_assignment_from_template(workspace_id):
+        denied = require_trial_write_access()
+        if denied:
+            return denied
         """Create assignment using connector templates"""
         data = request.get_json()
         if not data:
@@ -1470,6 +1544,9 @@ def register_routes(app):
     @get_require_workspace_access()
     def import_workspace_data(workspace_id):
         """Enhanced import workspace data - Phase 2 Implementation with backward compatibility"""
+        denied = require_trial_write_access()
+        if denied:
+            return denied
         try:
             data = request.get_json()
             if not data:
@@ -1500,6 +1577,9 @@ def register_routes(app):
 
         Feature-flagged via ENABLE_CSV_IMPORT (default off).
         """
+        denied = require_trial_write_access()
+        if denied:
+            return denied
         if not os.getenv("ENABLE_CSV_IMPORT", "false").lower() == "true":
             return jsonify({"error": "CSV/Excel import is disabled"}), 403
 
@@ -1568,6 +1648,96 @@ def register_routes(app):
         except Exception as e:
             logger.exception("Failed to load attention briefing")
             return jsonify({"error": f"Failed to load briefing: {str(e)}"}), 500
+
+    @app.route("/api/workspaces/<workspace_id>/attention/briefing/share", methods=["POST"])
+    @get_require_workspace_access()
+    def create_attention_briefing_share(workspace_id):
+        """Create a shareable read-only report link."""
+        if not os.getenv("ENABLE_ATTENTION_ENGINE", "false").lower() == "true":
+            return jsonify({"error": "Attention engine is disabled"}), 403
+
+        try:
+            from services.report_share_service import create_share_link, list_share_links
+            from services.security.secure_database import secure_db
+
+            body = request.get_json(silent=True) or {}
+            expires_in_days = body.get("expires_in_days", 30)
+            base = request.host_url.rstrip("/")
+
+            result = create_share_link(
+                secure_db,
+                workspace_id,
+                expires_in_days=expires_in_days,
+                request_base_url=base,
+            )
+            result["existing_links"] = list_share_links(secure_db, workspace_id)
+            return jsonify(result)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 404
+        except Exception as e:
+            logger.exception("Share link creation failed")
+            return jsonify({"error": f"Share link failed: {str(e)}"}), 500
+
+    @app.route("/api/workspaces/<workspace_id>/attention/briefing/shares", methods=["GET"])
+    @get_require_workspace_access()
+    def list_attention_briefing_shares(workspace_id):
+        """List share links and view counts for a workspace."""
+        if not os.getenv("ENABLE_ATTENTION_ENGINE", "false").lower() == "true":
+            return jsonify({"error": "Attention engine is disabled"}), 403
+
+        try:
+            from services.report_share_service import list_share_links
+            from services.security.secure_database import secure_db
+
+            return jsonify({"shares": list_share_links(secure_db, workspace_id)})
+        except Exception as e:
+            logger.exception("List share links failed")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/workspaces/<workspace_id>/attention/briefing/export", methods=["GET"])
+    @get_require_workspace_access()
+    def export_attention_briefing_pdf(workspace_id):
+        """Export stored CTO briefing as a PDF (reuses briefing + portfolio data)."""
+        if not os.getenv("ENABLE_ATTENTION_ENGINE", "false").lower() == "true":
+            return jsonify({"error": "Attention engine is disabled"}), 403
+
+        try:
+            from services.attention_engine import get_stored_briefing
+            from services.briefing_pdf_service import generate_briefing_pdf
+            from services.security.secure_database import secure_db
+
+            briefing = get_stored_briefing(secure_db, workspace_id)
+            if not briefing:
+                return jsonify({
+                    "error": "No briefing available",
+                    "message": "Generate a briefing first (import data or refresh).",
+                }), 404
+
+            assignments = secure_db.get_workspace_assignments(workspace_id) or []
+            portfolio = build_portfolio_overview(assignments)
+            ws = secure_db.get_workspace(workspace_id) or {}
+            portfolio_name = ws.get("name") or workspace_id
+
+            pdf_bytes = generate_briefing_pdf(portfolio_name, briefing, portfolio)
+
+            safe_slug = "".join(
+                c if c.isalnum() or c in "-_" else "-"
+                for c in portfolio_name.replace(" ", "-")
+            ).strip("-") or "portfolio"
+            date_part = datetime.utcnow().strftime("%Y-%m-%d")
+            filename = f"CTO-Briefing-{safe_slug}-{date_part}.pdf"
+
+            return Response(
+                pdf_bytes,
+                mimetype="application/pdf",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename}"',
+                    "Cache-Control": "no-store",
+                },
+            )
+        except Exception as e:
+            logger.exception("Briefing PDF export failed")
+            return jsonify({"error": f"PDF export failed: {str(e)}"}), 500
 
     @app.route("/api/workspaces/<workspace_id>/attention/refresh", methods=["POST"])
     @get_require_workspace_access()

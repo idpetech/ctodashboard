@@ -54,18 +54,10 @@ class SecureUserService:
         salt = secrets.token_urlsafe(32)
         password_hash = self._hash_password(password, salt)
 
-        # New signups default to the Free plan with a time-boxed trial.
-        # FREE_TRIAL_DAYS sets the window (default 7). Enforcement of the
-        # limit (the access guardrail) is handled separately; here we only
-        # stamp the account so that logic has something to read.
-        trial_days = int(os.getenv("FREE_TRIAL_DAYS", "7"))
+        from services.trial_service import trial_prefs_for_new_user
+
         _now = datetime.utcnow()
-        trial_info = {
-            "plan": "free",
-            "trial_days": trial_days,
-            "started_at": _now.isoformat(),
-            "expires_at": (_now + timedelta(days=trial_days)).isoformat(),
-        }
+        trial_prefs = trial_prefs_for_new_user(_now)
         user_data = {
             "email": email,
             "display_name": display_name or email.split("@")[0],
@@ -77,8 +69,7 @@ class SecureUserService:
             "preferences": {
                 "theme": "light",
                 "timezone": "UTC",
-                "plan": "free",
-                "trial": trial_info,
+                **trial_prefs,
             },
             "created_at": _now.isoformat(),
             "last_login": None,
@@ -275,9 +266,12 @@ class SecureUserService:
         return token if isinstance(token, str) else token.decode("utf-8")
 
     def get_user_profile(self, email: str) -> Dict[str, Any]:
+        from services.trial_service import normalize_trial_fields
+
         user_data = self._load_user_from_secure_db(email)
         if not user_data:
             return {"success": False, "error": "User not found"}
+        trial = normalize_trial_fields(user_data)
         return {
             "success": True,
             "user": {
@@ -287,7 +281,54 @@ class SecureUserService:
                 "role": user_data.get("role", "user"),
                 "preferences": user_data.get("preferences", {}),
                 "created_at": user_data.get("created_at"),
+                "trial": trial,
             },
+        }
+
+    def set_user_trial(
+        self,
+        email: str,
+        *,
+        trial_status: Optional[str] = None,
+        trial_end_date: Optional[str] = None,
+        extend_days: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Admin: mark paid, extend trial, or set explicit end date."""
+        user_data = self._load_user_from_secure_db(email)
+        if not user_data:
+            return {"success": False, "error": "User not found"}
+
+        prefs = user_data.setdefault("preferences", {})
+        if trial_status == "paid":
+            prefs["trial_status"] = "paid"
+            prefs["plan"] = "paid"
+        elif trial_status:
+            prefs["trial_status"] = trial_status
+
+        if trial_end_date:
+            prefs["trial_end_date"] = trial_end_date
+            legacy = prefs.setdefault("trial", {})
+            legacy["expires_at"] = trial_end_date
+        elif extend_days is not None:
+            from services.trial_service import _parse_dt, normalize_trial_fields
+
+            info = normalize_trial_fields(user_data)
+            end = _parse_dt(info.get("trial_end_date")) or datetime.utcnow()
+            new_end = end + timedelta(days=int(extend_days))
+            prefs["trial_end_date"] = new_end.isoformat()
+            prefs.setdefault("trial", {})["expires_at"] = new_end.isoformat()
+
+        user_data["updated_at"] = datetime.utcnow().isoformat()
+        audit_info = self._get_audit_info()
+        audit_info["user_email"] = email
+        if not self.secure_db.store_user_credentials(email, user_data, audit_info):
+            return {"success": False, "error": "Failed to update trial"}
+
+        from services.trial_service import normalize_trial_fields
+
+        return {
+            "success": True,
+            "trial": normalize_trial_fields(user_data),
         }
 
     def get_user_workspaces(self, user_email: str) -> Dict[str, Any]:
