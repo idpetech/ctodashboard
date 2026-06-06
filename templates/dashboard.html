@@ -2815,83 +2815,112 @@
                 const ch = (data && data.connector_health) || {};
                 const ac = (data && data.attention_center) || {};
                 const summary = (data && data.summary) || {};
-                const tips = [];
-
-                tips.push(
+                const intro =
                     'Overall score averages Financial, Connectors, and Delivery (each 0–100). ' +
-                    'Bands: 80+ healthy, 60–79 at risk, below 60 critical.'
-                );
+                    'Bands: 80+ healthy, 60–79 at risk, below 60 critical.';
+                const componentTips = [];
+                const drivers = [];
 
-                if (comps.financial == null) {
-                    tips.push('Financial — not included: no assignments have a target monthly burn set.');
-                } else if (comps.financial >= 80) {
-                    tips.push('Financial ' + comps.financial + '/100 — portfolio spend is on track vs targets.');
-                } else {
-                    const pct = bv.portfolio_variance_pct;
-                    if (pct != null && pct > 20) {
-                        tips.push(
-                            'Financial ' + comps.financial + '/100 — portfolio is ' + pct +
-                            '% over total budget target (large overrun). Update targets or reduce burn.'
-                        );
-                    } else if (pct != null && pct > 10) {
-                        tips.push(
-                            'Financial ' + comps.financial + '/100 — portfolio is ' + pct +
-                            '% over total budget target. Review assignments over budget.'
-                        );
-                    } else if (pct != null && pct > 5) {
-                        tips.push(
-                            'Financial ' + comps.financial + '/100 — portfolio is slightly (' + pct +
-                            '%) over combined targets.'
-                        );
-                    } else {
-                        tips.push('Financial ' + comps.financial + '/100 — budget variance is lowering this component.');
+                function addComponent(label, score, okMsg, lowMsg) {
+                    const line = label + ' ' + score + '/100 — ' + (score >= 80 ? okMsg : lowMsg);
+                    componentTips.push(line);
+                    if (score != null && score < 80) {
+                        drivers.push(line);
                     }
                 }
 
+                if (comps.financial == null) {
+                    componentTips.push('Financial — not included: no assignments have a target monthly burn set.');
+                } else if (comps.financial >= 80) {
+                    addComponent(
+                        'Financial',
+                        comps.financial,
+                        'portfolio spend is on track vs targets.',
+                        'budget variance is lowering this component.'
+                    );
+                } else {
+                    const pct = bv.portfolio_variance_pct;
+                    let lowMsg = 'budget variance is lowering this component.';
+                    if (pct != null && pct > 20) {
+                        lowMsg = 'portfolio is ' + pct + '% over total budget target (large overrun). Update targets or reduce burn.';
+                    } else if (pct != null && pct > 10) {
+                        lowMsg = 'portfolio is ' + pct + '% over total budget target. Review assignments over budget.';
+                    } else if (pct != null && pct > 5) {
+                        lowMsg = 'portfolio is slightly (' + pct + '%) over combined targets.';
+                    }
+                    addComponent('Financial', comps.financial, '', lowMsg);
+                }
+
                 if (comps.connector == null) {
-                    tips.push('Connectors — not included: no connectors are enabled on active assignments.');
+                    componentTips.push('Connectors — not included: no connectors are enabled on active assignments.');
                 } else if (comps.connector >= 80) {
-                    tips.push('Connectors ' + comps.connector + '/100 — enabled integrations have credentials configured.');
+                    addComponent(
+                        'Connectors',
+                        comps.connector,
+                        'enabled integrations have credentials configured.',
+                        'some enabled connectors still need credentials.'
+                    );
                 } else {
                     const ready = ch.readiness_pct;
                     const missing = (ch.total_enabled || 0) - (ch.total_ready || 0);
-                    tips.push(
-                        'Connectors ' + comps.connector + '/100 — only ' + (ready != null ? ready : comps.connector) +
+                    addComponent(
+                        'Connectors',
+                        comps.connector,
+                        '',
+                        'only ' + (ready != null ? ready : comps.connector) +
                         '% of enabled connectors are fully configured' +
                         (missing > 0 ? ' (' + missing + ' need credentials).' : '.')
                     );
                 }
 
                 const active = summary.active_assignments || 0;
-                const flagged = new Set();
-                (ac.items || []).forEach(function(it) {
-                    if (it.assignment_id) flagged.add(it.assignment_id);
+                const deliveryItems = (ac.items || []).filter(function(it) {
+                    return it.type === 'budget_overrun' || it.type === 'missing_target';
                 });
+                const deliveryFlagged = new Set();
+                deliveryItems.forEach(function(it) {
+                    if (it.assignment_id) deliveryFlagged.add(it.assignment_id);
+                });
+
                 if (comps.delivery == null || active === 0) {
-                    tips.push('Delivery — not included: no active assignments.');
+                    componentTips.push('Delivery — not included: no active assignments.');
                 } else if (comps.delivery >= 80) {
-                    tips.push('Delivery ' + comps.delivery + '/100 — most assignments have no open attention flags.');
-                } else {
-                    tips.push(
-                        'Delivery ' + comps.delivery + '/100 — ' + flagged.size + ' of ' + active +
-                        ' assignment(s) have attention flags (budget overrun, missing connector creds, or missing target).'
+                    addComponent(
+                        'Delivery',
+                        comps.delivery,
+                        'no budget or target gaps flagged on assignments.',
+                        'budget or target gaps are flagged on some assignments.'
                     );
-                    (ac.items || []).slice(0, 3).forEach(function(it) {
-                        if (it.message) {
-                            tips.push('• ' + it.message);
-                        }
+                } else {
+                    let lowMsg = deliveryFlagged.size + ' of ' + active +
+                        ' assignment(s) have budget or target gaps.';
+                    deliveryItems.slice(0, 3).forEach(function(it) {
+                        if (it.message) lowMsg += ' ' + it.message;
                     });
+                    addComponent('Delivery', comps.delivery, '', lowMsg);
                 }
 
-                return tips;
+                const scoreParts = [];
+                if (comps.financial != null) scoreParts.push('Financial (' + comps.financial + ')');
+                if (comps.connector != null) scoreParts.push('Connectors (' + comps.connector + ')');
+                if (comps.delivery != null) scoreParts.push('Delivery (' + comps.delivery + ')');
+                const formula = scoreParts.length
+                    ? 'Average of ' + scoreParts.join(', ') +
+                      (h.overall_score != null ? ' → ' + h.overall_score + '/100' : '')
+                    : '';
+
+                return { intro: intro, components: componentTips, drivers: drivers, formula: formula };
             }
 
             function renderHealthScoreHelpIcon(data) {
                 const tips = buildHealthScoreTips(data);
-                const tipItems = tips.map(function(t) {
+                const allLines = [tips.intro].concat(tips.components);
+                const tipItems = allLines.map(function(t) {
                     return '<li class="mb-1 leading-snug">' + _pfEscapeHtml(t) + '</li>';
                 }).join('');
-                const titleFallback = tips.slice(1, 3).join(' ');
+                const titleFallback = tips.drivers.length
+                    ? tips.drivers.slice(0, 2).join(' ')
+                    : tips.formula;
                 return (
                     '<span class="relative inline-flex align-middle group" onclick="event.stopPropagation()">' +
                     '<button type="button" class="w-5 h-5 rounded-full bg-white/80 border border-current text-[10px] font-bold leading-none ' +
@@ -2936,15 +2965,22 @@
                     if (comps.length) html += '<div class="text-xs text-gray-500">Breakdown: ' + comps.join(' \u00B7 ') + '</div>';
                 }
                 if (h.overall_score != null && h.overall_score < 80) {
-                    const lowTips = buildHealthScoreTips(data).slice(1, 4);
+                    const tipData = buildHealthScoreTips(data);
                     html += '<div class="mt-3 text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg p-3">';
-                    html += '<span class="font-semibold">Why it\u2019s below 80:</span><ul class="mt-1 list-disc ml-4 space-y-0.5">';
-                    lowTips.forEach(function(t) {
-                        if (!t.startsWith('Overall score')) {
+                    html += '<span class="font-semibold">Why it\u2019s below 80:</span>';
+                    if (tipData.formula) {
+                        html += '<p class="mt-1 text-amber-800">' + _pfEscapeHtml(tipData.formula) + '</p>';
+                    }
+                    if (tipData.drivers.length) {
+                        html += '<ul class="mt-1 list-disc ml-4 space-y-0.5">';
+                        tipData.drivers.forEach(function(t) {
                             html += '<li>' + _pfEscapeHtml(t) + '</li>';
-                        }
-                    });
-                    html += '</ul><span class="text-amber-700">Hover <strong>?</strong> on Health Score for full detail.</span></div>';
+                        });
+                        html += '</ul>';
+                    } else {
+                        html += '<p class="mt-1 text-amber-800">Component scores are mixed; see breakdown above.</p>';
+                    }
+                    html += '<span class="text-amber-700 block mt-1">Hover <strong>?</strong> on Health Score for full detail.</span></div>';
                 }
                 if (trends) {
                     html += '<div class="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-3">';

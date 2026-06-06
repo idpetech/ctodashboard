@@ -261,10 +261,18 @@ def portfolio_health_score(
     readiness = connectors.get("readiness_pct")
     components["connector"] = int(round(readiness)) if readiness is not None else None
 
-    # Delivery: share of active assignments with no open attention item.
+    # Delivery: share of active assignments without budget/target attention flags.
+    # Connector credential gaps are already reflected in the connector component —
+    # do not double-penalize them here.
+    _DELIVERY_ATTENTION_TYPES = frozenset({"budget_overrun", "missing_target"})
     if active_count > 0:
         flagged = len(
-            {item["assignment_id"] for item in attention.get("items", []) if item.get("assignment_id")}
+            {
+                item["assignment_id"]
+                for item in attention.get("items", [])
+                if item.get("assignment_id")
+                and item.get("type") in _DELIVERY_ATTENTION_TYPES
+            }
         )
         delivery = max(0, round(((active_count - flagged) / active_count) * 100))
         components["delivery"] = int(delivery)
