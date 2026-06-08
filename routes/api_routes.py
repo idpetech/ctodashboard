@@ -13,7 +13,7 @@ from config.logging_config import get_logger, log_api_request
 from services.service_manager import ServiceManager
 from services.embedded.aws_metrics import EmbeddedAWSMetrics
 from services.embedded.github_metrics import EmbeddedGitHubMetrics
-from services.embedded.jira_metrics import EmbeddedJiraMetrics
+from services.embedded.jira_metrics import EmbeddedJiraMetrics, normalize_jira_base_url, test_jira_connection
 from services.embedded.railway_metrics import RailwayMetrics
 from connectors.registry import ConnectorRegistry
 from services.chatbot_service import (
@@ -1610,6 +1610,15 @@ def register_routes(app):
             
             if not assignment_id:
                 return jsonify({"error": "Assignment ID is required"}), 400
+
+            if connector_type == "jira":
+                credentials = dict(credentials)
+                if credentials.get("jira_url"):
+                    credentials["jira_url"] = normalize_jira_base_url(credentials["jira_url"])
+                if credentials.get("jira_email"):
+                    credentials["jira_email"] = credentials["jira_email"].strip()
+                if credentials.get("jira_token"):
+                    credentials["jira_token"] = credentials["jira_token"].strip()
             
             # Basic validation - just check required fields are present
             validation_result = _basic_validate_credentials(connector_type, credentials)
@@ -2124,61 +2133,11 @@ def register_routes(app):
     
     def _validate_jira_credentials(credentials):
         """Test Jira credentials"""
-        token = credentials.get("jira_token")
-        email = credentials.get("jira_email")
-        url = credentials.get("jira_url")
-        
-        if not token:
-            return {"valid": False, "error": "Jira token is required"}
-        if not email:
-            return {"valid": False, "error": "Jira email is required"}
-        if not url:
-            return {"valid": False, "error": "Jira URL is required"}
-        
-        try:
-            import requests
-            import base64
-            
-            # Clean URL with validation
-            jira_url = url.strip().rstrip("/")
-            if not jira_url.startswith("http"):
-                jira_url = f"https://{jira_url}"
-            
-            # Validate URL format
-            if not (".atlassian.net" in jira_url or jira_url.startswith("https://") or jira_url.startswith("http://")):
-                return {"valid": False, "error": "Invalid Jira URL format - should be like 'company.atlassian.net'"}
-            
-            # Test API connection
-            auth_string = base64.b64encode(f"{email}:{token}".encode()).decode()
-            headers = {
-                "Authorization": f"Basic {auth_string}",
-                "Content-Type": "application/json"
-            }
-            
-            response = requests.get(f"{jira_url}/rest/api/3/myself", headers=headers, timeout=10)
-            
-            if response.status_code == 200:
-                user_data = response.json()
-                return {
-                    "valid": True,
-                    "user": user_data.get("emailAddress"),
-                    "displayName": user_data.get("displayName"),
-                    "accountId": user_data.get("accountId")
-                }
-            elif response.status_code == 401:
-                return {"valid": False, "error": "Invalid Jira email/token combination"}
-            elif response.status_code == 403:
-                return {"valid": False, "error": "Jira token lacks required permissions"}
-            elif response.status_code == 404:
-                return {"valid": False, "error": "Jira URL not found - check the domain"}
-            else:
-                return {"valid": False, "error": f"Jira API error: {response.status_code}"}
-        except requests.exceptions.ConnectionError:
-            return {"valid": False, "error": "Cannot connect to Jira - check URL and internet connection"}
-        except requests.exceptions.Timeout:
-            return {"valid": False, "error": "Jira API request timed out"}
-        except Exception as e:
-            return {"valid": False, "error": f"Jira connection failed: {str(e)}"}
+        return test_jira_connection(
+            credentials.get("jira_url"),
+            credentials.get("jira_email"),
+            credentials.get("jira_token"),
+        )
     
     def _validate_aws_credentials(credentials):
         """Test AWS credentials"""
