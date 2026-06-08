@@ -3,6 +3,8 @@ Attention Engine — deterministic CTO-level briefing from workspace data.
 
 Rule-based, no external APIs, no randomness. Works with partial data.
 Reuses portfolio_service computations where applicable.
+
+Architecture map: docs/CTO-BRIEFING-FLOW.md (read before changing briefing flow).
 """
 
 from __future__ import annotations

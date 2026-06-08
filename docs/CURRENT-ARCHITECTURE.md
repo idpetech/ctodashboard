@@ -1,8 +1,26 @@
 # CTO Dashboard — Current Architecture (source of truth)
 
-**Last updated:** 2026-06-04  
+**Last updated:** 2026-06-06  
 **Git baseline:** `origin/master` @ `322a4da` and later  
 **Read this first.** It overrides stale bullets in root `CLAUDE.md` (InsightVault rules) and outdated sections in `.cursorrules`.
+
+---
+
+## CTO Briefing (Daily Brief)
+
+Feature-flagged via `ENABLE_ATTENTION_ENGINE` (+ `ENABLE_PORTFOLIO_DASHBOARD` for live panels).
+
+**Full flow map:** [`docs/CTO-BRIEFING-FLOW.md`](CTO-BRIEFING-FLOW.md) — read before changing briefing, attention, or Overview panels.
+
+| Layer | Module |
+|--------|--------|
+| Scoring | `services/portfolio_service.py` |
+| Briefing build | `services/attention_engine.py` |
+| Executive copy | `services/executive_language.py` |
+| Storage | `workspace.settings.attention_briefing` (Postgres JSONB) |
+| API | `routes/api_routes.py` `/attention/*`, `/api/portfolio/summary` |
+| UI | `templates/dashboard.html` Overview panels |
+
 
 ---
 
