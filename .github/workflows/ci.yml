@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [master, staging]
+  pull_request:
+    branches: [master, staging]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: .
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      ENABLE_CTOLENS_BRIEFING: "true"
+      ENABLE_SIGNAL_ENGINE: "true"
+      ENABLE_RECOMMENDATION_ENGINE: "true"
+      ENABLE_AI_EXECUTIVE_BRIEFING: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Smoke tests (production baseline)
+        run: pytest tests/test_smoke.py -q
+
+      - name: Full test suite (staging and PRs)
+        if: github.ref == 'refs/heads/staging' || github.event_name == 'pull_request'
+        run: pytest tests/ -q
