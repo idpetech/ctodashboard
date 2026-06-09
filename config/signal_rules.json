@@ -1,0 +1,144 @@
+{
+  "version": "1.0",
+  "description": "CTOLens Signal Engine rule thresholds. Risk rules in services/signals/evaluators.py; opportunity rules in services/signals/opportunity_evaluators.py.",
+  "rules": {
+    "OVER_BUDGET": {
+      "enabled": true,
+      "warn_threshold_pct": 10.0,
+      "critical_threshold_pct": 20.0,
+      "confidence": 0.95
+    },
+    "UNDER_BUDGET": {
+      "enabled": true,
+      "min_under_pct": 15.0,
+      "confidence": 0.9
+    },
+    "COST_SPIKE": {
+      "enabled": true,
+      "spike_threshold_pct": 25.0,
+      "confidence": 0.85
+    },
+    "NO_COMMITS_7_DAYS": {
+      "enabled": true,
+      "confidence": 0.9
+    },
+    "NO_COMMITS_14_DAYS": {
+      "enabled": true,
+      "confidence": 0.92
+    },
+    "VELOCITY_DROP": {
+      "enabled": true,
+      "drop_threshold_pct": 40.0,
+      "confidence": 0.85
+    },
+    "NO_JIRA_ACTIVITY": {
+      "enabled": true,
+      "lookback_days": 7,
+      "confidence": 0.9
+    },
+    "CONNECTOR_FAILURE": {
+      "enabled": true,
+      "confidence": 0.95
+    },
+    "STALE_DATA": {
+      "enabled": true,
+      "stale_hours": 48,
+      "confidence": 0.88
+    },
+    "MISSING_OWNER": {
+      "enabled": true,
+      "confidence": 0.99
+    },
+    "UNUSED_CAPACITY": {
+      "enabled": true,
+      "min_under_pct": 20.0,
+      "min_team_size": 2,
+      "confidence": 0.8
+    },
+    "RESOURCE_IMBALANCE": {
+      "enabled": true,
+      "imbalance_ratio": 2.5,
+      "min_team_size": 3,
+      "confidence": 0.82
+    },
+    "HIGH_PERFORMING_PROJECT": {
+      "enabled": true,
+      "min_under_pct": 10.0,
+      "min_commits_7d": 5,
+      "confidence": 0.78
+    },
+    "SLOW_DELIVERY_TREND": {
+      "enabled": true,
+      "min_drop_pct": 15.0,
+      "max_drop_pct": 40.0,
+      "confidence": 0.76
+    },
+    "BLOCKED_WORK_INCREASE": {
+      "enabled": true,
+      "min_increase_count": 2,
+      "confidence": 0.8
+    },
+    "PR_REVIEW_BOTTLENECK": {
+      "enabled": true,
+      "wait_hours_threshold": 24.0,
+      "min_open_prs": 2,
+      "confidence": 0.79
+    },
+    "HIGH_REOPEN_RATE": {
+      "enabled": true,
+      "reopen_rate_threshold_pct": 20.0,
+      "min_closed_issues_7d": 5,
+      "confidence": 0.77
+    },
+    "BUILD_FAILURE_TREND": {
+      "enabled": true,
+      "min_increase_count": 2,
+      "confidence": 0.81
+    },
+    "RELEASE_INSTABILITY": {
+      "enabled": true,
+      "failure_rate_threshold_pct": 25.0,
+      "min_release_count_7d": 2,
+      "confidence": 0.8
+    },
+    "DEPENDENCY_CONCENTRATION": {
+      "enabled": true,
+      "top_share_threshold_pct": 70.0,
+      "min_team_size": 2,
+      "confidence": 0.74
+    },
+    "HIGH_SERVICE_COUPLING": {
+      "enabled": true,
+      "min_connectors": 4,
+      "min_service_count": 4,
+      "confidence": 0.73
+    },
+    "TECH_DEBT_ACCUMULATION": {
+      "enabled": true,
+      "min_jira_issues_7d": 5,
+      "max_commits_7d": 2,
+      "min_issue_to_commit_ratio": 3.0,
+      "confidence": 0.78
+    },
+    "LOW_THROUGHPUT_PROJECT": {
+      "enabled": true,
+      "min_under_pct": 10.0,
+      "min_team_size": 2,
+      "max_commits_per_person_7d": 1.5,
+      "confidence": 0.75
+    },
+    "STALLED_PROJECT": {
+      "enabled": true,
+      "min_under_pct": 10.0,
+      "min_team_size": 2,
+      "confidence": 0.77
+    },
+    "MOMENTUM_ACCELERATION": {
+      "enabled": true,
+      "min_increase_pct": 25.0,
+      "min_prior_commits": 2,
+      "min_last_commits": 3,
+      "confidence": 0.76
+    }
+  }
+}

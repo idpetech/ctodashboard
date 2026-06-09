@@ -14,6 +14,10 @@ FEATURE_FLAGS = {
     "portfolio_dashboard": os.getenv("ENABLE_PORTFOLIO_DASHBOARD", "false").lower() == "true",
     "csv_import": os.getenv("ENABLE_CSV_IMPORT", "false").lower() == "true",
     "attention_engine": os.getenv("ENABLE_ATTENTION_ENGINE", "false").lower() == "true",
+    "ctolens_briefing": os.getenv("ENABLE_CTOLENS_BRIEFING", "false").lower() == "true",
+    "signal_engine": os.getenv("ENABLE_SIGNAL_ENGINE", "false").lower() == "true",
+    "recommendation_engine": os.getenv("ENABLE_RECOMMENDATION_ENGINE", "false").lower() == "true",
+    "ai_executive_briefing": os.getenv("ENABLE_AI_EXECUTIVE_BRIEFING", "false").lower() == "true",
 }
 
 class ServiceManager:

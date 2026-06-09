@@ -2743,7 +2743,8 @@
                 html += '<div class="cursor-pointer p-4 flex items-center justify-between hover:bg-gray-50 border-b border-gray-100" onclick="toggleSection(\'' + bodyId + '\')">';
                 html += '<div class="min-w-0 flex-1"><h3 class="text-lg font-bold text-gray-800">' + title + '</h3>';
                 if (subtitle) {
-                    html += '<p class="text-sm text-gray-500 mt-0.5 truncate">' + subtitle + '</p>';
+                    html += '<p class="text-sm text-gray-500 mt-0.5 truncate' +
+                        (key === 'briefing' ? '" id="overview-briefing-subtitle"' : '"') + '>' + subtitle + '</p>';
                 }
                 html += '</div>';
                 html += '<div class="flex items-center gap-2 shrink-0 ml-3" onclick="event.stopPropagation()">';
@@ -2756,7 +2757,23 @@
                 return html;
             }
 
-            function collectAttentionItems(portfolioData, briefingData) {
+            function collectAttentionItems(portfolioData, briefingData, ctolensMode) {
+                const briefing = briefingData && briefingData.briefing;
+
+                if (ctolensMode && briefing && Array.isArray(briefing.signals)) {
+                    return briefing.signals
+                        .filter(function(s) {
+                            return s.severity === 'critical' || s.severity === 'warning';
+                        })
+                        .slice(0, 12)
+                        .map(function(s) {
+                            return {
+                                severity: s.severity,
+                                message: (s.project_name ? s.project_name + ': ' : '') + (s.description || s.title || s.signal_type)
+                            };
+                        });
+                }
+
                 // Prefer live portfolio attention (updates when assignments/budgets change).
                 const ac = portfolioData && portfolioData.attention_center;
                 if (ac && Array.isArray(ac.items)) {
@@ -2766,7 +2783,6 @@
                 }
 
                 // Fallback when portfolio dashboard is off but attention briefing exists.
-                const briefing = briefingData && briefingData.briefing;
                 if (briefing && briefing.founder_attention_items && briefing.founder_attention_items.length) {
                     return briefing.founder_attention_items.map(function(it) {
                         return { severity: it.severity, message: it.message };
@@ -3019,7 +3035,40 @@
                 return html;
             }
 
-            function renderBriefingPanelBody(briefing, emptyMessage) {
+            function renderBriefingStaleBanner(staleness) {
+                if (!staleness || !staleness.is_stale) return '';
+                let html = '<div class="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3">';
+                html += '<div class="text-sm text-amber-900"><span class="font-semibold">Briefing may be outdated.</span> ';
+                html += _pfEscapeHtml(staleness.reason || 'Portfolio data has changed since this briefing was generated.');
+                html += '</div>';
+                html += '<div class="flex flex-wrap gap-2 shrink-0">';
+                html += '<button type="button" onclick="refreshAttentionBriefing()" class="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700">Update briefing</button>';
+                html += '<button type="button" onclick="refreshAttentionBriefing(true)" class="text-xs text-indigo-700 hover:underline" title="Include live connector metrics (90+ seconds)">+ live metrics</button>';
+                html += '</div></div>';
+                return html;
+            }
+
+            function formatBriefingSubtitle(briefing, ctolensOn, staleness) {
+                let subtitle = 'Executive narrative and signals';
+                if (ctolensOn && briefing && briefing.executive_briefing) {
+                    const summary = briefing.executive_briefing.executive_summary || '';
+                    subtitle = summary.length > 120 ? summary.slice(0, 117) + '...' : summary;
+                } else {
+                    const eb = briefing && briefing.executive_briefing;
+                    if (eb && eb.headline) {
+                        subtitle = eb.headline;
+                    }
+                }
+                if (staleness && staleness.is_stale) {
+                    subtitle += ' · may be outdated';
+                }
+                return subtitle || 'Executive narrative and signals';
+            }
+
+            function renderBriefingPanelBody(briefing, emptyMessage, ctolensMode, staleness) {
+                if (ctolensMode) {
+                    return renderCtolenBriefingPanelBody(briefing, emptyMessage, staleness);
+                }
                 if (!briefing) {
                     return '<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">' +
                         (emptyMessage || 'No briefing yet. Import data or click Refresh.') +
@@ -3061,6 +3110,178 @@
                     html += '<div class="text-xs text-gray-400 mt-3">Generated ' + new Date(briefing.generated_at).toLocaleString() + '</div>';
                 }
                 return html;
+            }
+
+            function renderExecutiveFocusBlock(focus) {
+                if (!focus || !focus.do_first) return '';
+                let html = '<section class="mb-5 bg-indigo-50 border border-indigo-200 rounded-lg p-4">';
+                html += '<h4 class="text-sm font-bold text-indigo-900 mb-3">Where To Spend The Next Hour</h4>';
+                html += '<dl class="space-y-2 text-sm">';
+                html += '<div><dt class="font-semibold text-gray-700">Biggest risk</dt><dd class="text-gray-800 mt-0.5">' + _pfEscapeHtml(focus.biggest_risk) + '</dd></div>';
+                html += '<div><dt class="font-semibold text-gray-700">Biggest opportunity</dt><dd class="text-gray-800 mt-0.5">' + _pfEscapeHtml(focus.biggest_opportunity) + '</dd></div>';
+                html += '<div><dt class="font-semibold text-gray-700">Do first</dt><dd class="text-gray-900 mt-0.5 font-medium">' + _pfEscapeHtml(focus.do_first) + '</dd></div>';
+                html += '<div><dt class="font-semibold text-gray-700">Why</dt><dd class="text-gray-700 mt-0.5">' + _pfEscapeHtml(focus.why_first_action) + '</dd></div>';
+                html += '<div><dt class="font-semibold text-gray-700">Confidence</dt><dd class="text-gray-700 mt-0.5">' + _pfEscapeHtml(focus.confidence_summary) + '</dd></div>';
+                html += '</dl></section>';
+                return html;
+            }
+
+            function renderCtolenBriefingPanelBody(briefing, emptyMessage, staleness) {
+                if (!briefing) {
+                    return '<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">' +
+                        (emptyMessage || 'Add assignments to generate your CTOLens briefing.') +
+                        '</div>';
+                }
+
+                const eb = briefing.executive_briefing || {};
+                let html = renderBriefingStaleBanner(staleness);
+                html += renderExecutiveFocusBlock(eb.executive_focus);
+
+                if (eb.executive_summary) {
+                    html += '<section class="mb-5"><h4 class="text-sm font-bold text-gray-800 mb-2">Executive Summary</h4>';
+                    html += '<p class="text-sm text-gray-700 bg-blue-50 border border-blue-100 rounded-lg p-3">' +
+                        _pfEscapeHtml(eb.executive_summary) + '</p></section>';
+                }
+
+                const risks = eb.top_risks || [];
+                html += '<section class="mb-5"><h4 class="text-sm font-bold text-red-700 mb-2">Top Risks (' + risks.length + ')</h4>';
+                if (!risks.length) {
+                    html += '<div class="text-xs text-green-700 bg-green-50 rounded p-2">No critical or warning risks in supplied signals.</div>';
+                } else {
+                    risks.forEach(function(r) {
+                        const c = _pfSeverityColor(r.severity || 'warning');
+                        html += '<div class="text-sm border-l-4 border-' + c + '-400 bg-' + c + '-50 px-3 py-2 mb-2 rounded-r">';
+                        html += '<span class="text-xs font-semibold uppercase text-' + c + '-700">' + _pfEscapeHtml(r.severity) + '</span> ';
+                        html += '<span class="font-medium text-gray-800">' + _pfEscapeHtml(r.project_name) + '</span>';
+                        html += '<div class="text-gray-700 mt-1">' + _pfEscapeHtml(r.summary) + '</div></div>';
+                    });
+                }
+                html += '</section>';
+
+                const opps = eb.opportunities || [];
+                html += '<section class="mb-5"><h4 class="text-sm font-bold text-green-700 mb-2">Opportunities (' + opps.length + ')</h4>';
+                if (!opps.length) {
+                    html += '<div class="text-xs text-gray-500 bg-gray-50 rounded p-2">None identified from supplied signals.</div>';
+                } else {
+                    opps.forEach(function(o) {
+                        html += '<div class="text-sm border-l-4 border-green-400 bg-green-50 px-3 py-2 mb-2 rounded-r">';
+                        html += '<span class="font-medium text-gray-800">' + _pfEscapeHtml(o.project_name) + '</span>';
+                        html += '<div class="text-gray-700 mt-1">' + _pfEscapeHtml(o.summary) + '</div></div>';
+                    });
+                }
+                html += '</section>';
+
+                const actions = eb.recommended_actions || [];
+                html += '<section class="mb-5"><h4 class="text-sm font-bold text-indigo-700 mb-2">Recommended Actions (' + actions.length + ')</h4>';
+                if (!actions.length) {
+                    html += '<div class="text-xs text-gray-500 bg-gray-50 rounded p-2">No recommendations from current signals.</div>';
+                } else {
+                    actions.forEach(function(a, idx) {
+                        const pc = a.priority === 'high' ? 'red' : (a.priority === 'medium' ? 'yellow' : 'gray');
+                        html += '<div class="border border-gray-200 rounded-lg p-3 mb-2 bg-white">';
+                        html += '<div class="flex items-start justify-between gap-2">';
+                        html += '<div class="min-w-0 flex-1">';
+                        html += '<div class="text-sm font-semibold text-gray-800">' + (idx + 1) + '. ' + _pfEscapeHtml(a.title) + '</div>';
+                        html += '<div class="text-xs text-gray-500 mt-0.5">' + _pfEscapeHtml(a.project_name) +
+                            ' \u2022 impact ' + a.impact_score + ' \u2022 ' + _pfEscapeHtml(a.priority) + '</div>';
+                        html += '<p class="text-sm text-gray-700 mt-1">' + _pfEscapeHtml(a.description) + '</p>';
+                        if (a.why) {
+                            html += '<p class="text-xs text-gray-600 mt-1"><span class="font-semibold">Why:</span> ' + _pfEscapeHtml(a.why) + '</p>';
+                        }
+                        if (a.source_signal_ids && a.source_signal_ids.length) {
+                            html += '<p class="text-xs text-gray-400 mt-0.5">Source: ' + _pfEscapeHtml(a.source_signal_ids.join(', ')) + '</p>';
+                        }
+                        html += '</div>';
+                        html += '<div class="flex flex-col gap-1 shrink-0">';
+                        html += '<button type="button" class="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700" ';
+                        html += 'data-rec-id="' + _pfEscapeHtml(a.recommendation_id) + '" data-rec-title="' + _pfEscapeHtml(a.title) + '" ';
+                        html += 'onclick="submitRecommendationFeedback(this.getAttribute(\'data-rec-id\'), this.getAttribute(\'data-rec-title\'), \'accepted\')">Accept</button>';
+                        html += '<button type="button" class="text-xs bg-gray-200 text-gray-800 px-2 py-1 rounded hover:bg-gray-300" ';
+                        html += 'data-rec-id="' + _pfEscapeHtml(a.recommendation_id) + '" data-rec-title="' + _pfEscapeHtml(a.title) + '" ';
+                        html += 'onclick="submitRecommendationFeedback(this.getAttribute(\'data-rec-id\'), this.getAttribute(\'data-rec-title\'), \'dismissed\')">Dismiss</button>';
+                        html += '</div></div></div>';
+                    });
+                }
+                html += '</section>';
+
+                const projects = eb.projects_requiring_attention || [];
+                html += '<section class="mb-5"><h4 class="text-sm font-bold text-amber-700 mb-2">Projects Requiring Attention (' + projects.length + ')</h4>';
+                if (!projects.length) {
+                    html += '<div class="text-xs text-green-700 bg-green-50 rounded p-2">No medium/high severity project signals.</div>';
+                } else {
+                    projects.forEach(function(p) {
+                        const c = _pfSeverityColor(p.highest_severity || 'warning');
+                        html += '<div class="border border-' + c + '-200 bg-' + c + '-50 rounded-lg p-3 mb-2">';
+                        html += '<div class="text-sm font-semibold text-gray-800">' + _pfEscapeHtml(p.project_name) +
+                            ' <span class="text-xs font-normal text-' + c + '-700">(' + p.signal_count + ' signal(s), ' +
+                            _pfEscapeHtml(p.highest_severity) + ')</span></div>';
+                        if (p.summaries && p.summaries.length) {
+                            html += '<ul class="text-xs text-gray-700 list-disc ml-4 mt-1">';
+                            p.summaries.forEach(function(s) {
+                                html += '<li>' + _pfEscapeHtml(s) + '</li>';
+                            });
+                            html += '</ul>';
+                        }
+                        html += '</div>';
+                    });
+                }
+                html += '</section>';
+
+                const conf = eb.confidence_assessment || {};
+                html += '<section class="mb-4"><h4 class="text-sm font-bold text-gray-800 mb-2">Confidence Assessment</h4>';
+                html += '<div class="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg p-3">';
+                html += '<div class="text-xs font-semibold uppercase text-gray-500 mb-1">Overall: ' + _pfEscapeHtml(conf.overall_level || 'unknown') + '</div>';
+                html += '<p>' + _pfEscapeHtml(conf.narrative || '') + '</p></div></section>';
+
+                const fb = briefing.feedback_summary || {};
+                const metaParts = [];
+                if (briefing.generated_at) {
+                    metaParts.push('Generated ' + new Date(briefing.generated_at).toLocaleString());
+                }
+                if (eb.generation_mode) {
+                    metaParts.push('Mode: ' + eb.generation_mode);
+                }
+                if (briefing.signals) {
+                    metaParts.push(briefing.signals.length + ' signal(s)');
+                }
+                if (fb.total) {
+                    metaParts.push('Feedback: ' + fb.accepted + ' accepted, ' + fb.dismissed + ' dismissed');
+                }
+                if (metaParts.length) {
+                    html += '<div class="text-xs text-gray-400 mt-2">' + metaParts.join(' \u2022 ') + '</div>';
+                }
+                return html;
+            }
+
+            async function submitRecommendationFeedback(recommendationId, title, status) {
+                if (!currentWorkspace || !recommendationId) return;
+                let reason = null;
+                if (status === 'dismissed') {
+                    reason = window.prompt('Reason for dismissing (optional):', '');
+                    if (reason === null) return;
+                    reason = reason.trim() || null;
+                }
+                try {
+                    const resp = await authFetch('/api/workspaces/' + encodeURIComponent(currentWorkspace) + '/ctolens/recommendations/feedback', {
+                        method: 'POST',
+                        headers: Object.assign({ 'Content-Type': 'application/json' }, getAuthHeaders()),
+                        body: JSON.stringify({
+                            recommendation_id: recommendationId,
+                            title: title,
+                            status: status,
+                            reason: reason
+                        })
+                    });
+                    if (!resp.ok) {
+                        const err = await resp.json().catch(function() { return {}; });
+                        throw new Error(err.error || ('HTTP ' + resp.status));
+                    }
+                    showNotification(status === 'accepted' ? 'Recommendation accepted' : 'Recommendation dismissed', 'success');
+                    await reloadBriefingPanelOnly();
+                } catch (e) {
+                    console.warn('Feedback failed:', e);
+                    showNotification('Could not save feedback: ' + e.message, 'error');
+                }
             }
 
             function renderPortfolioDetailsBody(data) {
@@ -3124,13 +3345,15 @@
                 return html;
             }
 
-            function renderOverviewPanelsLayout(portfolioData, briefingData, portfolioOn, attentionOn) {
+            function renderOverviewPanelsLayout(portfolioData, briefingData, portfolioOn, attentionOn, ctolensOn) {
                 let html = '';
-                const attentionItems = collectAttentionItems(portfolioData, briefingData);
+                const briefingStaleness = briefingData && briefingData.staleness;
+                const attentionItems = collectAttentionItems(portfolioData, briefingData, ctolensOn);
                 const attentionCount = attentionItems.length;
                 const attentionExpanded = attentionCount > 0;
+                const briefingOn = ctolensOn || attentionOn;
 
-                if (portfolioOn || attentionOn) {
+                if (portfolioOn || briefingOn) {
                     html += renderOverviewCollapsible(
                         'attention',
                         '\uD83D\uDEA8 Needs Attention' + (attentionCount ? ' (' + attentionCount + ')' : ''),
@@ -3144,7 +3367,13 @@
                     const briefing = briefingData && briefingData.briefing;
                     const h = portfolioData.health_score || {};
                     const band = (h.band || 'healthy').replace('_', ' ');
-                    const statusLabel = briefing && briefing.portfolio_status ? briefing.portfolio_status : band;
+                    let statusLabel = band;
+                    if (ctolensOn && briefing && briefing.executive_briefing) {
+                        const conf = briefing.executive_briefing.confidence_assessment || {};
+                        statusLabel = (conf.overall_level || band) + ' confidence';
+                    } else if (briefing && briefing.portfolio_status) {
+                        statusLabel = briefing.portfolio_status;
+                    }
                     html += renderOverviewCollapsible(
                         'health',
                         '\uD83E\uDDED Portfolio Health',
@@ -3163,19 +3392,19 @@
                     html += '<div class="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg mb-4">Portfolio dashboard unavailable: ' + portfolioData.error + '</div>';
                 }
 
-                if (attentionOn) {
+                if (briefingOn) {
                     const briefing = briefingData && briefingData.briefing;
-                    const eb = briefing && briefing.executive_briefing;
-                    const briefingSubtitle = (eb && eb.headline) ? eb.headline : 'Executive narrative and signals';
-                    const exportBtn = briefing
+                    const briefingSubtitle = formatBriefingSubtitle(briefing, ctolensOn, briefingStaleness);
+                    const exportBtn = briefingOn && (briefing || ctolensOn)
                         ? '<button type="button" id="briefing-share-btn" onclick="shareBriefingReport()" class="text-xs sm:text-sm bg-emerald-600 text-white px-2 sm:px-3 py-1.5 rounded-lg hover:bg-emerald-700 whitespace-nowrap">Share</button>'
                         + '<button type="button" id="briefing-export-pdf-btn" onclick="exportBriefingPdf()" class="text-xs sm:text-sm bg-blue-600 text-white px-2 sm:px-3 py-1.5 rounded-lg hover:bg-blue-700 whitespace-nowrap">PDF</button>'
                         : '';
+                    const briefingTitle = ctolensOn ? '\uD83C\uDFAF CTOLens Daily Briefing' : '\uD83C\uDFAF Daily CTO Briefing';
                     html += renderOverviewCollapsible(
                         'briefing',
-                        '\uD83C\uDFAF Daily CTO Briefing',
+                        briefingTitle,
                         briefingSubtitle,
-                        renderBriefingPanelBody(briefing, briefingData && briefingData.message),
+                        renderBriefingPanelBody(briefing, briefingData && briefingData.message, ctolensOn, briefingStaleness),
                         false,
                         exportBtn
                     );
@@ -3191,8 +3420,10 @@
                     const flagsResp = await fetch('/api/feature-flags');
                     const flags = await flagsResp.json();
                     const portfolioOn = flags && flags.portfolio_dashboard;
+                    const ctolensOn = flags && flags.ctolens_briefing;
                     const attentionOn = flags && flags.attention_engine;
-                    if (!portfolioOn && !attentionOn) {
+                    const briefingOn = ctolensOn || attentionOn;
+                    if (!portfolioOn && !briefingOn) {
                         root.innerHTML = '';
                         return;
                     }
@@ -3217,9 +3448,18 @@
                                 .then(function(d) { portfolioData = d; })
                         );
                     }
-                    if (attentionOn) {
+                    if (ctolensOn) {
                         tasks.push(
-                            authFetch('/api/workspaces/' + currentWorkspace + '/attention/briefing')
+                            authFetch('/api/workspaces/' + encodeURIComponent(currentWorkspace) + '/ctolens/briefing')
+                                .then(function(resp) {
+                                    if (resp.status === 403) return null;
+                                    return resp.json();
+                                })
+                                .then(function(d) { briefingData = d; })
+                        );
+                    } else if (attentionOn) {
+                        tasks.push(
+                            authFetch('/api/workspaces/' + encodeURIComponent(currentWorkspace) + '/attention/briefing')
                                 .then(function(resp) {
                                     if (resp.status === 403) return null;
                                     return resp.json();
@@ -3229,7 +3469,7 @@
                     }
                     await Promise.all(tasks);
 
-                    root.innerHTML = renderOverviewPanelsLayout(portfolioData, briefingData, portfolioOn, attentionOn);
+                    root.innerHTML = renderOverviewPanelsLayout(portfolioData, briefingData, portfolioOn, attentionOn, ctolensOn);
                 } catch (e) {
                     console.warn('Overview panels load failed:', e);
                     root.innerHTML = '';
@@ -4725,9 +4965,6 @@
                         setTimeout(async () => {
                             hideAssignmentEditModal();
                             await loadDashboard(true);
-                            if (typeof refreshAttentionBriefing === 'function') {
-                                refreshAttentionBriefing();
-                            }
                         }, 800);
                     } else if (response.status === 401) {
                         showAssignmentEditMessage('Your session has expired. Please sign in - your changes are kept and will be saved automatically after you log in.', 'error');
@@ -5705,24 +5942,80 @@
                 }
             }
 
-            async function refreshAttentionBriefing() {
-                const root = document.getElementById('overview-panels-root');
-                if (!root || !currentWorkspace) return;
+            async function reloadBriefingPanelOnly() {
+                const body = document.getElementById('overview-briefing-body');
+                if (!body || !currentWorkspace) return;
                 try {
                     const flagsResp = await fetch('/api/feature-flags');
                     const flags = await flagsResp.json();
-                    if (!flags || !flags.attention_engine) return;
+                    const ctolensOn = flags && flags.ctolens_briefing;
+                    const url = ctolensOn
+                        ? '/api/workspaces/' + encodeURIComponent(currentWorkspace) + '/ctolens/briefing'
+                        : '/api/workspaces/' + encodeURIComponent(currentWorkspace) + '/attention/briefing';
+                    const resp = await authFetch(url);
+                    if (!resp.ok) return;
+                    const data = await resp.json();
+                    body.innerHTML = renderBriefingPanelBody(
+                        data.briefing,
+                        data.message,
+                        ctolensOn,
+                        data.staleness
+                    );
+                    const subtitleEl = document.getElementById('overview-briefing-subtitle');
+                    if (subtitleEl) {
+                        subtitleEl.textContent = formatBriefingSubtitle(data.briefing, ctolensOn, data.staleness);
+                    }
+                } catch (e) {
+                    console.warn('Briefing panel reload failed:', e);
+                }
+            }
 
-                    root.innerHTML = '<div class="text-sm text-gray-500 p-4">Refreshing CTO briefing...</div>';
-                    const resp = await authFetch('/api/workspaces/' + currentWorkspace + '/attention/refresh', { method: 'POST' });
+            async function refreshAttentionBriefing(fetchMetrics) {
+                const body = document.getElementById('overview-briefing-body');
+                if (!currentWorkspace) return;
+                try {
+                    const flagsResp = await fetch('/api/feature-flags');
+                    const flags = await flagsResp.json();
+                    const ctolensOn = flags && flags.ctolens_briefing;
+                    const attentionOn = flags && flags.attention_engine;
+                    if (!ctolensOn && !attentionOn) return;
+
+                    if (body) {
+                        body.innerHTML = '<div class="text-sm text-gray-500 p-4">' +
+                            (fetchMetrics ? 'Updating with live connector metrics (this may take 90+ seconds)...' : 'Updating briefing...') +
+                            '</div>';
+                    }
+
+                    let resp;
+                    if (ctolensOn) {
+                        resp = await authFetch('/api/workspaces/' + encodeURIComponent(currentWorkspace) + '/ctolens/briefing/generate', {
+                            method: 'POST',
+                            headers: Object.assign({ 'Content-Type': 'application/json' }, getAuthHeaders()),
+                            body: JSON.stringify({ fetch_metrics: !!fetchMetrics })
+                        });
+                    } else {
+                        resp = await authFetch('/api/workspaces/' + encodeURIComponent(currentWorkspace) + '/attention/refresh', { method: 'POST' });
+                    }
                     if (!resp.ok) {
-                        await loadOverviewPanels();
+                        await reloadBriefingPanelOnly();
                         return;
                     }
-                    await loadOverviewPanels();
+                    const data = await resp.json();
+                    if (body) {
+                        body.innerHTML = renderBriefingPanelBody(
+                            data.briefing,
+                            data.message,
+                            ctolensOn,
+                            data.staleness
+                        );
+                    }
+                    const subtitleEl = document.getElementById('overview-briefing-subtitle');
+                    if (subtitleEl) {
+                        subtitleEl.textContent = formatBriefingSubtitle(data.briefing, ctolensOn, data.staleness);
+                    }
                 } catch (e) {
                     console.warn('Attention refresh failed:', e);
-                    await loadOverviewPanels();
+                    await reloadBriefingPanelOnly();
                 }
             }
             

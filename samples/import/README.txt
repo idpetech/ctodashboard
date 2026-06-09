@@ -22,7 +22,10 @@ Expected API call:
 
 Requires env flags (local):
   ENABLE_CSV_IMPORT=true
-  ENABLE_ATTENTION_ENGINE=true  (optional, for CTO Briefing after import)
+  ENABLE_PORTFOLIO_DASHBOARD=true   (portfolio health panels)
+  ENABLE_CTOLENS_BRIEFING=true      (new Signal → Recommendation → Briefing pipeline)
+  ENABLE_AI_EXECUTIVE_BRIEFING=true (optional; LLM polish — needs OPENAI_API_KEY)
+  ENABLE_ATTENTION_ENGINE=true      (legacy briefing; superseded when CTOLens is on)
 
 Re-importing the same file is skipped (idempotent) unless you use force=true
 or change Import Mode to Overwrite/Merge.

@@ -49,6 +49,14 @@ def _collect_attention_items(
     briefing: Dict[str, Any],
 ) -> List[Dict[str, Any]]:
     items: List[Dict[str, Any]] = []
+    for it in briefing.get("founder_attention_items") or []:
+        items.append({
+            "severity": it.get("severity", "info"),
+            "message": it.get("message") or "",
+        })
+    if items:
+        return items
+
     ac = portfolio.get("attention_center") or {}
     for it in ac.get("items") or []:
         items.append({
@@ -218,14 +226,26 @@ def generate_briefing_pdf(
 
     executive = briefing.get("executive_briefing") or {}
     writer.section("Executive Summary")
+    summary = executive.get("executive_summary")
     headline = executive.get("headline")
-    if headline:
+    if summary:
+        writer.text(summary)
+    elif headline:
         writer.text(headline, size=11, bold=True)
     for bullet in executive.get("bullets") or []:
         writer.text(f"• {bullet}", indent=8)
     narrative = briefing.get("cto_narrative")
-    if narrative:
+    if narrative and narrative != summary:
         writer.text(narrative)
+
+    focus = briefing.get("executive_focus") or executive.get("executive_focus") or {}
+    if focus:
+        writer.section("Where To Spend The Next Hour")
+        writer.text(f"Biggest risk: {focus.get('biggest_risk', '')}")
+        writer.text(f"Biggest opportunity: {focus.get('biggest_opportunity', '')}")
+        writer.text(f"Do first: {focus.get('do_first', '')}", bold=True)
+        writer.text(f"Why: {focus.get('why_first_action', '')}", indent=8)
+        writer.text(f"Confidence: {focus.get('confidence_summary', '')}")
 
     writer.section("Portfolio Metrics")
     summary = portfolio.get("summary") or {}
@@ -273,5 +293,40 @@ def generate_briefing_pdf(
         for opp in opps:
             detail = opp.get("detail") or opp.get("title") or ""
             writer.text(f"• {detail}", indent=4)
+
+    actions = briefing.get("recommended_actions") or []
+    if actions:
+        writer.section("Recommended Actions")
+        for idx, action in enumerate(actions[:10], start=1):
+            title = action.get("title") or ""
+            desc = action.get("description") or ""
+            project = action.get("project_name") or ""
+            line = f"{idx}. {title}"
+            if project:
+                line += f" ({project})"
+            writer.text(line, bold=True)
+            if desc:
+                writer.text(desc, indent=8)
+            why = action.get("why") or ""
+            if why:
+                writer.text(f"Why: {why}", indent=8)
+            signal_ids = action.get("source_signal_ids") or []
+            if signal_ids:
+                writer.text(f"Source signals: {', '.join(str(s) for s in signal_ids[:3])}", indent=8)
+
+    confidence = executive.get("confidence_assessment") or briefing.get("confidence_assessment")
+    if confidence:
+        writer.section("Confidence Assessment")
+        writer.text(confidence.get("narrative") or f"Overall confidence: {confidence.get('overall_level', 'unknown')}")
+
+    projects = executive.get("projects_requiring_attention") or briefing.get("projects_requiring_attention") or []
+    if projects:
+        writer.section("Projects Requiring Attention")
+        for project in projects:
+            name = project.get("project_name") or "Project"
+            sev = project.get("highest_severity") or "warning"
+            writer.text(f"{name} [{str(sev).upper()}] — {project.get('signal_count', 0)} signal(s)", bold=True)
+            for summary in (project.get("summaries") or [])[:4]:
+                writer.text(f"• {summary}", indent=8)
 
     return writer.build()

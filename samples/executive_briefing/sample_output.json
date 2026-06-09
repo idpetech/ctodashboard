@@ -1,0 +1,295 @@
+{
+  "executive_summary": "The portfolio includes 3 active project(s) with an overall health score of 56/100 (critical) Based on supplied signals, 8 risk item(s) and 8 opportunity item(s) warrant executive review. Confidence in this view is limited due to incomplete connector data.",
+  "executive_focus": {
+    "biggest_risk": "Project Alpha: Jira reported 0 issue updates in the last 7 days. (NO_JIRA_ACTIVITY, warning)",
+    "biggest_opportunity": "Project Beta: Monthly burn 12000 is below target 20000 by 40.0%. (UNDER_BUDGET)",
+    "do_first": "Contain budget overrun \u2014 Project Alpha",
+    "why_first_action": "Sustained overspend reduces runway and limits portfolio flexibility. Review spend drivers for Project Alpha and align burn with the approved target. Triggered by signal OVER_BUDGET. Source: ALPHA:OVER_BUDGET.",
+    "confidence_summary": "Overall data confidence is low. Connector readiness 0.0%. Top action ranked by impact score 9 and priority high. Treat the ranked action as directional until data coverage improves.",
+    "source_recommendation_id": "rec:ALPHA:OVER_BUDGET",
+    "source_signal_ids": [
+      "ALPHA:OVER_BUDGET"
+    ]
+  },
+  "top_risks": [
+    {
+      "project_name": "Project Alpha",
+      "signal_type": "NO_JIRA_ACTIVITY",
+      "severity": "warning",
+      "summary": "Jira reported 0 issue updates in the last 7 days.",
+      "confidence": 0.9
+    },
+    {
+      "project_name": "Project Gamma",
+      "signal_type": "NO_COMMITS_7_DAYS",
+      "severity": "warning",
+      "summary": "GitHub reported 0 commits in the last 7 days.",
+      "confidence": 0.9
+    },
+    {
+      "project_name": "Project Alpha",
+      "signal_type": "STALE_DATA",
+      "severity": "warning",
+      "summary": "Last successful connector sync was 159.4 hours ago.",
+      "confidence": 0.88
+    },
+    {
+      "project_name": "Project Alpha",
+      "signal_type": "VELOCITY_DROP",
+      "severity": "warning",
+      "summary": "Commits fell from 10 to 2 week-over-week (80.0% decrease).",
+      "confidence": 0.85
+    },
+    {
+      "project_name": "Project Alpha",
+      "signal_type": "OVER_BUDGET",
+      "severity": "critical",
+      "summary": "Monthly burn 55000 exceeds target 40000 by 37.5%.",
+      "confidence": 0.95
+    },
+    {
+      "project_name": "Project Alpha",
+      "signal_type": "CONNECTOR_FAILURE",
+      "severity": "critical",
+      "summary": "Connector fetch failed for: jira.",
+      "confidence": 0.95
+    },
+    {
+      "project_name": "Project Gamma",
+      "signal_type": "NO_COMMITS_14_DAYS",
+      "severity": "critical",
+      "summary": "GitHub reported 0 commits in the last 14 days.",
+      "confidence": 0.92
+    },
+    {
+      "project_name": "Project Alpha",
+      "signal_type": "COST_SPIKE",
+      "severity": "critical",
+      "summary": "Monthly burn increased from 40000 to 55000 (37.5% change).",
+      "confidence": 0.85
+    }
+  ],
+  "opportunities": [
+    {
+      "project_name": "Project Beta",
+      "signal_type": "UNDER_BUDGET",
+      "summary": "Monthly burn 12000 is below target 20000 by 40.0%.",
+      "confidence": 0.9
+    },
+    {
+      "project_name": "Project Alpha",
+      "signal_type": "BUILD_FAILURE_TREND",
+      "summary": "Build failures rose from 1 to 5 week-over-week (+4).",
+      "confidence": 0.81
+    },
+    {
+      "project_name": "Project Alpha",
+      "signal_type": "BLOCKED_WORK_INCREASE",
+      "summary": "Blocked work items rose from 3 to 7 (+4).",
+      "confidence": 0.8
+    },
+    {
+      "project_name": "Project Beta",
+      "signal_type": "RELEASE_INSTABILITY",
+      "summary": "2 failed releases out of 4 in the last 7 days (50.0% failure rate).",
+      "confidence": 0.8
+    },
+    {
+      "project_name": "Project Beta",
+      "signal_type": "UNUSED_CAPACITY",
+      "summary": "Project is 40.0% under budget with team size 2.",
+      "confidence": 0.8
+    },
+    {
+      "project_name": "Project Alpha",
+      "signal_type": "PR_REVIEW_BOTTLENECK",
+      "summary": "5 open PRs with average review wait of 30.0 hours.",
+      "confidence": 0.79
+    },
+    {
+      "project_name": "Project Beta",
+      "signal_type": "HIGH_PERFORMING_PROJECT",
+      "summary": "Project is 40.0% under budget with 8 commits in the last 7 days.",
+      "confidence": 0.78
+    },
+    {
+      "project_name": "Project Beta",
+      "signal_type": "HIGH_REOPEN_RATE",
+      "summary": "2 reopened issues vs 8 closed in the last 7 days (25.0% reopen rate).",
+      "confidence": 0.77
+    }
+  ],
+  "recommended_actions": [
+    {
+      "recommendation_id": "rec:ALPHA:OVER_BUDGET",
+      "title": "Contain budget overrun",
+      "description": "Review spend drivers for Project Alpha and align burn with the approved target.",
+      "priority": "high",
+      "impact_score": 9,
+      "project_name": "Project Alpha",
+      "why": "Sustained overspend reduces runway and limits portfolio flexibility.",
+      "reason": "Review spend drivers for Project Alpha and align burn with the approved target.",
+      "signal_type": "OVER_BUDGET",
+      "source_signal_ids": [
+        "ALPHA:OVER_BUDGET"
+      ]
+    },
+    {
+      "recommendation_id": "rec:ALPHA:CONNECTOR_FAILURE",
+      "title": "Restore connector access",
+      "description": "Restore connector access for Project Alpha to improve briefing accuracy.",
+      "priority": "high",
+      "impact_score": 8,
+      "project_name": "Project Alpha",
+      "why": "Failed connectors prevent reliable portfolio signals and executive reporting.",
+      "reason": "Restore connector access for Project Alpha to improve briefing accuracy.",
+      "signal_type": "CONNECTOR_FAILURE",
+      "source_signal_ids": [
+        "ALPHA:CONNECTOR_FAILURE"
+      ]
+    },
+    {
+      "recommendation_id": "rec:GAMMA:NO_COMMITS_14_DAYS",
+      "title": "Verify project status",
+      "description": "Verify project status and confirm development activity for Project Gamma.",
+      "priority": "high",
+      "impact_score": 8,
+      "project_name": "Project Gamma",
+      "why": "Two weeks without commits is a strong indicator of stalled delivery or incorrect tracking.",
+      "reason": "Verify project status and confirm development activity for Project Gamma.",
+      "signal_type": "NO_COMMITS_14_DAYS",
+      "source_signal_ids": [
+        "GAMMA:NO_COMMITS_14_DAYS"
+      ]
+    },
+    {
+      "recommendation_id": "rec:ALPHA:COST_SPIKE",
+      "title": "Investigate cost spike",
+      "description": "Investigate the recent burn increase on Project Alpha and validate planned scope changes.",
+      "priority": "high",
+      "impact_score": 8,
+      "project_name": "Project Alpha",
+      "why": "Sudden cost increases often indicate scope creep, staffing changes, or billing anomalies.",
+      "reason": "Investigate the recent burn increase on Project Alpha and validate planned scope changes.",
+      "signal_type": "COST_SPIKE",
+      "source_signal_ids": [
+        "ALPHA:COST_SPIKE"
+      ]
+    },
+    {
+      "recommendation_id": "rec:ALPHA:VELOCITY_DROP",
+      "title": "Address velocity decline",
+      "description": "Review throughput on Project Alpha; commit volume dropped materially week-over-week.",
+      "priority": "medium",
+      "impact_score": 7,
+      "project_name": "Project Alpha",
+      "why": "Falling velocity can precede schedule slips if root causes are not identified early.",
+      "reason": "Review throughput on Project Alpha; commit volume dropped materially week-over-week.",
+      "signal_type": "VELOCITY_DROP",
+      "source_signal_ids": [
+        "ALPHA:VELOCITY_DROP"
+      ]
+    },
+    {
+      "recommendation_id": "rec:GAMMA:NO_COMMITS_7_DAYS",
+      "title": "Check delivery activity",
+      "description": "Confirm engineering activity on Project Gamma; no commits were recorded in the last 7 days.",
+      "priority": "medium",
+      "impact_score": 6,
+      "project_name": "Project Gamma",
+      "why": "A week without commits may indicate blocked work, misconfigured repos, or paused delivery.",
+      "reason": "Confirm engineering activity on Project Gamma; no commits were recorded in the last 7 days.",
+      "signal_type": "NO_COMMITS_7_DAYS",
+      "source_signal_ids": [
+        "GAMMA:NO_COMMITS_7_DAYS"
+      ]
+    },
+    {
+      "recommendation_id": "rec:ALPHA:STALE_DATA",
+      "title": "Refresh connector data",
+      "description": "Refresh stale connector data for Project Alpha to restore timely portfolio visibility.",
+      "priority": "medium",
+      "impact_score": 6,
+      "project_name": "Project Alpha",
+      "why": "Outdated metrics increase the risk of decisions based on expired information.",
+      "reason": "Refresh stale connector data for Project Alpha to restore timely portfolio visibility.",
+      "signal_type": "STALE_DATA",
+      "source_signal_ids": [
+        "ALPHA:STALE_DATA"
+      ]
+    },
+    {
+      "recommendation_id": "rec:BETA:UNDER_BUDGET",
+      "title": "Review unused capacity",
+      "description": "Review unused capacity and evaluate acceleration opportunities for Project Beta.",
+      "priority": "low",
+      "impact_score": 6,
+      "project_name": "Project Beta",
+      "why": "Budget headroom may fund acceleration or support reallocation to higher-priority work.",
+      "reason": "Review unused capacity and evaluate acceleration opportunities for Project Beta.",
+      "signal_type": "UNDER_BUDGET",
+      "source_signal_ids": [
+        "BETA:UNDER_BUDGET"
+      ]
+    },
+    {
+      "recommendation_id": "rec:BETA:UNUSED_CAPACITY",
+      "title": "Evaluate spare capacity",
+      "description": "Evaluate spare team and budget capacity on Project Beta for reallocation or acceleration.",
+      "priority": "low",
+      "impact_score": 6,
+      "project_name": "Project Beta",
+      "why": "Unused capacity represents an opportunity to shift resources toward strategic priorities.",
+      "reason": "Evaluate spare team and budget capacity on Project Beta for reallocation or acceleration.",
+      "signal_type": "UNUSED_CAPACITY",
+      "source_signal_ids": [
+        "BETA:UNUSED_CAPACITY"
+      ]
+    },
+    {
+      "recommendation_id": "rec:ALPHA:NO_JIRA_ACTIVITY",
+      "title": "Validate delivery tracking",
+      "description": "Validate Jira activity for Project Alpha; no issue updates were recorded in the lookback window.",
+      "priority": "medium",
+      "impact_score": 5,
+      "project_name": "Project Alpha",
+      "why": "Missing issue activity reduces visibility into in-flight work and blockers.",
+      "reason": "Validate Jira activity for Project Alpha; no issue updates were recorded in the lookback window.",
+      "signal_type": "NO_JIRA_ACTIVITY",
+      "source_signal_ids": [
+        "ALPHA:NO_JIRA_ACTIVITY"
+      ]
+    }
+  ],
+  "projects_requiring_attention": [
+    {
+      "project_name": "Project Alpha",
+      "highest_severity": "critical",
+      "signal_count": 6,
+      "summaries": [
+        "Monthly burn increased from 40000 to 55000 (37.5% change).",
+        "Monthly burn 55000 exceeds target 40000 by 37.5%.",
+        "Connector fetch failed for: jira.",
+        "Jira reported 0 issue updates in the last 7 days.",
+        "Commits fell from 10 to 2 week-over-week (80.0% decrease)."
+      ]
+    },
+    {
+      "project_name": "Project Gamma",
+      "highest_severity": "critical",
+      "signal_count": 2,
+      "summaries": [
+        "GitHub reported 0 commits in the last 14 days.",
+        "GitHub reported 0 commits in the last 7 days."
+      ]
+    }
+  ],
+  "confidence_assessment": {
+    "overall_level": "low",
+    "connector_readiness_pct": 0.0,
+    "low_confidence_signal_count": 2,
+    "narrative": "Overall data confidence is low. Connector readiness is 0.0%. 2 supplied signal(s) have confidence below 0.75. Treat findings as directional until connector coverage improves."
+  },
+  "generated_at": "2026-06-08T03:24:47Z",
+  "generation_mode": "deterministic"
+}

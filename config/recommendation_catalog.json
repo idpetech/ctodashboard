@@ -1,0 +1,121 @@
+{
+  "version": "1.0",
+  "description": "Deterministic mapping from Signal types to executive recommendations.",
+  "ranking": {
+    "severity_weights": {
+      "critical": 3.0,
+      "warning": 2.0,
+      "info": 1.0
+    },
+    "priority_bands": {
+      "high": 15.0,
+      "medium": 8.0
+    }
+  },
+  "recommendations": {
+    "OVER_BUDGET": {
+      "title": "Contain budget overrun",
+      "description": "Review spend drivers for {project_name} and align burn with the approved target.",
+      "category": "Financial",
+      "impact_score": 9,
+      "effort_score": 5,
+      "business_rationale": "Sustained overspend reduces runway and limits portfolio flexibility."
+    },
+    "UNDER_BUDGET": {
+      "title": "Review unused capacity",
+      "description": "Review unused capacity and evaluate acceleration opportunities for {project_name}.",
+      "category": "Financial",
+      "impact_score": 6,
+      "effort_score": 4,
+      "business_rationale": "Budget headroom may fund acceleration or support reallocation to higher-priority work."
+    },
+    "COST_SPIKE": {
+      "title": "Investigate cost spike",
+      "description": "Investigate the recent burn increase on {project_name} and validate planned scope changes.",
+      "category": "Financial",
+      "impact_score": 8,
+      "effort_score": 5,
+      "business_rationale": "Sudden cost increases often indicate scope creep, staffing changes, or billing anomalies."
+    },
+    "NO_COMMITS_7_DAYS": {
+      "title": "Check delivery activity",
+      "description": "Confirm engineering activity on {project_name}; no commits were recorded in the last 7 days.",
+      "category": "Delivery",
+      "impact_score": 6,
+      "effort_score": 3,
+      "business_rationale": "A week without commits may indicate blocked work, misconfigured repos, or paused delivery."
+    },
+    "NO_COMMITS_14_DAYS": {
+      "title": "Verify project status",
+      "description": "Verify project status and confirm development activity for {project_name}.",
+      "category": "Delivery",
+      "impact_score": 8,
+      "effort_score": 4,
+      "business_rationale": "Two weeks without commits is a strong indicator of stalled delivery or incorrect tracking."
+    },
+    "VELOCITY_DROP": {
+      "title": "Address velocity decline",
+      "description": "Review throughput on {project_name}; commit volume dropped materially week-over-week.",
+      "category": "Delivery",
+      "impact_score": 7,
+      "effort_score": 4,
+      "business_rationale": "Falling velocity can precede schedule slips if root causes are not identified early."
+    },
+    "NO_JIRA_ACTIVITY": {
+      "title": "Validate delivery tracking",
+      "description": "Validate Jira activity for {project_name}; no issue updates were recorded in the lookback window.",
+      "category": "Delivery",
+      "impact_score": 5,
+      "effort_score": 3,
+      "business_rationale": "Missing issue activity reduces visibility into in-flight work and blockers."
+    },
+    "CONNECTOR_FAILURE": {
+      "title": "Restore connector access",
+      "description": "Restore connector access for {project_name} to improve briefing accuracy.",
+      "category": "Operational",
+      "impact_score": 8,
+      "effort_score": 3,
+      "business_rationale": "Failed connectors prevent reliable portfolio signals and executive reporting."
+    },
+    "STALE_DATA": {
+      "title": "Refresh connector data",
+      "description": "Refresh stale connector data for {project_name} to restore timely portfolio visibility.",
+      "category": "Operational",
+      "impact_score": 6,
+      "effort_score": 2,
+      "business_rationale": "Outdated metrics increase the risk of decisions based on expired information."
+    },
+    "MISSING_OWNER": {
+      "title": "Assign project owner",
+      "description": "Assign an accountable owner to {project_name} for budget and delivery oversight.",
+      "category": "Operational",
+      "impact_score": 5,
+      "effort_score": 2,
+      "business_rationale": "Unowned projects are harder to escalate and remediate across the portfolio."
+    },
+    "UNUSED_CAPACITY": {
+      "title": "Evaluate spare capacity",
+      "description": "Evaluate spare team and budget capacity on {project_name} for reallocation or acceleration.",
+      "category": "Portfolio",
+      "impact_score": 6,
+      "effort_score": 4,
+      "business_rationale": "Unused capacity represents an opportunity to shift resources toward strategic priorities."
+    },
+    "RESOURCE_IMBALANCE": {
+      "title": "Rebalance portfolio staffing",
+      "description": "Reallocate effort toward higher-value initiatives; {project_name} is over-weighted on team size.",
+      "category": "Portfolio",
+      "impact_score": 7,
+      "effort_score": 6,
+      "business_rationale": "Staffing imbalance can hide bottlenecks and reduce capital efficiency portfolio-wide."
+    },
+    "HIGH_PERFORMING_PROJECT": {
+      "title": "Scale proven delivery",
+      "description": "Consider expanding scope or sharing practices from {project_name}, which is under budget with strong activity.",
+      "category": "Portfolio",
+      "impact_score": 5,
+      "effort_score": 3,
+      "business_rationale": "High-performing projects offer reusable patterns and potential capacity for strategic bets."
+    }
+  }
+}

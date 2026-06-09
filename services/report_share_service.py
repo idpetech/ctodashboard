@@ -59,15 +59,24 @@ def create_share_link(
     request_base_url: str = "",
 ) -> Dict[str, Any]:
     """Snapshot current briefing + portfolio and return a public share URL."""
-    from services.attention_engine import get_stored_briefing
+    from services.briefing_resolver import (
+        ensure_stored_briefing,
+        get_stored_briefing_raw,
+        normalize_briefing_for_export,
+    )
 
     ws = secure_db.get_workspace(workspace_id)
     if not ws:
         raise ValueError("Workspace not found")
 
-    briefing = get_stored_briefing(secure_db, workspace_id)
+    assignments = secure_db.get_workspace_assignments(workspace_id) or []
+    briefing = get_stored_briefing_raw(secure_db, workspace_id)
+    if not briefing:
+        briefing = ensure_stored_briefing(secure_db, workspace_id, assignments)
     if not briefing:
         raise ValueError("No briefing available — refresh briefing first")
+
+    briefing = normalize_briefing_for_export(briefing)
 
     assignments = secure_db.get_workspace_assignments(workspace_id) or []
     portfolio = build_portfolio_overview(assignments)
@@ -192,13 +201,16 @@ def get_share_report(
 
 def build_report_template_context(report: Dict[str, Any]) -> Dict[str, Any]:
     """Shape a share snapshot for report_share.html."""
-    briefing = report.get("briefing") or {}
+    from services.briefing_resolver import normalize_briefing_for_export
+
+    briefing = normalize_briefing_for_export(report.get("briefing") or {})
     portfolio = report.get("portfolio") or {}
     summary = portfolio.get("summary") or briefing.get("portfolio_snapshot", {}).get("summary") or {}
     health = briefing.get("system_health_score") or portfolio.get("health_score") or {}
     eb = briefing.get("executive_briefing") or {}
     risks = briefing.get("risk_signals") or []
     opps = briefing.get("opportunity_signals") or []
+    top_recommendations = briefing.get("top_recommendations_export") or opps[:3]
 
     attention_items = briefing.get("founder_attention_items")
     if not attention_items:
@@ -222,21 +234,64 @@ def build_report_template_context(report: Dict[str, Any]) -> Dict[str, Any]:
         except (TypeError, ValueError):
             pass
 
+    recommended_actions = briefing.get("recommended_actions") or eb.get("recommended_actions") or []
+    if not recommended_actions:
+        recommended_actions = [
+            {
+                "title": rec.get("title") or "",
+                "description": rec.get("description") or "",
+                "priority": rec.get("priority") or "medium",
+                "impact_score": rec.get("impact_score") or 0,
+                "project_name": rec.get("project_name") or "",
+                "why": (rec.get("rationale") or {}).get("business_rationale") or "",
+                "reason": rec.get("description") or "",
+                "source_signal_ids": rec.get("source_signal_ids") or [],
+            }
+            for rec in (briefing.get("recommendations") or [])[:10]
+        ]
+    if not recommended_actions and top_recommendations:
+        recommended_actions = [
+            {
+                "title": rec.get("title") or rec.get("detail") or "Recommendation",
+                "description": rec.get("detail") or "",
+                "priority": "medium",
+                "impact_score": 0,
+                "project_name": "",
+            }
+            for rec in top_recommendations
+        ]
+
+    projects_requiring_attention = (
+        briefing.get("projects_requiring_attention")
+        or eb.get("projects_requiring_attention")
+        or []
+    )
+    confidence_assessment = (
+        briefing.get("confidence_assessment")
+        or eb.get("confidence_assessment")
+        or {}
+    )
+
     return {
         "portfolio_name": report.get("portfolio_name") or "Portfolio",
         "portfolio_status": briefing.get("portfolio_status") or "Healthy",
         "health_score": health.get("score") or health.get("overall_score") or "—",
-        "headline": eb.get("headline"),
+        "headline": eb.get("headline") or eb.get("executive_summary"),
         "bullets": eb.get("bullets") or [],
-        "narrative": briefing.get("cto_narrative"),
+        "narrative": briefing.get("cto_narrative") or eb.get("executive_summary"),
         "top_risks": risks[:3],
-        "top_recommendations": opps[:3],
+        "top_recommendations": top_recommendations[:3],
         "all_risks": risks,
         "all_opportunities": opps,
+        "recommended_actions": recommended_actions,
+        "projects_requiring_attention": projects_requiring_attention,
+        "confidence_assessment": confidence_assessment,
         "attention_items": attention_items,
         "summary": summary,
         "score_trends": report.get("score_trends") or briefing.get("score_trends"),
         "generated_display": generated_display,
+        "generation_mode": briefing.get("generation_mode"),
+        "executive_focus": briefing.get("executive_focus") or eb.get("executive_focus") or {},
         "view_count": report.get("view_count", 0),
     }
 

@@ -235,18 +235,25 @@ def collect_assignment_metrics(workspace_id: str, assignment_id: str, assignment
 
 def _refresh_workspace_attention_briefing(workspace_id: str) -> None:
     """Rebuild stored CTO briefing after assignment/budget changes (best-effort)."""
-    if os.getenv("ENABLE_ATTENTION_ENGINE", "false").lower() != "true":
-        return
     try:
+        from services.security.secure_database import secure_db
+
+        ws_result = get_workspace_service().get_workspace_assignments(workspace_id)
+        assignments = ws_result.get("assignments") or []
+
+        if os.getenv("ENABLE_CTOLENS_BRIEFING", "false").lower() == "true":
+            # CTOLens uses fingerprint staleness; user refreshes from the UI.
+            return
+
+        if os.getenv("ENABLE_ATTENTION_ENGINE", "false").lower() != "true":
+            return
+
         from services.attention_engine import (
             build_attention_briefing,
             get_stored_briefing,
             store_briefing_in_workspace,
         )
-        from services.security.secure_database import secure_db
 
-        ws_result = get_workspace_service().get_workspace_assignments(workspace_id)
-        assignments = ws_result.get("assignments") or []
         previous = get_stored_briefing(secure_db, workspace_id)
         last_import = (secure_db.get_workspace(workspace_id) or {}).get("settings", {}).get("last_import")
         briefing = build_attention_briefing(
@@ -256,7 +263,7 @@ def _refresh_workspace_attention_briefing(workspace_id: str) -> None:
         )
         store_briefing_in_workspace(secure_db, workspace_id, briefing)
     except Exception as e:
-        logger.warning("Attention briefing auto-refresh failed for %s: %s", workspace_id, e)
+        logger.warning("Briefing auto-refresh failed for %s: %s", workspace_id, e)
 
 
 def register_routes(app):
@@ -339,6 +346,10 @@ def register_routes(app):
             "portfolio_dashboard": os.getenv("ENABLE_PORTFOLIO_DASHBOARD", "false").lower() == "true",
             "csv_import": os.getenv("ENABLE_CSV_IMPORT", "false").lower() == "true",
             "attention_engine": os.getenv("ENABLE_ATTENTION_ENGINE", "false").lower() == "true",
+            "ctolens_briefing": os.getenv("ENABLE_CTOLENS_BRIEFING", "false").lower() == "true",
+            "signal_engine": os.getenv("ENABLE_SIGNAL_ENGINE", "false").lower() == "true",
+            "recommendation_engine": os.getenv("ENABLE_RECOMMENDATION_ENGINE", "false").lower() == "true",
+            "ai_executive_briefing": os.getenv("ENABLE_AI_EXECUTIVE_BRIEFING", "false").lower() == "true",
         })
 
     @app.route("/api/services/status")
@@ -1825,8 +1836,10 @@ def register_routes(app):
     @get_require_workspace_access()
     def create_attention_briefing_share(workspace_id):
         """Create a shareable read-only report link."""
-        if not os.getenv("ENABLE_ATTENTION_ENGINE", "false").lower() == "true":
-            return jsonify({"error": "Attention engine is disabled"}), 403
+        from services.briefing_resolver import briefing_features_enabled
+
+        if not briefing_features_enabled():
+            return jsonify({"error": "Briefing is disabled"}), 403
 
         try:
             from services.report_share_service import create_share_link, list_share_links
@@ -1854,8 +1867,10 @@ def register_routes(app):
     @get_require_workspace_access()
     def list_attention_briefing_shares(workspace_id):
         """List share links and view counts for a workspace."""
-        if not os.getenv("ENABLE_ATTENTION_ENGINE", "false").lower() == "true":
-            return jsonify({"error": "Attention engine is disabled"}), 403
+        from services.briefing_resolver import briefing_features_enabled
+
+        if not briefing_features_enabled():
+            return jsonify({"error": "Briefing is disabled"}), 403
 
         try:
             from services.report_share_service import list_share_links
@@ -1870,22 +1885,31 @@ def register_routes(app):
     @get_require_workspace_access()
     def export_attention_briefing_pdf(workspace_id):
         """Export stored CTO briefing as a PDF (reuses briefing + portfolio data)."""
-        if not os.getenv("ENABLE_ATTENTION_ENGINE", "false").lower() == "true":
-            return jsonify({"error": "Attention engine is disabled"}), 403
+        from services.briefing_resolver import (
+            briefing_features_enabled,
+            ensure_stored_briefing,
+            get_stored_briefing_raw,
+            normalize_briefing_for_export,
+        )
+
+        if not briefing_features_enabled():
+            return jsonify({"error": "Briefing is disabled"}), 403
 
         try:
-            from services.attention_engine import get_stored_briefing
             from services.briefing_pdf_service import generate_briefing_pdf
             from services.security.secure_database import secure_db
 
-            briefing = get_stored_briefing(secure_db, workspace_id)
+            assignments = secure_db.get_workspace_assignments(workspace_id) or []
+            briefing = get_stored_briefing_raw(secure_db, workspace_id)
+            if not briefing:
+                briefing = ensure_stored_briefing(secure_db, workspace_id, assignments)
             if not briefing:
                 return jsonify({
                     "error": "No briefing available",
                     "message": "Generate a briefing first (import data or refresh).",
                 }), 404
 
-            assignments = secure_db.get_workspace_assignments(workspace_id) or []
+            briefing = normalize_briefing_for_export(briefing)
             portfolio = build_portfolio_overview(assignments)
             ws = secure_db.get_workspace(workspace_id) or {}
             portfolio_name = ws.get("name") or workspace_id
@@ -1944,6 +1968,207 @@ def register_routes(app):
         except Exception as e:
             logger.exception("Attention briefing refresh failed")
             return jsonify({"error": f"Refresh failed: {str(e)}"}), 500
+
+    def _ctolens_disabled():
+        if os.getenv("ENABLE_CTOLENS_BRIEFING", "false").lower() == "true":
+            return None
+        return jsonify({"error": "CTOLens briefing is disabled"}), 403
+
+    def _load_workspace_assignments(workspace_id: str):
+        ws_result = get_workspace_service().get_workspace_assignments(workspace_id)
+        return ws_result.get("assignments") or []
+
+    @app.route("/api/workspaces/<workspace_id>/ctolens/briefing", methods=["GET"])
+    @get_require_workspace_access()
+    def get_ctolens_briefing(workspace_id):
+        """Retrieve stored CTOLens executive briefing (auto-generates if missing)."""
+        disabled = _ctolens_disabled()
+        if disabled:
+            return disabled
+        try:
+            from services.briefing_pipeline import (
+                assess_briefing_staleness,
+                get_ctolens_briefing_with_feedback,
+            )
+            from services.briefing_resolver import ensure_stored_briefing
+            from services.executive_briefing.feedback import feedback_summary
+            from services.security.secure_database import secure_db
+
+            assignments = _load_workspace_assignments(workspace_id)
+            briefing = get_ctolens_briefing_with_feedback(secure_db, workspace_id)
+            if not briefing and assignments:
+                briefing = ensure_stored_briefing(
+                    secure_db,
+                    workspace_id,
+                    assignments,
+                    fetch_metrics=False,
+                    use_ai=False,
+                )
+                briefing = dict(briefing)
+                briefing["feedback_summary"] = feedback_summary(secure_db, workspace_id)
+            if not briefing:
+                return jsonify({
+                    "workspace_id": workspace_id,
+                    "briefing": None,
+                    "staleness": assess_briefing_staleness(None, assignments),
+                    "message": "Add assignments to generate a CTOLens briefing.",
+                })
+            staleness = assess_briefing_staleness(briefing, assignments)
+            return jsonify({
+                "workspace_id": workspace_id,
+                "briefing": briefing,
+                "staleness": staleness,
+            })
+        except Exception as e:
+            logger.exception("Failed to load CTOLens briefing")
+            return jsonify({"error": f"Failed to load briefing: {str(e)}"}), 500
+
+    @app.route("/api/workspaces/<workspace_id>/ctolens/briefing/generate", methods=["POST"])
+    @get_require_workspace_access()
+    def generate_ctolens_briefing(workspace_id):
+        """Generate and store CTOLens briefing from current workspace data."""
+        disabled = _ctolens_disabled()
+        if disabled:
+            return disabled
+        try:
+            from services.briefing_pipeline import (
+                assess_briefing_staleness,
+                refresh_workspace_ctolens_briefing,
+            )
+            from services.security.secure_database import secure_db
+
+            body = request.get_json(silent=True) or {}
+            fetch_metrics = bool(body.get("fetch_metrics", False))
+            use_ai = body.get("use_ai")
+            if use_ai is not None:
+                use_ai = bool(use_ai)
+
+            assignments = _load_workspace_assignments(workspace_id)
+            briefing = refresh_workspace_ctolens_briefing(
+                workspace_id,
+                assignments,
+                secure_db,
+                fetch_metrics=fetch_metrics,
+                use_ai=use_ai,
+            )
+            staleness = assess_briefing_staleness(briefing, assignments)
+            return jsonify({
+                "workspace_id": workspace_id,
+                "briefing": briefing,
+                "staleness": staleness,
+                "refreshed_at": briefing.get("generated_at"),
+            })
+        except Exception as e:
+            logger.exception("CTOLens briefing generation failed")
+            return jsonify({"error": f"Generation failed: {str(e)}"}), 500
+
+    @app.route("/api/workspaces/<workspace_id>/ctolens/signals", methods=["GET"])
+    @get_require_workspace_access()
+    def get_ctolens_signals(workspace_id):
+        """Evaluate and return current signal list."""
+        if not (
+            os.getenv("ENABLE_CTOLENS_BRIEFING", "false").lower() == "true"
+            or os.getenv("ENABLE_SIGNAL_ENGINE", "false").lower() == "true"
+        ):
+            return jsonify({"error": "Signal engine is disabled"}), 403
+        try:
+            from services.briefing_pipeline import build_metrics_overlays
+            from services.signals.engine import SignalEngine
+
+            fetch_metrics = request.args.get("fetch_metrics", "false").lower() == "true"
+            assignments = _load_workspace_assignments(workspace_id)
+            delivery, connector = build_metrics_overlays(
+                workspace_id, assignments, fetch_metrics=fetch_metrics
+            )
+            signals = SignalEngine().evaluate_assignments(
+                assignments,
+                delivery_metrics=delivery,
+                connector_metrics=connector,
+            )
+            return jsonify({
+                "workspace_id": workspace_id,
+                "signals": [s.to_dict() for s in signals],
+                "count": len(signals),
+            })
+        except Exception as e:
+            logger.exception("CTOLens signals failed")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/workspaces/<workspace_id>/ctolens/recommendations", methods=["GET"])
+    @get_require_workspace_access()
+    def get_ctolens_recommendations(workspace_id):
+        """Evaluate signals and return ranked recommendations."""
+        if not (
+            os.getenv("ENABLE_CTOLENS_BRIEFING", "false").lower() == "true"
+            or os.getenv("ENABLE_RECOMMENDATION_ENGINE", "false").lower() == "true"
+        ):
+            return jsonify({"error": "Recommendation engine is disabled"}), 403
+        try:
+            from services.briefing_pipeline import build_metrics_overlays
+            from services.recommendations.engine import RecommendationEngine
+            from services.signals.engine import SignalEngine
+
+            fetch_metrics = request.args.get("fetch_metrics", "false").lower() == "true"
+            assignments = _load_workspace_assignments(workspace_id)
+            delivery, connector = build_metrics_overlays(
+                workspace_id, assignments, fetch_metrics=fetch_metrics
+            )
+            signals = SignalEngine().evaluate_assignments(
+                assignments,
+                delivery_metrics=delivery,
+                connector_metrics=connector,
+            )
+            recs = RecommendationEngine().recommend(signals)
+            return jsonify({
+                "workspace_id": workspace_id,
+                "recommendations": [r.to_dict() for r in recs],
+                "count": len(recs),
+            })
+        except Exception as e:
+            logger.exception("CTOLens recommendations failed")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/workspaces/<workspace_id>/ctolens/recommendations/feedback", methods=["POST"])
+    @get_require_workspace_access()
+    def post_ctolens_recommendation_feedback(workspace_id):
+        """Record accept/dismiss feedback on a recommendation."""
+        disabled = _ctolens_disabled()
+        if disabled:
+            return disabled
+        try:
+            from services.executive_briefing.feedback import (
+                feedback_summary,
+                record_recommendation_feedback,
+            )
+            from services.security.secure_database import secure_db
+
+            body = request.get_json(silent=True) or {}
+            recommendation_id = (body.get("recommendation_id") or "").strip()
+            title = (body.get("title") or "").strip()
+            status = (body.get("status") or "").strip()
+            reason = body.get("reason")
+
+            if not recommendation_id or not title:
+                return jsonify({"error": "recommendation_id and title are required"}), 400
+
+            record = record_recommendation_feedback(
+                secure_db,
+                workspace_id,
+                recommendation_id=recommendation_id,
+                title=title,
+                status=status,
+                reason=reason,
+            )
+            return jsonify({
+                "workspace_id": workspace_id,
+                "feedback": record,
+                "summary": feedback_summary(secure_db, workspace_id),
+            })
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        except Exception as e:
+            logger.exception("Recommendation feedback failed")
+            return jsonify({"error": str(e)}), 500
     
     @app.route("/api/assignments/export", methods=["GET"])
     @get_require_auth()  

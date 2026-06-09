@@ -429,7 +429,9 @@ class DataImportService:
             parse_result.get("assignments", []),
         )
 
-        if run_attention and os.getenv("ENABLE_ATTENTION_ENGINE", "false").lower() == "true":
+        if run_attention and os.getenv("ENABLE_CTOLENS_BRIEFING", "false").lower() == "true":
+            response["ctolens_briefing"] = self._run_ctolens_after_import(workspace_id)
+        elif run_attention and os.getenv("ENABLE_ATTENTION_ENGINE", "false").lower() == "true":
             response["attention_briefing"] = self._run_attention_after_import(
                 workspace_id,
                 content_hash,
@@ -493,6 +495,21 @@ class DataImportService:
             )
         except Exception as e:
             logger.error("Failed to record import metadata: %s", e)
+
+    def _run_ctolens_after_import(self, workspace_id: str) -> Optional[Dict[str, Any]]:
+        try:
+            from services.briefing_pipeline import refresh_workspace_ctolens_briefing
+
+            assignments = self.secure_db.get_workspace_assignments(workspace_id) or []
+            return refresh_workspace_ctolens_briefing(
+                workspace_id,
+                assignments,
+                self.secure_db,
+                fetch_metrics=False,
+            )
+        except Exception as e:
+            logger.error("CTOLens briefing after import failed: %s", e)
+            return None
 
     def _run_attention_after_import(
         self,

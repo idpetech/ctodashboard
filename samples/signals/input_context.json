@@ -1,0 +1,95 @@
+{
+  "description": "Sample assignments + metric overlays for Signal Engine evaluation",
+  "assignments": [
+    {
+      "id": "ALPHA",
+      "name": "Project Alpha",
+      "status": "active",
+      "team_size": 8,
+      "monthly_burn_rate": 55000,
+      "target_monthly_burn": 40000,
+      "previous_monthly_burn": 40000,
+      "owner": "alex@example.com",
+      "metrics_config": {
+        "github": {
+          "enabled": true
+        },
+        "jira": {
+          "enabled": true
+        }
+      }
+    },
+    {
+      "id": "BETA",
+      "name": "Project Beta",
+      "status": "active",
+      "team_size": 2,
+      "monthly_burn_rate": 12000,
+      "target_monthly_burn": 20000,
+      "owner": "blake@example.com",
+      "metrics_config": {
+        "github": {
+          "enabled": true
+        },
+        "jira": {
+          "enabled": true
+        }
+      }
+    },
+    {
+      "id": "GAMMA",
+      "name": "Project Gamma",
+      "status": "active",
+      "team_size": 3,
+      "monthly_burn_rate": 30000,
+      "target_monthly_burn": 35000,
+      "metrics_config": {
+        "github": {
+          "enabled": true
+        }
+      }
+    }
+  ],
+  "delivery_metrics": {
+    "ALPHA": {
+      "commits_last_7_days": 2,
+      "commits_last_14_days": 5,
+      "commits_prior_7_days": 10,
+      "jira_issues_last_7_days": 0,
+      "blocked_work_count": 7,
+      "blocked_work_prior_count": 3,
+      "open_pull_requests": 5,
+      "pr_review_wait_hours": 30.0,
+      "build_failure_count_7d": 5,
+      "build_failure_count_prior_7d": 1
+    },
+    "BETA": {
+      "commits_last_7_days": 8,
+      "commits_last_14_days": 20,
+      "commits_prior_7_days": 6,
+      "jira_issues_last_7_days": 4,
+      "issue_reopen_count_7d": 2,
+      "issue_closed_count_7d": 8,
+      "release_count_7d": 4,
+      "release_failure_count_7d": 2,
+      "top_dependency_share_pct": 82.0
+    },
+    "GAMMA": {
+      "commits_last_7_days": 0,
+      "commits_last_14_days": 0,
+      "commits_prior_7_days": 0
+    }
+  },
+  "connector_metrics": {
+    "ALPHA": {
+      "failures": [
+        "jira"
+      ],
+      "last_success_at": "2026-06-01T12:00:00Z"
+    },
+    "BETA": {
+      "failures": [],
+      "last_success_at": "2026-06-07T10:00:00Z"
+    }
+  }
+}
