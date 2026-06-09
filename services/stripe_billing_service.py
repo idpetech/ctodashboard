@@ -29,6 +29,9 @@ PLANS: Dict[str, Dict[str, Any]] = {
     },
 }
 
+# Checkout / upgrade offers — professional deferred; kept in PLANS for legacy subscribers.
+CHECKOUT_PLANS: tuple[str, ...] = ("starter",)
+
 _STRIPE_STATUS_MAP = {
     "active": "active",
     "trialing": "trial",
@@ -152,8 +155,9 @@ def billing_summary(user_data: Dict[str, Any]) -> Dict[str, Any]:
         "has_subscription": bool(billing.get("stripe_subscription_id")),
         "can_manage_billing": bool(billing.get("stripe_customer_id")),
         "available_plans": [
-            {"id": k, "name": v["name"], "amount": v["amount"]}
-            for k, v in PLANS.items()
+            {"id": k, "name": PLANS[k]["name"], "amount": PLANS[k]["amount"]}
+            for k in CHECKOUT_PLANS
+            if k in PLANS
         ],
     }
 
@@ -170,8 +174,12 @@ def create_checkout_session(
     cancel_url: str,
     existing_customer_id: Optional[str] = None,
 ) -> Dict[str, str]:
+    plan_key = (plan or "").strip().lower()
+    if plan_key not in CHECKOUT_PLANS:
+        raise ValueError("Invalid plan. Only Starter is available at this time.")
+
     stripe = _stripe()
-    price_id = _price_id(plan)
+    price_id = _price_id(plan_key)
 
     params: Dict[str, Any] = {
         "mode": "subscription",
@@ -179,8 +187,8 @@ def create_checkout_session(
         "success_url": success_url,
         "cancel_url": cancel_url,
         "client_reference_id": user_email,
-        "metadata": {"user_email": user_email, "plan": plan},
-        "subscription_data": {"metadata": {"user_email": user_email, "plan": plan}},
+        "metadata": {"user_email": user_email, "plan": plan_key},
+        "subscription_data": {"metadata": {"user_email": user_email, "plan": plan_key}},
     }
     if existing_customer_id:
         params["customer"] = existing_customer_id

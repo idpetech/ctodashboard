@@ -1037,8 +1037,8 @@ def register_routes(app):
         current_user = get_current_user()
         data = request.get_json() or {}
         plan = (data.get("plan") or "").strip().lower()
-        if plan not in ("starter", "professional"):
-            return jsonify({"error": "Invalid plan. Choose starter or professional."}), 400
+        if plan != "starter":
+            return jsonify({"error": "Invalid plan. Only Starter is available at this time."}), 400
 
         full = get_user_service().get_user_by_email(current_user.get("email"))
         if not full:

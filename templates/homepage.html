@@ -270,7 +270,7 @@
             <h2 class="text-4xl font-bold text-gray-900 mb-4">{{ content.pricing.title }}</h2>
             <p class="text-xl text-gray-600 mb-12">{{ content.pricing.subtitle }}</p>
             
-            <div class="grid md:grid-cols-3 gap-8">
+            <div class="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
                 {% for plan in content.pricing.plans %}
                 <div class="{% if plan.popular %}border-2 border-blue-500{% else %}border border-gray-200{% endif %} rounded-xl p-8 relative">
                     {% if plan.popular %}

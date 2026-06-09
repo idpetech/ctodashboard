@@ -131,7 +131,7 @@
   },
   "pricing": {
     "title": "Simple Pricing",
-    "subtitle": "Start with a free assessment, scale as you grow",
+    "subtitle": "Start with a free assessment, then upgrade to Starter when you're ready",
     "plans": [
       {
         "name": "Free Assessment",
@@ -146,7 +146,7 @@
         }
       },
       {
-        "name": "Full Access",
+        "name": "Starter",
         "price": "$49",
         "period": "/mo",
         "description": "Complete CTO dashboard for growing teams",
@@ -154,20 +154,8 @@
         "popular": true,
         "cta": {
           "text": "Get Started",
-          "link": "/dashboard", 
+          "link": "/dashboard",
           "style": "primary"
-        }
-      },
-      {
-        "name": "Scale",
-        "price": "$149",
-        "period": "/mo",
-        "description": "Enterprise features for larger organizations",
-        "features": ["Everything in Full", "Custom integrations", "Advanced analytics", "Priority support"],
-        "cta": {
-          "text": "Contact Sales",
-          "link": "https://idpetech.com",
-          "style": "secondary"
         }
       }
     ],

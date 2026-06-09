@@ -404,10 +404,7 @@
                             </div>
                             <div id="profile-billing-upgrade" class="hidden space-y-2 mb-2">
                                 <p class="text-xs text-gray-500">Choose a plan to upgrade from trial:</p>
-                                <div class="flex flex-wrap gap-2">
-                                    <button type="button" onclick="startBillingCheckout('starter')" class="px-3 py-1.5 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700">Starter — $49/mo</button>
-                                    <button type="button" onclick="startBillingCheckout('professional')" class="px-3 py-1.5 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700">Professional — $149/mo</button>
-                                </div>
+                                <div id="profile-billing-upgrade-buttons" class="flex flex-wrap gap-2"></div>
                             </div>
                             <button type="button" id="profile-billing-manage-btn" onclick="openBillingPortal()" class="hidden w-full px-3 py-1.5 bg-white border border-indigo-300 text-indigo-700 rounded text-xs hover:bg-indigo-100">Manage Billing</button>
                         </div>
@@ -1044,6 +1041,21 @@
                 const upgradeBlock = document.getElementById('profile-billing-upgrade');
                 if (upgradeBlock) {
                     upgradeBlock.classList.toggle('hidden', !showUpgrade);
+                }
+
+                const upgradeButtons = document.getElementById('profile-billing-upgrade-buttons');
+                if (upgradeButtons) {
+                    upgradeButtons.innerHTML = '';
+                    if (showUpgrade && Array.isArray(state.available_plans)) {
+                        state.available_plans.forEach(function(planOption) {
+                            const btn = document.createElement('button');
+                            btn.type = 'button';
+                            btn.className = 'px-3 py-1.5 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700';
+                            btn.textContent = planOption.name + ' — $' + planOption.amount + '/mo';
+                            btn.onclick = function() { startBillingCheckout(planOption.id); };
+                            upgradeButtons.appendChild(btn);
+                        });
+                    }
                 }
 
                 const manageBtn = document.getElementById('profile-billing-manage-btn');
