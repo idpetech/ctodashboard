@@ -114,7 +114,7 @@ def homepage():
             },
             "pricing": {
                 "title": "Simple Pricing",
-                "subtitle": "Start your 7-day free trial — no credit card required. Upgrade to Starter when you're ready.",
+                "subtitle": "Start with a 7-day free trial or subscribe to Starter — cancel anytime.",
                 "plans": [
                     {
                         "name": "7-Day Free Trial",
@@ -127,29 +127,29 @@ def homepage():
                             "7 days of full dashboard & report access",
                             "No credit card required",
                         ],
-                        "popular": True,
                         "cta": {
                             "text": "Start 7-Day Free Trial",
                             "link": "/dashboard?signup=1",
-                            "style": "primary",
+                            "style": "secondary",
                         },
                     },
                     {
                         "name": "Starter",
                         "price": "$49",
                         "period": "/mo",
-                        "description": "Paid plan for teams after the trial. Upgrade anytime from Profile → Billing.",
+                        "description": "Full dashboard and team features, billed monthly via Stripe.",
                         "features": [
                             "Unlimited services & assignments",
                             "Daily briefings & alert management",
                             "Team insights & full history",
-                            "Billed monthly via Stripe",
+                            "Billed monthly — cancel anytime",
                         ],
-                        "note": "Start your free trial first — upgrade to Starter ($49/mo) from Profile settings when you're ready.",
+                        "popular": True,
+                        "note": "Prefer to try first? Start the 7-day free trial — no credit card required.",
                         "cta": {
-                            "text": "Start Free Trial First",
-                            "link": "/dashboard?signup=1",
-                            "style": "secondary",
+                            "text": "Subscribe — $49/mo",
+                            "link": "/dashboard?signup=1&plan=starter",
+                            "style": "primary",
                         },
                     },
                 ],

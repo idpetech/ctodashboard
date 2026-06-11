@@ -63,9 +63,9 @@
                 <!-- Register Form (hidden by default) -->
                 <div id="register-form" class="p-6 hidden">
                     <div class="text-center mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">Start Your Free Trial</h2>
-                        <p class="text-gray-600 mt-2">Create your CTO Lens account</p>
-                        <p class="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 mt-3">
+                        <h2 id="register-title" class="text-2xl font-bold text-gray-800">Start Your Free Trial</h2>
+                        <p id="register-subtitle" class="text-gray-600 mt-2">Create your CTO Lens account</p>
+                        <p id="register-plan-note" class="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 mt-3">
                             Includes a 7-day free trial with full dashboard access. No credit card required.
                         </p>
                     </div>
@@ -90,8 +90,7 @@
                         
                         <button type="submit" id="register-button" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition-colors">
                             Start 7-Day Free Trial
-                        </button>
-                    </form>
+                        </button>                    </form>
                     
                     <div class="mt-4 text-center">
                         <button onclick="showLoginForm()" class="text-blue-600 hover:underline text-sm">

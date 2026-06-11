@@ -1,4 +1,88 @@
 /* CTO Lens dashboard module: 01-auth-billing.js */
+var signupPlanIntent = null;
+
+function getSignupPlanFromUrl() {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const plan = (params.get('plan') || '').trim().toLowerCase();
+        return plan === 'starter' ? 'starter' : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function clearSignupPlanFromUrl() {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        params.delete('plan');
+        params.delete('signup');
+        const query = params.toString();
+        const next = window.location.pathname + (query ? '?' + query : '');
+        window.history.replaceState({}, '', next);
+    } catch (e) {}
+}
+
+function applyRegisterFormCopy(plan) {
+    signupPlanIntent = plan || null;
+    const title = document.getElementById('register-title');
+    const subtitle = document.getElementById('register-subtitle');
+    const note = document.getElementById('register-plan-note');
+    const button = document.getElementById('register-button');
+    if (!title || !subtitle || !note || !button) return;
+
+    if (plan === 'starter') {
+        title.textContent = 'Subscribe to Starter';
+        subtitle.textContent = 'Create your account, then continue to secure checkout';
+        note.textContent = 'Starter is $49/month via Stripe. Cancel anytime. You can also start with a 7-day free trial instead.';
+        note.className = 'text-sm text-indigo-800 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 mt-3';
+        button.textContent = 'Continue to Checkout';
+        button.className = 'w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition-colors';
+    } else {
+        title.textContent = 'Start Your Free Trial';
+        subtitle.textContent = 'Create your CTO Lens account';
+        note.textContent = 'Includes a 7-day free trial with full dashboard access. No credit card required.';
+        note.className = 'text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 mt-3';
+        button.textContent = 'Start 7-Day Free Trial';
+        button.className = 'w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition-colors';
+    }
+}
+
+function registerButtonDefaultText() {
+    return signupPlanIntent === 'starter' ? 'Continue to Checkout' : 'Start 7-Day Free Trial';
+}
+
+async function continueSignupCheckoutIfNeeded() {
+    const plan = signupPlanIntent || getSignupPlanFromUrl();
+    if (plan !== 'starter') {
+        showDashboard();
+        return;
+    }
+
+    clearSignupPlanFromUrl();
+    signupPlanIntent = null;
+
+    try {
+        const statusResp = await authFetch('/api/auth/trial');
+        if (statusResp.ok) {
+            const state = await statusResp.json();
+            applyTrialUI(state);
+            if (state.billing_status === 'active') {
+                showDashboard();
+                return;
+            }
+            if (state.enabled !== true) {
+                alert('Paid plans are not available yet. Your free trial account is ready.');
+                showDashboard();
+                return;
+            }
+        }
+    } catch (e) {
+        console.warn('Could not load billing status before checkout:', e);
+    }
+
+    await startBillingCheckout('starter');
+}
+
 function formatTrialDate(iso) {
     if (!iso) return '—';
     try {
@@ -309,7 +393,7 @@ async function checkServerSession() {
     try {
         if (await restoreSessionFromServer()) {
             await refreshCurrentUserFromServer();
-            showDashboard();
+            await showDashboard();
             return;
         }
     } catch (error) {
@@ -336,7 +420,7 @@ async function verifyAuthToken() {
                 updateAdminUI();
                 await refreshCurrentUserFromServer();
             }
-            showDashboard();
+            await showDashboard();
         } else {
             clearAuthAndRedirect();
         }
@@ -357,11 +441,10 @@ function clearAuthAndRedirect() {
 function showAuthOverlay() {
     document.getElementById('auth-overlay').classList.remove('hidden');
     document.getElementById('user-info').classList.add('hidden');
-    // Arriving via the "7-day free trial" CTA? Default to signup.
     try {
         const params = new URLSearchParams(window.location.search);
         if (params.get('signup') === '1') {
-            showRegisterForm();
+            showRegisterForm(getSignupPlanFromUrl());
         }
     } catch (e) {}
 }
@@ -379,8 +462,14 @@ function hideAuthOverlay() {
     }
 }
 
-function showDashboard() {
+async function showDashboard() {
     hideAuthOverlay();
+    const plan = getSignupPlanFromUrl();
+    if (plan === 'starter') {
+        signupPlanIntent = 'starter';
+        await continueSignupCheckoutIfNeeded();
+        return;
+    }
     loadWorkspaces(); // Load available workspaces first - will trigger dashboard loading when appropriate
 }
 
@@ -398,9 +487,10 @@ function cancelAuth() {
     window.location.href = '/';
 }
 
-function showRegisterForm() {
+function showRegisterForm(plan) {
     document.getElementById('login-form').classList.add('hidden');
     document.getElementById('register-form').classList.remove('hidden');
+    applyRegisterFormCopy(plan || getSignupPlanFromUrl());
     clearAuthError();
     clearRegisterError();
 }
@@ -474,7 +564,7 @@ async function handleLogin(event) {
                 hideAuthOverlay();
                 setTimeout(retry, 100);
             } else {
-                showDashboard();
+                await showDashboard();
             }
         } else {
             showAuthError(data.error || 'Login failed. Please check your credentials.');
@@ -524,10 +614,13 @@ async function handleRegister(event) {
             currentUser = data.user;
             localStorage.setItem('auth_token', authToken);
             localStorage.setItem('current_user', JSON.stringify(currentUser));
-            showDashboard();
+            isAuthenticated = true;
+            updateAdminUI();
+            await refreshCurrentUserFromServer();
+            await continueSignupCheckoutIfNeeded();
         } else if (response.ok) {
             if (await restoreSessionFromServer()) {
-                showDashboard();
+                await continueSignupCheckoutIfNeeded();
             } else {
                 showRegisterError(
                     data.message || 'Account created. Please sign in with your new credentials.'
@@ -543,7 +636,7 @@ async function handleRegister(event) {
     } finally {
         // Reset button state
         registerButton.disabled = false;
-        registerButton.textContent = 'Start 7-Day Free Trial';
+        registerButton.textContent = registerButtonDefaultText();
     }
 }
 
