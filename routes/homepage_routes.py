@@ -4,6 +4,7 @@ Handles homepage display and optional admin interface for content management
 """
 
 import os
+from datetime import datetime
 
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, session, url_for
 
@@ -20,14 +21,20 @@ def homepage():
     """Main homepage route"""
     try:
         content = homepage_service.get_content()
-        return render_template("homepage.html", content=content)
+        now = datetime.now()
+        briefing_date = f"{now.strftime('%B')} {now.day}, {now.year}"
+        return render_template(
+            "homepage.html",
+            content=content,
+            briefing_date=briefing_date,
+        )
     except Exception:
         # Fallback content if configuration fails
         fallback_content = {
             "hero": {
                 "headline": "Know what needs your attention before it becomes a problem.",
-                "subheadline": "Connect GitHub, Jira, Railway and spreadsheets to get a daily CTO briefing.",
-                "cta_text": "Start Free Assessment",
+                "subheadline": "Connect GitHub, Jira, AWS and spreadsheets to get a daily CTO briefing.",
+                "cta_text": "Start 7-Day Free Trial",
                 "cta_link": "/dashboard?signup=1",
                 "preview_items": [],
             },
@@ -78,8 +85,8 @@ def homepage():
                         "details": ["Issue tracking"],
                     },
                     {
-                        "icon": "deploy",
-                        "title": "Deployment Monitoring",
+                        "icon": "aws",
+                        "title": "AWS Insights",
                         "description": "Uptime tracking",
                         "details": ["Error monitoring"],
                     },
@@ -132,7 +139,13 @@ def homepage():
                 "copyright": "© 2026 idpetech.com All rights reserved.",
             },
         }
-        return render_template("homepage.html", content=fallback_content)
+        now = datetime.now()
+        briefing_date = f"{now.strftime('%B')} {now.day}, {now.year}"
+        return render_template(
+            "homepage.html",
+            content=fallback_content,
+            briefing_date=briefing_date,
+        )
 
 
 @homepage_bp.route("/admin/homepage")

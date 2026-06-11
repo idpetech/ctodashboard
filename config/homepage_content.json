@@ -1,8 +1,8 @@
 {
   "hero": {
     "headline": "Know what needs your attention before it becomes a problem.",
-    "subheadline": "Connect GitHub, Jira, Railway and spreadsheets to get a daily CTO briefing.",
-    "cta_text": "Start Free Assessment",
+    "subheadline": "Connect GitHub, Jira, AWS and spreadsheets to get a daily CTO briefing.",
+    "cta_text": "Start 7-Day Free Trial",
     "cta_link": "/dashboard?signup=1",
     "preview_items": [
       {
@@ -49,7 +49,7 @@
     "workflow": [
       {
         "name": "Your Tools",
-        "description": "GitHub, Jira, Railway, AWS",
+        "description": "GitHub, Jira, AWS",
         "icon_type": "tools"
       },
       {
@@ -81,9 +81,9 @@
         "details": ["Sprint velocity", "Issue resolution time", "Backlog health"]
       },
       {
-        "icon": "deploy",
-        "title": "Deployment Monitoring",
-        "description": "Railway, AWS, error rates, uptime", 
+        "icon": "aws",
+        "title": "AWS Insights",
+        "description": "Cloud costs, error rates, uptime", 
         "details": ["Deploy success rate", "Error monitoring", "Performance metrics"]
       },
       {
@@ -97,7 +97,7 @@
   "daily_brief": {
     "title": "Your Daily CTO Briefing",
     "subtitle": "Get the essential insights delivered every morning",
-    "date": "March 15, 2024",
+    "date": "",
     "brief_items": [
       {
         "icon": "🚨",
@@ -138,9 +138,9 @@
         "price": "$0",
         "period": "",
         "description": "7-day evaluation of your current setup",
-        "features": ["Connect 2 services", "Basic health check", "CTO report"],
+        "features": ["Connect 2 services", "Basic health check", "7 days of full dashboard & report access"],
         "cta": {
-          "text": "Start Assessment",
+          "text": "Start Free Trial",
           "link": "/dashboard?signup=1",
           "style": "secondary"
         }
@@ -153,14 +153,14 @@
         "features": ["Unlimited services", "Daily briefings", "Alert management", "Team insights"],
         "popular": true,
         "cta": {
-          "text": "Get Started",
-          "link": "/dashboard",
+          "text": "Start 7-Day Free Trial",
+          "link": "/dashboard?signup=1",
           "style": "primary"
         }
       }
     ],
     "bottom_cta": {
-      "text": "Get Started Today",
+      "text": "Start 7-Day Free Trial",
       "link": "/dashboard?signup=1"
     }
   },
@@ -172,7 +172,7 @@
         "title": "Product",
         "links": [
           {"text": "CTO Lens", "url": "/"},
-          {"text": "Start Free Assessment", "url": "/dashboard?signup=1"},
+          {"text": "Start 7-Day Free Trial", "url": "/dashboard?signup=1"},
           {"text": "Login", "url": "/dashboard"}
         ]
       },
