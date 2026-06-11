@@ -295,9 +295,12 @@
                         <li>• {{ feature }}</li>
                         {% endfor %}
                     </ul>
-                    <a href="{{ plan.cta.link }}" class="block w-full {% if plan.cta.style == 'primary' %}bg-blue-600 hover:bg-blue-700 text-white{% else %}bg-gray-900 hover:bg-gray-800 text-white{% endif %} py-3 rounded-lg font-medium transition-colors">
+                    <a href="{{ plan.cta.link }}" class="block w-full {% if plan.cta.style == 'primary' %}bg-blue-600 hover:bg-blue-700 text-white{% else %}border border-gray-300 bg-white text-gray-800 hover:bg-gray-50{% endif %} py-3 rounded-lg font-medium transition-colors">
                         {{ plan.cta.text }}
                     </a>
+                    {% if plan.note %}
+                    <p class="text-xs text-gray-500 mt-3 leading-relaxed">{{ plan.note }}</p>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>

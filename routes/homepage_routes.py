@@ -114,22 +114,49 @@ def homepage():
             },
             "pricing": {
                 "title": "Simple Pricing",
-                "subtitle": "Scale as you grow",
+                "subtitle": "Start your 7-day free trial — no credit card required. Upgrade to Starter when you're ready.",
                 "plans": [
                     {
-                        "name": "Free",
+                        "name": "7-Day Free Trial",
                         "price": "$0",
                         "period": "",
-                        "description": "Get started",
-                        "features": ["Basic monitoring"],
+                        "description": "Full dashboard and CTO briefing access for one week",
+                        "features": [
+                            "Connect GitHub, Jira, AWS & more",
+                            "Daily CTO briefing & portfolio health",
+                            "7 days of full dashboard & report access",
+                            "No credit card required",
+                        ],
+                        "popular": True,
                         "cta": {
-                            "text": "Start Free",
+                            "text": "Start 7-Day Free Trial",
                             "link": "/dashboard?signup=1",
                             "style": "primary",
                         },
-                    }
+                    },
+                    {
+                        "name": "Starter",
+                        "price": "$49",
+                        "period": "/mo",
+                        "description": "Paid plan for teams after the trial. Upgrade anytime from Profile → Billing.",
+                        "features": [
+                            "Unlimited services & assignments",
+                            "Daily briefings & alert management",
+                            "Team insights & full history",
+                            "Billed monthly via Stripe",
+                        ],
+                        "note": "Start your free trial first — upgrade to Starter ($49/mo) from Profile settings when you're ready.",
+                        "cta": {
+                            "text": "Start Free Trial First",
+                            "link": "/dashboard?signup=1",
+                            "style": "secondary",
+                        },
+                    },
                 ],
-                "bottom_cta": {"text": "Get Started", "link": "/dashboard?signup=1"},
+                "bottom_cta": {
+                    "text": "Start 7-Day Free Trial",
+                    "link": "/dashboard?signup=1",
+                },
             },
             "footer": {
                 "tagline": "CTO Lens by IdepTech",

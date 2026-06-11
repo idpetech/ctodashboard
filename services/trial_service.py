@@ -10,7 +10,7 @@ import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
-EXPIRING_DAYS = int(os.getenv("TRIAL_EXPIRING_DAYS", "7"))
+EXPIRING_DAYS = int(os.getenv("TRIAL_EXPIRING_DAYS", "3"))
 DEFAULT_TRIAL_DAYS = int(os.getenv("FREE_TRIAL_DAYS", "7"))
 
 

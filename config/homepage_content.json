@@ -131,31 +131,42 @@
   },
   "pricing": {
     "title": "Simple Pricing",
-    "subtitle": "Start with a free assessment, then upgrade to Starter when you're ready",
+    "subtitle": "Start your 7-day free trial — no credit card required. Upgrade to Starter when you're ready.",
     "plans": [
       {
-        "name": "Free Assessment",
+        "name": "7-Day Free Trial",
         "price": "$0",
         "period": "",
-        "description": "7-day evaluation of your current setup",
-        "features": ["Connect 2 services", "Basic health check", "7 days of full dashboard & report access"],
+        "description": "Full dashboard and CTO briefing access for one week",
+        "features": [
+          "Connect GitHub, Jira, AWS & more",
+          "Daily CTO briefing & portfolio health",
+          "7 days of full dashboard & report access",
+          "No credit card required"
+        ],
+        "popular": true,
         "cta": {
-          "text": "Start Free Trial",
+          "text": "Start 7-Day Free Trial",
           "link": "/dashboard?signup=1",
-          "style": "secondary"
+          "style": "primary"
         }
       },
       {
         "name": "Starter",
         "price": "$49",
         "period": "/mo",
-        "description": "Complete CTO dashboard for growing teams",
-        "features": ["Unlimited services", "Daily briefings", "Alert management", "Team insights"],
-        "popular": true,
+        "description": "Paid plan for teams after the trial. Upgrade anytime from Profile → Billing.",
+        "features": [
+          "Unlimited services & assignments",
+          "Daily briefings & alert management",
+          "Team insights & full history",
+          "Billed monthly via Stripe"
+        ],
+        "note": "Start your free trial first — upgrade to Starter ($49/mo) from Profile settings when you're ready.",
         "cta": {
-          "text": "Start 7-Day Free Trial",
+          "text": "Start Free Trial First",
           "link": "/dashboard?signup=1",
-          "style": "primary"
+          "style": "secondary"
         }
       }
     ],

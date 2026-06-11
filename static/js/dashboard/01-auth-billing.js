@@ -357,7 +357,7 @@ function clearAuthAndRedirect() {
 function showAuthOverlay() {
     document.getElementById('auth-overlay').classList.remove('hidden');
     document.getElementById('user-info').classList.add('hidden');
-    // Arriving via the "Start Free Assessment" CTA? Default to signup.
+    // Arriving via the "7-day free trial" CTA? Default to signup.
     try {
         const params = new URLSearchParams(window.location.search);
         if (params.get('signup') === '1') {
@@ -543,7 +543,7 @@ async function handleRegister(event) {
     } finally {
         // Reset button state
         registerButton.disabled = false;
-        registerButton.textContent = 'Create Account';
+        registerButton.textContent = 'Start 7-Day Free Trial';
     }
 }
 
