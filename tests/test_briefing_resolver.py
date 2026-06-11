@@ -24,6 +24,28 @@ class TestBriefingResolver:
         assert view["recommended_actions"]
         assert view["cto_narrative"]
         assert view["top_recommendations_export"]
+        assert "signals" not in view
+        assert "diagnostics" not in view
+
+    def test_normalize_strips_internal_run_metadata(self):
+        briefing = {
+            "generated_at": "2026-06-08T00:00:00Z",
+            "executive_briefing": {
+                "executive_summary": "Summary",
+                "recommended_actions": [],
+                "top_risks": [],
+                "opportunities": [],
+            },
+            "signals": [{"severity": "critical", "description": "hidden"}],
+            "run_id": "abc123",
+            "connector_runs": [{"connector": "github"}],
+            "diagnostics": {"signals_evaluated_count": 1},
+        }
+        view = normalize_briefing_for_export(briefing)
+        assert "signals" not in view
+        assert "run_id" not in view
+        assert "connector_runs" not in view
+        assert "diagnostics" not in view
 
 
 class TestReportShareContext:
@@ -36,8 +58,13 @@ class TestReportShareContext:
             "generated_at": "2026-06-08T00:00:00Z",
             "generation_mode": "deterministic",
             "executive_briefing": sample,
-            "signals": [{"severity": "critical", "project_name": "Alpha", "description": "Over budget"}],
-            "portfolio_metrics": {"health_score": {"overall_score": 56, "band": "critical"}, "summary": {}},
+            "signals": [
+                {"severity": "critical", "project_name": "Alpha", "description": "Over budget"}
+            ],
+            "portfolio_metrics": {
+                "health_score": {"overall_score": 56, "band": "critical"},
+                "summary": {},
+            },
         }
         ctx = build_report_template_context({"briefing": briefing, "portfolio_name": "Demo"})
         assert ctx["narrative"]

@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from services.stripe_billing_service import billing_grants_write, billing_summary, get_billing_prefs
-from services.trial_service import EXPIRING_DAYS, _iso_date, _parse_dt, DEFAULT_TRIAL_DAYS
+from services.trial_service import DEFAULT_TRIAL_DAYS, EXPIRING_DAYS, _iso_date, _parse_dt
 
 
 def resolve_account_state(user_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -63,17 +63,27 @@ def resolve_account_state(user_data: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     if prefs.get("trial_status") == "paid" or prefs.get("plan") == "paid":
-        return {**b_summary, "trial_status": "paid", "days_remaining": None, "can_write": True, "banner": None}
+        return {
+            **b_summary,
+            "trial_status": "paid",
+            "days_remaining": None,
+            "can_write": True,
+            "banner": None,
+        }
 
     legacy = prefs.get("trial") or {}
-    start = _parse_dt(prefs.get("trial_start_date") or legacy.get("started_at") or user_data.get("created_at"))
+    start = _parse_dt(
+        prefs.get("trial_start_date") or legacy.get("started_at") or user_data.get("created_at")
+    )
     end = _parse_dt(prefs.get("trial_end_date") or legacy.get("expires_at"))
     if not end and start:
         days = int(legacy.get("trial_days") or DEFAULT_TRIAL_DAYS)
         from datetime import datetime, timedelta
+
         end = start + timedelta(days=days)
 
     from datetime import datetime
+
     now = datetime.utcnow()
     days_remaining = max(0, (end.date() - now.date()).days) if end else 0
     if end and end < now:
@@ -88,7 +98,10 @@ def resolve_account_state(user_data: Dict[str, Any]) -> Dict[str, Any]:
         banner = {"level": "error", "message": "Your trial has expired. Upgrade to continue."}
     elif trial_status == "expiring":
         day_word = "day" if days_remaining == 1 else "days"
-        banner = {"level": "warning", "message": f"Your trial expires in {days_remaining} {day_word}."}
+        banner = {
+            "level": "warning",
+            "message": f"Your trial expires in {days_remaining} {day_word}.",
+        }
 
     can_write = trial_status in ("active", "expiring") or billing_grants_write(billing_status)
 

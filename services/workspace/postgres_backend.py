@@ -5,7 +5,7 @@ See docs/POSTGRES-SINGLE-SOURCE-PLAN.md
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from services.security.secure_database import secure_db
 
@@ -84,9 +84,7 @@ class PostgresWorkspaceBackend:
             return {"error": f"Workspace '{workspace_id}' not found"}
         return {"assignments": self.db.get_workspace_assignments(workspace_id)}
 
-    def get_assignment(
-        self, workspace_id: str, assignment_id: str
-    ) -> Optional[Dict[str, Any]]:
+    def get_assignment(self, workspace_id: str, assignment_id: str) -> Optional[Dict[str, Any]]:
         return self.db.get_assignment(workspace_id, assignment_id)
 
     def find_assignment(
@@ -145,9 +143,7 @@ class PostgresWorkspaceBackend:
         }
 
     def archive_assignment(self, workspace_id: str, assignment_id: str) -> Dict[str, Any]:
-        return self.update_assignment(
-            workspace_id, assignment_id, {"status": "archived"}
-        )
+        return self.update_assignment(workspace_id, assignment_id, {"status": "archived"})
 
     def delete_assignment(self, workspace_id: str, assignment_id: str) -> Dict[str, Any]:
         existing = self.db.get_assignment(workspace_id, assignment_id)
@@ -176,6 +172,14 @@ class PostgresWorkspaceBackend:
         description = settings_data.get("description", workspace.get("description") or "")
         if "connector_templates" in settings_data:
             settings["connector_templates"] = settings_data["connector_templates"]
+        if "ctolens_schedule" in settings_data:
+            from services.ctolens_run_metadata import normalize_schedule, validate_schedule
+
+            merged = normalize_schedule(
+                {**(settings.get("ctolens_schedule") or {}), **settings_data["ctolens_schedule"]}
+            )
+            validate_schedule(merged)
+            settings["ctolens_schedule"] = merged
         settings["updated_at"] = datetime.now().isoformat()
         self.db.store_workspace(workspace_id, name, description, settings=settings)
         api_ws = self.db.get_workspace_api_dict(workspace_id)
@@ -234,9 +238,7 @@ class PostgresWorkspaceBackend:
     def get_connector_template(
         self, workspace_id: str, connector_type: str, template_name: str
     ) -> Dict[str, Any]:
-        templates = self.get_connector_templates(workspace_id, connector_type).get(
-            "templates", {}
-        )
+        templates = self.get_connector_templates(workspace_id, connector_type).get("templates", {})
         ct = templates.get(connector_type, {})
         if template_name not in ct:
             return {"error": f"Template '{template_name}' not found"}

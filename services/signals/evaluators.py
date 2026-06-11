@@ -13,31 +13,32 @@ from services.signals.config import rule_confidence, rule_enabled
 from services.signals.context import ProjectContext, SignalEvaluationContext
 from services.signals.models import (
     Signal,
-    SignalCategory,
     SignalSeverity,
     SignalType,
     build_signal,
 )
 from services.signals.opportunity_evaluators import (
     OPPORTUNITY_EVALUATORS,
-    evaluate_blocked_work_increase,
-    evaluate_build_failure_trend,
-    evaluate_dependency_concentration,
-    evaluate_high_performing_project,
-    evaluate_high_reopen_rate,
-    evaluate_high_service_coupling,
-    evaluate_low_throughput_project,
-    evaluate_momentum_acceleration,
-    evaluate_pr_review_bottleneck,
-    evaluate_release_instability,
-    evaluate_slow_delivery_trend,
-    evaluate_stalled_project,
-    evaluate_tech_debt_accumulation,
-    evaluate_under_budget,
-    evaluate_unused_capacity,
+    evaluate_blocked_work_increase,  # noqa: F401 — re-export for tests and callers
+    evaluate_build_failure_trend,  # noqa: F401
+    evaluate_dependency_concentration,  # noqa: F401
+    evaluate_high_performing_project,  # noqa: F401
+    evaluate_high_reopen_rate,  # noqa: F401
+    evaluate_high_service_coupling,  # noqa: F401
+    evaluate_low_throughput_project,  # noqa: F401
+    evaluate_momentum_acceleration,  # noqa: F401
+    evaluate_pr_review_bottleneck,  # noqa: F401
+    evaluate_release_instability,  # noqa: F401
+    evaluate_slow_delivery_trend,  # noqa: F401
+    evaluate_stalled_project,  # noqa: F401
+    evaluate_tech_debt_accumulation,  # noqa: F401
+    evaluate_under_budget,  # noqa: F401
+    evaluate_unused_capacity,  # noqa: F401
 )
 
-Evaluator = Callable[[SignalEvaluationContext, ProjectContext, Dict[str, Dict[str, Any]]], Optional[Signal]]
+Evaluator = Callable[
+    [SignalEvaluationContext, ProjectContext, Dict[str, Dict[str, Any]]], Optional[Signal]
+]
 
 
 def _emit(
@@ -129,7 +130,9 @@ def evaluate_cost_spike(
     return _emit(
         project,
         SignalType.COST_SPIKE,
-        severity=SignalSeverity.WARNING if change_pct < spike_threshold * 1.5 else SignalSeverity.CRITICAL,
+        severity=SignalSeverity.WARNING
+        if change_pct < spike_threshold * 1.5
+        else SignalSeverity.CRITICAL,
         confidence=rule_confidence(rules, SignalType.COST_SPIKE.value),
         title="Cost spike",
         description=(

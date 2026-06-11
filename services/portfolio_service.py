@@ -96,9 +96,7 @@ def portfolio_summary(assignments: List[Dict[str, Any]]) -> Dict[str, Any]:
         if _to_number(a.get("target_monthly_burn")) is not None
     )
     total_team = sum(int(_to_number(a.get("team_size")) or 0) for a in active)
-    with_target = sum(
-        1 for a in active if _to_number(a.get("target_monthly_burn")) is not None
-    )
+    with_target = sum(1 for a in active if _to_number(a.get("target_monthly_burn")) is not None)
 
     return {
         "total_assignments": len(assignments),
@@ -161,9 +159,7 @@ def budget_variance(assignments: List[Dict[str, Any]]) -> Dict[str, Any]:
     items.sort(key=lambda x: x["variance_pct"], reverse=True)
     portfolio_variance = portfolio_actual - portfolio_target
     portfolio_pct = (
-        round((portfolio_variance / portfolio_target) * 100, 1)
-        if portfolio_target > 0
-        else None
+        round((portfolio_variance / portfolio_target) * 100, 1) if portfolio_target > 0 else None
     )
 
     return {
@@ -220,9 +216,7 @@ def connector_health(assignments: List[Dict[str, Any]]) -> Dict[str, Any]:
             }
         )
 
-    readiness_pct = (
-        round((total_ready / total_enabled) * 100, 1) if total_enabled > 0 else None
-    )
+    readiness_pct = round((total_ready / total_enabled) * 100, 1) if total_enabled > 0 else None
     return {
         "connectors": connectors,
         "total_enabled": total_enabled,
@@ -270,8 +264,7 @@ def portfolio_health_score(
             {
                 item["assignment_id"]
                 for item in attention.get("items", [])
-                if item.get("assignment_id")
-                and item.get("type") in _DELIVERY_ATTENTION_TYPES
+                if item.get("assignment_id") and item.get("type") in _DELIVERY_ATTENTION_TYPES
             }
         )
         delivery = max(0, round(((active_count - flagged) / active_count) * 100))
@@ -292,9 +285,7 @@ def portfolio_health_score(
 # --------------------------------------------------------------------------- #
 # 4. Attention Center
 # --------------------------------------------------------------------------- #
-def attention_center(
-    assignments: List[Dict[str, Any]], budget: Dict[str, Any]
-) -> Dict[str, Any]:
+def attention_center(assignments: List[Dict[str, Any]], budget: Dict[str, Any]) -> Dict[str, Any]:
     items: List[Dict[str, Any]] = []
 
     # Budget overruns from the budget-variance view.

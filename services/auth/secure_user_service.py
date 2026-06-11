@@ -4,15 +4,16 @@ User authentication — Postgres only (secure_db / ctodashboard.users).
 See docs/POSTGRES-SINGLE-SOURCE-PLAN.md
 """
 
-import os
-import jwt
 import hashlib
+import logging
+import os
 import secrets
 import time
-import logging
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
+
+import jwt
 from flask import request
 
 from ..security.secure_database import secure_db
@@ -359,9 +360,7 @@ class SecureUserService:
         return self._hash_password(password, salt) == stored_hash
 
     def _hash_password(self, password: str, salt: str) -> str:
-        return hashlib.pbkdf2_hmac(
-            "sha256", password.encode(), salt.encode(), 100000
-        ).hex()
+        return hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 100000).hex()
 
     def health_check(self) -> Dict[str, Any]:
         db_health = self.secure_db.health_check()

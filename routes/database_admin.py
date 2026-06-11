@@ -4,46 +4,48 @@ Provides endpoints to monitor and manage the secure database
 """
 
 from flask import jsonify, render_template_string
+
 from services.security.secure_database import secure_db
 
 
 def register_database_admin_routes(app):
     """Register database administration routes"""
-    
+
     @app.route("/admin/db/health")
     def admin_db_health():
         """Database health check with detailed information"""
         try:
             health = secure_db.health_check()
-            
+
             # Add additional Railway-specific checks
             import os
+
             railway_info = {
                 "railway_environment": os.getenv("RAILWAY_ENVIRONMENT", "unknown"),
                 "config_dir_exists": os.path.exists("/app/config") or os.path.exists("config"),
-                "database_file_exists": os.path.exists("/app/config/secure_credentials.db") or os.path.exists("config/secure_credentials.db"),
+                "database_file_exists": os.path.exists("/app/config/secure_credentials.db")
+                or os.path.exists("config/secure_credentials.db"),
                 "master_key_set": bool(os.getenv("CREDENTIAL_MASTER_KEY")),
-                "jwt_secret_set": bool(os.getenv("JWT_SECRET"))
+                "jwt_secret_set": bool(os.getenv("JWT_SECRET")),
             }
-            
-            return jsonify({
-                **health,
-                "railway_info": railway_info,
-                "timestamp": "2024-01-01T00:00:00Z"  # Current timestamp
-            })
-        
+
+            return jsonify(
+                {
+                    **health,
+                    "railway_info": railway_info,
+                    "timestamp": "2024-01-01T00:00:00Z",  # Current timestamp
+                }
+            )
+
         except Exception as e:
-            return jsonify({
-                "error": str(e),
-                "database_connected": False
-            }), 500
-    
+            return jsonify({"error": str(e), "database_connected": False}), 500
+
     @app.route("/admin/db/status")
     def admin_db_status():
         """Simple database status page for Railway monitoring"""
         try:
             health = secure_db.health_check()
-            
+
             status_html = """
             <!DOCTYPE html>
             <html>
@@ -102,15 +104,17 @@ def register_database_admin_routes(app):
             </body>
             </html>
             """
-            
+
             import os
-            return render_template_string(status_html, 
+
+            return render_template_string(
+                status_html,
                 health=health,
                 master_key_configured=bool(os.getenv("CREDENTIAL_MASTER_KEY")),
                 jwt_secret_set=bool(os.getenv("JWT_SECRET")),
-                flask_env=os.getenv("FLASK_ENV", "unknown")
+                flask_env=os.getenv("FLASK_ENV", "unknown"),
             )
-        
+
         except Exception as e:
             error_html = f"""
             <!DOCTYPE html>
@@ -124,14 +128,14 @@ def register_database_admin_routes(app):
             </html>
             """
             return error_html, 500
-    
+
     @app.route("/admin/db/audit")
     def admin_db_audit():
         """Recent audit logs (non-sensitive information only)"""
         try:
             # Get recent audit logs
             audit_logs = secure_db.get_audit_logs(limit=50)
-            
+
             # Filter out sensitive information
             safe_logs = []
             for log in audit_logs:
@@ -140,18 +144,19 @@ def register_database_admin_routes(app):
                     "entity_type": log.get("entity_type"),
                     "success": log.get("success"),
                     "created_at": log.get("created_at"),
-                    "user_email": log.get("user_email", "system")[:10] + "..." if log.get("user_email") else None
+                    "user_email": log.get("user_email", "system")[:10] + "..."
+                    if log.get("user_email")
+                    else None,
                 }
                 safe_logs.append(safe_log)
-            
-            return jsonify({
-                "audit_logs": safe_logs,
-                "total_logs": len(audit_logs),
-                "note": "Sensitive information filtered for security"
-            })
-        
+
+            return jsonify(
+                {
+                    "audit_logs": safe_logs,
+                    "total_logs": len(audit_logs),
+                    "note": "Sensitive information filtered for security",
+                }
+            )
+
         except Exception as e:
-            return jsonify({
-                "error": str(e),
-                "audit_logs": []
-            }), 500
+            return jsonify({"error": str(e), "audit_logs": []}), 500

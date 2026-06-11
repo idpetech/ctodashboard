@@ -4,10 +4,10 @@ PostgreSQL data layer — single source of truth for persisted app data.
 See docs/POSTGRES-SINGLE-SOURCE-PLAN.md. DDL lives in canonical_schema.py only.
 """
 
-import os
-import json
 import base64
 import hashlib
+import json
+import os
 import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -17,6 +17,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 from config.logging_config import get_logger
+
 from .canonical_schema import REQUIRED_TABLES, SCHEMA_NAME
 from .database_adapter import create_database_adapter, parse_database_url
 
@@ -31,7 +32,6 @@ def _row_val(row, key: str, index: int = 0):
     return row[index]
 
 
-
 def _bytea_to_bytes(value):
     """PostgreSQL BYTEA may be returned as memoryview."""
     if value is None:
@@ -39,6 +39,7 @@ def _bytea_to_bytes(value):
     if isinstance(value, memoryview):
         return bytes(value)
     return value
+
 
 def _extract_count(result) -> int:
     if not result:
@@ -119,6 +120,50 @@ class SecureDatabaseManager:
             )
         except Exception as e:
             logger.warning("target_monthly_burn migration skipped: %s", e)
+        # Product analytics tables (idempotent; gated at runtime by ENABLE_PRODUCT_ANALYTICS).
+        try:
+            from services.security.canonical_schema import TABLES
+
+            analytics_ddls = [
+                f"""
+                CREATE TABLE IF NOT EXISTS {TABLES.ANALYTICS_SESSIONS} (
+                    session_id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    ended_at TIMESTAMP,
+                    duration_seconds INTEGER,
+                    event_count INTEGER NOT NULL DEFAULT 0,
+                    last_event_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """,
+                f"""
+                CREATE TABLE IF NOT EXISTS {TABLES.ANALYTICS_EVENTS} (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    session_id TEXT NOT NULL,
+                    event_name TEXT NOT NULL,
+                    occurred_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    metadata JSONB NOT NULL DEFAULT '{{}}'::jsonb
+                )
+                """,
+                f"""
+                CREATE TABLE IF NOT EXISTS {TABLES.ANALYTICS_USER_PROFILES} (
+                    user_id TEXT PRIMARY KEY,
+                    first_seen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    last_seen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    has_activated BOOLEAN NOT NULL DEFAULT FALSE,
+                    first_activation_time TIMESTAMP
+                )
+                """,
+                f"CREATE INDEX IF NOT EXISTS idx_analytics_events_user_time ON {TABLES.ANALYTICS_EVENTS} (user_id, occurred_at)",
+                f"CREATE INDEX IF NOT EXISTS idx_analytics_events_session ON {TABLES.ANALYTICS_EVENTS} (session_id)",
+                f"CREATE INDEX IF NOT EXISTS idx_analytics_events_name_time ON {TABLES.ANALYTICS_EVENTS} (event_name, occurred_at)",
+                f"CREATE INDEX IF NOT EXISTS idx_analytics_sessions_user_started ON {TABLES.ANALYTICS_SESSIONS} (user_id, started_at)",
+            ]
+            for ddl in analytics_ddls:
+                self.adapter.execute_update(ddl)
+        except Exception as e:
+            logger.warning("analytics tables migration skipped: %s", e)
 
         if os.getenv("ENABLE_DB_AUTO_INIT", "false").lower() == "true":
             self._auto_initialize_if_empty()
@@ -128,7 +173,7 @@ class SecureDatabaseManager:
 
     def _auto_initialize_if_empty(self) -> None:
         try:
-            result = self.adapter.execute_query(f"SELECT COUNT(*) AS count FROM users")
+            result = self.adapter.execute_query("SELECT COUNT(*) AS count FROM users")
             if _extract_count(result) > 0:
                 return
             admin_data = {
@@ -154,9 +199,7 @@ class SecureDatabaseManager:
                 "password_hash": user_data.get("password_hash"),
                 "salt": user_data.get("salt"),
             }
-            encrypted = (
-                self.adapter.encrypt_data(sensitive) if any(sensitive.values()) else None
-            )
+            encrypted = self.adapter.encrypt_data(sensitive) if any(sensitive.values()) else None
             query = """
                 INSERT INTO users
                 (email, display_name, encrypted_password_data, workspaces, role, status,
@@ -194,9 +237,7 @@ class SecureDatabaseManager:
         self, email: str, audit_info: Dict[str, Any] = None
     ) -> Optional[Dict[str, Any]]:
         try:
-            rows = self.adapter.execute_query(
-                "SELECT * FROM users WHERE email = %s", (email,)
-            )
+            rows = self.adapter.execute_query("SELECT * FROM users WHERE email = %s", (email,))
             if not rows:
                 self._audit_log("get_user", "user", email, audit_info, False, "User not found")
                 return None
@@ -305,9 +346,7 @@ class SecureDatabaseManager:
             logger.error("store_assignment failed: %s", e)
             return False
 
-    def get_assignment(
-        self, workspace_id: str, assignment_id: str
-    ) -> Optional[Dict[str, Any]]:
+    def get_assignment(self, workspace_id: str, assignment_id: str) -> Optional[Dict[str, Any]]:
         try:
             rows = self.adapter.execute_query(
                 """SELECT assignment_id, workspace_id, name, description, team_size,
@@ -395,9 +434,7 @@ class SecureDatabaseManager:
                     "metrics_config": metrics or {},
                     "created_at": row["created_at"],
                 }
-                assignment["credentials"] = self.list_assignment_credentials(
-                    workspace_id, aid
-                )
+                assignment["credentials"] = self.list_assignment_credentials(workspace_id, aid)
                 assignments.append(assignment)
             return assignments
         except Exception as e:
@@ -484,9 +521,7 @@ class SecureDatabaseManager:
             logger.error("delete_assignment_credentials failed: %s", e)
             return False
 
-    def list_assignment_credentials(
-        self, workspace_id: str, assignment_id: str
-    ) -> Dict[str, bool]:
+    def list_assignment_credentials(self, workspace_id: str, assignment_id: str) -> Dict[str, bool]:
         try:
             rows = self.adapter.execute_query(
                 """SELECT connector_type FROM credentials
@@ -568,7 +603,6 @@ class SecureDatabaseManager:
             logger.error("get_audit_logs failed: %s", e)
             return []
 
-
     def list_all_users(self) -> List[Dict[str, Any]]:
         """List users (email/display_name only). Used by admin inspect scripts."""
         try:
@@ -630,7 +664,6 @@ class SecureDatabaseManager:
     def _decrypt_data(self, encrypted_data):
         return self.adapter.decrypt_data(encrypted_data)
 
-
     def list_workspaces(self) -> List[Dict[str, Any]]:
         try:
             rows = self.adapter.execute_query(
@@ -645,14 +678,16 @@ class SecureDatabaseManager:
                         (row["workspace_id"],),
                     )
                 )
-                result.append({
-                    "id": row["workspace_id"],
-                    "name": row["name"],
-                    "description": row.get("description") or "",
-                    "assignment_count": assignment_count,
-                    "status": "active",
-                    "created_at": row.get("created_at"),
-                })
+                result.append(
+                    {
+                        "id": row["workspace_id"],
+                        "name": row["name"],
+                        "description": row.get("description") or "",
+                        "assignment_count": assignment_count,
+                        "status": "active",
+                        "created_at": row.get("created_at"),
+                    }
+                )
             return result
         except Exception as e:
             logger.error("list_workspaces failed: %s", e)

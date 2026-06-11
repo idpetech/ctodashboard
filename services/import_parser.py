@@ -20,22 +20,46 @@ logger = get_logger(__name__)
 # Flexible header aliases (lowercase, stripped). First match wins per field.
 FIELD_ALIASES: Dict[str, List[str]] = {
     "assignment_id": [
-        "assignment_id", "id", "project_id", "project id", "projectid",
-        "key", "code", "slug",
+        "assignment_id",
+        "id",
+        "project_id",
+        "project id",
+        "projectid",
+        "key",
+        "code",
+        "slug",
     ],
     "name": [
-        "name", "assignment_name", "assignment name", "project_name",
-        "project name", "project", "title", "engagement",
+        "name",
+        "assignment_name",
+        "assignment name",
+        "project_name",
+        "project name",
+        "project",
+        "title",
+        "engagement",
     ],
     "description": ["description", "desc", "summary", "notes", "details"],
     "team_size": ["team_size", "team size", "team", "headcount", "size", "fte"],
     "monthly_burn_rate": [
-        "monthly_burn_rate", "monthly burn", "monthly_burn", "burn",
-        "burn_rate", "spend", "monthly_spend", "budget", "monthly budget",
+        "monthly_burn_rate",
+        "monthly burn",
+        "monthly_burn",
+        "burn",
+        "burn_rate",
+        "spend",
+        "monthly_spend",
+        "budget",
+        "monthly budget",
     ],
     "target_monthly_burn": [
-        "target_monthly_burn", "target burn", "target_burn", "target_budget",
-        "target budget", "budget_target", "target monthly burn",
+        "target_monthly_burn",
+        "target burn",
+        "target_burn",
+        "target_budget",
+        "target budget",
+        "budget_target",
+        "target monthly burn",
     ],
     "status": ["status", "state", "phase"],
 }
@@ -285,8 +309,7 @@ def parse_spreadsheet(
 
     if "name" not in field_map and "assignment_id" not in field_map:
         result["errors"].append(
-            "Could not find a name or id column. "
-            f"Detected headers: {', '.join(headers[:12])}"
+            f"Could not find a name or id column. Detected headers: {', '.join(headers[:12])}"
         )
         return result
 
@@ -309,9 +332,7 @@ def parse_spreadsheet(
             suffix = seen_ids[aid] + 1
             seen_ids[aid] = suffix
             new_id = f"{aid}_{suffix}"
-            result["warnings"].append(
-                f"Row {idx}: duplicate id '{aid}' renamed to '{new_id}'"
-            )
+            result["warnings"].append(f"Row {idx}: duplicate id '{aid}' renamed to '{new_id}'")
             assignment["assignment_id"] = new_id
             assignment["id"] = new_id
         else:

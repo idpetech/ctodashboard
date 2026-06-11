@@ -117,3 +117,23 @@ Railway staging service should track this branch.
 
 - `docs/backlog/CTOLENS-METRICS-ENRICHMENT-PLAN.md` — scheduled metrics enrichment (future)
 - `docs/CURRENT-ARCHITECTURE.md` — application architecture
+
+## CTOLens scheduled enrichment (optional)
+
+Behind `ENABLE_CTOLENS_SCHEDULED_ENRICHMENT=true` (default false).
+
+1. Set `CTOLENS_CRON_SECRET` (or reuse `INTERNAL_CRON_SECRET`) on the web service.
+2. Configure workspace schedule under **Workspace Settings → CTOLens Live Metrics Schedule** (frequency, UTC time, optional `on_import`).
+3. Add a Railway **Cron** job (or external scheduler) that POSTs to:
+
+```http
+POST /api/internal/ctolens/scheduled-refresh
+X-CTOLens-Cron-Secret: <secret>
+Content-Type: application/json
+
+{}
+```
+
+Optional body: `{"workspace_id": "default_workspace"}` to refresh one workspace only.
+
+On failure the previous stored briefing is kept; run status and rolling log record the error.

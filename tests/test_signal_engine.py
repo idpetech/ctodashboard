@@ -6,8 +6,6 @@ import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import pytest
-
 from services.signals.config import load_signal_rules
 from services.signals.context import ProjectContext, SignalEvaluationContext
 from services.signals.engine import SignalEngine
@@ -31,8 +29,8 @@ from services.signals.evaluators import (
     evaluate_release_instability,
     evaluate_resource_imbalance,
     evaluate_slow_delivery_trend,
-    evaluate_stalled_project,
     evaluate_stale_data,
+    evaluate_stalled_project,
     evaluate_tech_debt_accumulation,
     evaluate_under_budget,
     evaluate_unused_capacity,
@@ -204,7 +202,9 @@ class TestSignalEngine:
         assert all("recommend" not in s.description.lower() for s in signals)
 
     def test_sample_fixture(self):
-        sample_path = Path(__file__).resolve().parents[1] / "samples" / "signals" / "input_context.json"
+        sample_path = (
+            Path(__file__).resolve().parents[1] / "samples" / "signals" / "input_context.json"
+        )
         payload = json.loads(sample_path.read_text(encoding="utf-8"))
         signals = SignalEngine().evaluate_assignments(
             payload["assignments"],

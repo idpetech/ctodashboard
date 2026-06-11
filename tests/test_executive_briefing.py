@@ -7,13 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from services.executive_briefing.assembler import build_briefing_input, pre_sort_facts
+from services.executive_briefing.assembler import pre_sort_facts
 from services.executive_briefing.feedback import record_recommendation_feedback
 from services.executive_briefing.generator import ExecutiveBriefingGenerator
 from services.executive_briefing.prompts import SYSTEM_PROMPT
 from services.executive_briefing.schema import BriefingInput
-from services.recommendations.engine import RecommendationEngine
-from services.signals.engine import SignalEngine
 
 
 class FakeSecureDb:
@@ -61,8 +59,24 @@ class TestAssembler:
             "portfolio_metrics": {},
             "signals": [],
             "recommendations": [
-                {"recommendation_id": "r1", "title": "Low", "description": "d", "priority": "low", "impact_score": 3, "priority_score": 1, "project_name": "X"},
-                {"recommendation_id": "r2", "title": "High", "description": "d", "priority": "high", "impact_score": 9, "priority_score": 20, "project_name": "Y"},
+                {
+                    "recommendation_id": "r1",
+                    "title": "Low",
+                    "description": "d",
+                    "priority": "low",
+                    "impact_score": 3,
+                    "priority_score": 1,
+                    "project_name": "X",
+                },
+                {
+                    "recommendation_id": "r2",
+                    "title": "High",
+                    "description": "d",
+                    "priority": "high",
+                    "impact_score": 9,
+                    "priority_score": 20,
+                    "project_name": "Y",
+                },
             ],
             "data_completeness": {},
         }

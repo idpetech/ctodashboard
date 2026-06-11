@@ -67,7 +67,9 @@ def ensure_stored_briefing(
         store_briefing_in_workspace,
     )
 
-    last_import = (secure_db.get_workspace(workspace_id) or {}).get("settings", {}).get("last_import")
+    last_import = (
+        (secure_db.get_workspace(workspace_id) or {}).get("settings", {}).get("last_import")
+    )
     briefing = build_attention_briefing(
         assignments,
         import_metadata=last_import,
@@ -83,9 +85,12 @@ def is_ctolens_briefing(briefing: Dict[str, Any]) -> bool:
 
 def normalize_briefing_for_export(briefing: Dict[str, Any]) -> Dict[str, Any]:
     """Map CTOLens or legacy briefing into a shared export view."""
+    from services.ctolens_run_metadata import strip_briefing_for_export
+
     if not is_ctolens_briefing(briefing):
         return briefing
 
+    briefing = strip_briefing_for_export(briefing)
     eb = briefing.get("executive_briefing") or {}
     portfolio_metrics = briefing.get("portfolio_metrics") or {}
     health = portfolio_metrics.get("health_score") or {}
@@ -115,14 +120,14 @@ def normalize_briefing_for_export(briefing: Dict[str, Any]) -> Dict[str, Any]:
     ]
 
     attention_items: List[Dict[str, Any]] = []
-    for sig in briefing.get("signals") or []:
-        sev = sig.get("severity")
+    for r in eb.get("top_risks") or []:
+        sev = r.get("severity")
         if sev not in ("critical", "warning"):
             continue
         attention_items.append(
             {
                 "severity": sev,
-                "message": f"{sig.get('project_name', '')}: {sig.get('description') or sig.get('title') or ''}".strip(": "),
+                "message": f"{r.get('project_name', '')}: {r.get('summary') or ''}".strip(": "),
             }
         )
 

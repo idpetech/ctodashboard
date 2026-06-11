@@ -1,5 +1,5 @@
 {
-  "recommendation_count": 12,
+  "recommendation_count": 13,
   "recommendations": [
     {
       "recommendation_id": "rec:ALPHA:OVER_BUDGET",
@@ -196,9 +196,38 @@
           "signal_type": "STALE_DATA",
           "severity": "warning",
           "confidence": 0.88,
-          "metric_value": 159.39,
+          "metric_value": 228.1,
           "threshold": 48.0,
-          "signal_description": "Last successful connector sync was 159.4 hours ago."
+          "signal_description": "Last successful connector sync was 228.1 hours ago."
+        },
+        "business_rationale": "Outdated metrics increase the risk of decisions based on expired information."
+      },
+      "priority_score": 10.56
+    },
+    {
+      "recommendation_id": "rec:BETA:STALE_DATA",
+      "title": "Refresh connector data",
+      "description": "Refresh stale connector data for Project Beta to restore timely portfolio visibility.",
+      "category": "Operational",
+      "priority": "medium",
+      "impact_score": 6,
+      "effort_score": 2,
+      "project_name": "Project Beta",
+      "project_id": "BETA",
+      "source_signal_ids": [
+        "BETA:STALE_DATA"
+      ],
+      "rationale": {
+        "triggering_signals": [
+          "BETA:STALE_DATA"
+        ],
+        "supporting_metrics": {
+          "signal_type": "STALE_DATA",
+          "severity": "warning",
+          "confidence": 0.88,
+          "metric_value": 86.1,
+          "threshold": 48.0,
+          "signal_description": "Last successful connector sync was 86.1 hours ago."
         },
         "business_rationale": "Outdated metrics increase the risk of decisions based on expired information."
       },

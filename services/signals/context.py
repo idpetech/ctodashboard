@@ -113,9 +113,7 @@ def build_context_from_assignments(
     connector_metrics = connector_metrics or {}
 
     budget = budget_variance(assignments or [])
-    variance_by_id = {
-        row["assignment_id"]: row for row in budget.get("assignments", [])
-    }
+    variance_by_id = {row["assignment_id"]: row for row in budget.get("assignments", [])}
 
     projects: List[ProjectContext] = []
     team_total = 0

@@ -601,7 +601,7 @@
                             <option value="">Select Workspace...</option>
                         </select>
                         <div class="text-xs text-gray-500 mt-1">
-                            💡 Click "Setup" to configure GitHub, Jira, AWS & other connectors
+                            💡 Click "Setup" for workspace settings, connectors, assignments, and CTOLens schedule
                         </div>
                     </div>
                 </div>
@@ -805,6 +805,13 @@
                     
                     <!-- Phase 5C: Import/Export/Backup Controls -->
                     <div class="flex items-center space-x-2">
+                        <button onclick="openWorkspaceSettings()"
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition-colors flex items-center space-x-1 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                title="Workspace settings, connectors, assignments, CTOLens schedule"
+                                aria-label="Open workspace settings">
+                            <span aria-hidden="true">🛠️</span>
+                            <span class="text-sm font-medium">Setup</span>
+                        </button>
                         <button onclick="exportAssignments()" 
                                 class="bg-green-100 hover:bg-green-200 text-green-700 px-3 py-2 rounded-lg transition-colors flex items-center space-x-1 focus:ring-2 focus:ring-green-500 focus:outline-none"
                                 aria-label="Export all assignments to JSON file">
@@ -1554,6 +1561,57 @@
                     headers,
                 });
             }
+
+            // ===== Product analytics (client beacon) =====
+            let _analyticsEnabled = null;
+
+            async function isProductAnalyticsEnabled() {
+                if (_analyticsEnabled !== null) {
+                    return _analyticsEnabled;
+                }
+                try {
+                    const resp = await fetch('/api/feature-flags');
+                    const flags = await resp.json();
+                    _analyticsEnabled = !!(flags && flags.product_analytics);
+                } catch (e) {
+                    _analyticsEnabled = false;
+                }
+                return _analyticsEnabled;
+            }
+
+            function trackAnalytics(eventName, metadata) {
+                if (!eventName) return;
+                isProductAnalyticsEnabled().then(function(enabled) {
+                    if (!enabled || !isAuthenticated) return;
+                    authFetch('/api/analytics/events', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            event_name: eventName,
+                            metadata: metadata || {},
+                        }),
+                    }).catch(function() {});
+                });
+            }
+
+            function trackFeatureUsed(feature, extra) {
+                const meta = Object.assign({ feature: feature }, extra || {});
+                trackAnalytics('feature_used', meta);
+            }
+
+            function trackPageViewOnce(key, path) {
+                const storageKey = 'analytics_pv_' + key;
+                if (sessionStorage.getItem(storageKey)) return;
+                sessionStorage.setItem(storageKey, '1');
+                trackAnalytics('page_view', { path: path || window.location.pathname });
+            }
+
+            function trackInsightViewed(panel) {
+                const storageKey = 'analytics_insight_' + (panel || 'briefing');
+                if (sessionStorage.getItem(storageKey)) return;
+                sessionStorage.setItem(storageKey, '1');
+                trackAnalytics('insight_viewed', { panel: panel || 'briefing' });
+            }
             
             // Retry utility with exponential backoff for handling eventual consistency
             async function retryWithExponentialBackoff(operation, options = {}) {
@@ -1841,6 +1899,8 @@
                 // Remove placeholder
                 const placeholder = document.getElementById('workspace-placeholder');
                 if (placeholder) placeholder.remove();
+
+                trackPageViewOnce('dashboard', '/dashboard');
             }
             
             function populateWorkspaceSelector(workspaces) {
@@ -1898,8 +1958,8 @@
             }
             
             function openWorkspaceSettings() {
-                console.log('🔧 Opening inline workspace setup');
-                showSetupPanel();
+                const ws = currentWorkspace || localStorage.getItem('selectedWorkspace') || 'default_workspace';
+                window.location.href = `/workspace/${ws}/settings`;
             }
 
             function showSetupPanel() {
@@ -1979,6 +2039,58 @@
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+
+                                <!-- CTOLens live metrics schedule -->
+                                <div class="mt-8 border-t border-gray-200 pt-8">
+                                    <div class="flex justify-between items-center mb-4">
+                                        <div>
+                                            <h3 class="text-xl font-semibold text-gray-800">📅 CTOLens Live Metrics Schedule</h3>
+                                            <p class="text-gray-600 text-sm mt-1">Optional periodic GitHub/Jira refresh. Fast briefing updates stay manual.</p>
+                                        </div>
+                                        <button id="setupSaveCtolenScheduleBtn" onclick="saveSetupCtolenSchedule()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">
+                                            Save Schedule
+                                        </button>
+                                    </div>
+                                    <div id="setupCtolenScheduleDisabled" class="hidden bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded mb-4 text-sm">
+                                        Scheduled enrichment is disabled on this deployment. Set ENABLE_CTOLENS_SCHEDULED_ENRICHMENT=true to save schedules.
+                                    </div>
+                                    <div id="setupCtolenScheduleMessage" class="hidden mb-4 text-sm rounded px-4 py-3"></div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <label class="flex items-center space-x-2">
+                                            <input type="checkbox" id="setupCtolenScheduleEnabled" class="rounded border-gray-300">
+                                            <span class="text-sm text-gray-700">Enable scheduled live metrics runs</span>
+                                        </label>
+                                        <label class="flex items-center space-x-2">
+                                            <input type="checkbox" id="setupCtolenScheduleOnImport" class="rounded border-gray-300">
+                                            <span class="text-sm text-gray-700">Run enriched briefing after CSV import</span>
+                                        </label>
+                                        <div>
+                                            <label class="block text-sm text-gray-600 mb-1">Frequency</label>
+                                            <select id="setupCtolenScheduleFrequency" class="w-full border rounded px-3 py-2 text-sm">
+                                                <option value="manual_only">Manual only</option>
+                                                <option value="daily">Daily</option>
+                                                <option value="weekly">Weekly</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm text-gray-600 mb-1">Time (UTC)</label>
+                                            <input type="time" id="setupCtolenScheduleTimeUtc" value="06:00" class="w-full border rounded px-3 py-2 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm text-gray-600 mb-1">Day of week (weekly)</label>
+                                            <select id="setupCtolenScheduleDay" class="w-full border rounded px-3 py-2 text-sm">
+                                                <option value="monday">Monday</option>
+                                                <option value="tuesday">Tuesday</option>
+                                                <option value="wednesday">Wednesday</option>
+                                                <option value="thursday">Thursday</option>
+                                                <option value="friday">Friday</option>
+                                                <option value="saturday">Saturday</option>
+                                                <option value="sunday">Sunday</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div id="setupCtolenRunStatus" class="bg-gray-50 rounded p-4 mt-4 text-sm text-gray-700 hidden"></div>
                                 </div>
                             </div>
                         </div>
@@ -2258,10 +2370,82 @@
                         const credentialsData = await credentialsResponse.json();
                         updateSetupConnectorStatus(credentialsData);
                     }
+
+                    await loadSetupCtolenSchedule();
                 } catch (error) {
                     console.error('Error loading setup data:', error);
                     container.innerHTML =
                         '<div class="text-center py-8 text-red-500">Error loading data</div>';
+                }
+            }
+
+            async function loadSetupCtolenSchedule() {
+                const workspaceId = currentWorkspace || 'default_workspace';
+                try {
+                    const response = await authFetch(`/api/workspaces/${workspaceId}/ctolens/schedule`);
+                    if (!response.ok) return;
+                    const data = await response.json();
+                    const schedule = data.schedule || {};
+                    const flagEnabled = !!data.scheduled_enrichment_enabled;
+                    const disabledEl = document.getElementById('setupCtolenScheduleDisabled');
+                    const saveBtn = document.getElementById('setupSaveCtolenScheduleBtn');
+                    if (disabledEl) disabledEl.classList.toggle('hidden', flagEnabled);
+                    if (saveBtn) saveBtn.disabled = !flagEnabled;
+
+                    const setVal = (id, fn) => { const el = document.getElementById(id); if (el) fn(el); };
+                    setVal('setupCtolenScheduleEnabled', el => { el.checked = !!schedule.enabled; });
+                    setVal('setupCtolenScheduleOnImport', el => { el.checked = !!schedule.on_import; });
+                    setVal('setupCtolenScheduleFrequency', el => { el.value = schedule.frequency || 'manual_only'; });
+                    setVal('setupCtolenScheduleTimeUtc', el => { el.value = schedule.time_utc || '06:00'; });
+                    setVal('setupCtolenScheduleDay', el => { el.value = schedule.day_of_week || 'monday'; });
+
+                    const runStatus = data.run_status || {};
+                    const statusEl = document.getElementById('setupCtolenRunStatus');
+                    if (statusEl && runStatus.last_run_at) {
+                        statusEl.classList.remove('hidden');
+                        const conn = (runStatus.connectors_attempted || []).join(', ') || 'none';
+                        statusEl.innerHTML = '<div class="font-medium text-gray-800 mb-1">Last run</div>'
+                            + '<div>' + runStatus.last_run_at + ' · ' + (runStatus.last_run_type || 'unknown') + ' · ' + (runStatus.status || 'unknown') + '</div>'
+                            + '<div class="mt-1">Metrics fetched: ' + (runStatus.metrics_fetched ? 'yes' : 'no') + ' · Connectors: ' + conn + '</div>';
+                    }
+                } catch (error) {
+                    console.error('Error loading CTOLens schedule:', error);
+                }
+            }
+
+            async function saveSetupCtolenSchedule() {
+                const workspaceId = currentWorkspace || 'default_workspace';
+                const msgEl = document.getElementById('setupCtolenScheduleMessage');
+                const payload = {
+                    enabled: document.getElementById('setupCtolenScheduleEnabled')?.checked || false,
+                    on_import: document.getElementById('setupCtolenScheduleOnImport')?.checked || false,
+                    frequency: document.getElementById('setupCtolenScheduleFrequency')?.value || 'manual_only',
+                    time_utc: document.getElementById('setupCtolenScheduleTimeUtc')?.value || '06:00',
+                    day_of_week: document.getElementById('setupCtolenScheduleDay')?.value || 'monday',
+                };
+                try {
+                    const response = await authFetch(`/api/workspaces/${workspaceId}/ctolens/schedule`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+                    const data = await response.json();
+                    if (!msgEl) return;
+                    msgEl.classList.remove('hidden');
+                    if (!response.ok) {
+                        msgEl.className = 'mb-4 text-sm rounded px-4 py-3 bg-red-100 text-red-700 border border-red-200';
+                        msgEl.textContent = data.error || 'Failed to save schedule';
+                        return;
+                    }
+                    msgEl.className = 'mb-4 text-sm rounded px-4 py-3 bg-green-100 text-green-700 border border-green-200';
+                    msgEl.textContent = 'Schedule saved.';
+                    loadSetupCtolenSchedule();
+                } catch (error) {
+                    if (msgEl) {
+                        msgEl.classList.remove('hidden');
+                        msgEl.className = 'mb-4 text-sm rounded px-4 py-3 bg-red-100 text-red-700 border border-red-200';
+                        msgEl.textContent = 'Failed to save schedule: ' + error.message;
+                    }
                 }
             }
 
@@ -3042,9 +3226,52 @@
                 html += _pfEscapeHtml(staleness.reason || 'Portfolio data has changed since this briefing was generated.');
                 html += '</div>';
                 html += '<div class="flex flex-wrap gap-2 shrink-0">';
-                html += '<button type="button" onclick="refreshAttentionBriefing()" class="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700">Update briefing</button>';
-                html += '<button type="button" onclick="refreshAttentionBriefing(true)" class="text-xs text-indigo-700 hover:underline" title="Include live connector metrics (90+ seconds)">+ live metrics</button>';
+                html += '<button type="button" onclick="refreshAttentionBriefing()" class="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700">Update briefing (fast)</button>';
+                html += '<button type="button" onclick="refreshAttentionBriefing(true)" class="text-xs text-indigo-700 hover:underline" title="Include live connector metrics (90+ seconds)">Refresh live metrics</button>';
                 html += '</div></div>';
+                return html;
+            }
+
+            function formatCtolenRunHeader(briefingData, briefing, ctolensOn, staleness) {
+                if (ctolensOn && briefingData && briefingData.header_summary) {
+                    let line = briefingData.header_summary;
+                    if (staleness && staleness.metrics_stale) {
+                        line += ' · live metrics may be stale';
+                    }
+                    if (briefingData.schedule && briefingData.schedule.enabled) {
+                        line += ' · scheduled enrichment on';
+                    }
+                    return line;
+                }
+                return formatBriefingSubtitle(briefing, ctolensOn, staleness);
+            }
+
+            function renderCtolenDiagnosticsPanel(diagnostics) {
+                if (!diagnostics) return '';
+                const runs = diagnostics.connector_runs || [];
+                const log = diagnostics.run_log || [];
+                let html = '<details class="mt-4 border border-gray-200 rounded-lg bg-gray-50">';
+                html += '<summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-800">Signal &amp; connector details</summary>';
+                html += '<div class="px-4 pb-4 text-xs text-gray-700 space-y-3">';
+                html += '<div>Run <span class="font-mono">' + _pfEscapeHtml(diagnostics.run_id || '—') + '</span>';
+                html += ' · evaluated ' + (diagnostics.signals_evaluated_count || 0) + ' signals · shown ' + (diagnostics.signals_shown_count || 0) + '</div>';
+                if (runs.length) {
+                    html += '<ul class="space-y-1">';
+                    runs.forEach(function(r) {
+                        html += '<li>' + _pfEscapeHtml(r.assignment_name || r.assignment_id) + ' · ' + _pfEscapeHtml(r.connector) + ' · ' + _pfEscapeHtml(r.status) + '</li>';
+                    });
+                    html += '</ul>';
+                } else {
+                    html += '<div class="text-gray-500">No connector runs on last fast briefing.</div>';
+                }
+                if (log.length) {
+                    html += '<div class="font-semibold text-gray-800 mt-2">Recent runs</div><ul class="space-y-1">';
+                    log.slice(0, 5).forEach(function(entry) {
+                        html += '<li>' + _pfEscapeHtml(entry.run_type || '') + ' · ' + _pfEscapeHtml(entry.status || '') + ' · ' + _pfEscapeHtml(String(entry.duration_seconds || '')) + 's</li>';
+                    });
+                    html += '</ul>';
+                }
+                html += '</div></details>';
                 return html;
             }
 
@@ -3065,9 +3292,9 @@
                 return subtitle || 'Executive narrative and signals';
             }
 
-            function renderBriefingPanelBody(briefing, emptyMessage, ctolensMode, staleness) {
+            function renderBriefingPanelBody(briefing, emptyMessage, ctolensMode, staleness, diagnostics) {
                 if (ctolensMode) {
-                    return renderCtolenBriefingPanelBody(briefing, emptyMessage, staleness);
+                    return renderCtolenBriefingPanelBody(briefing, emptyMessage, staleness, diagnostics);
                 }
                 if (!briefing) {
                     return '<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">' +
@@ -3109,6 +3336,16 @@
                 if (briefing.generated_at) {
                     html += '<div class="text-xs text-gray-400 mt-3">Generated ' + new Date(briefing.generated_at).toLocaleString() + '</div>';
                 }
+                html += renderCtolenDiagnosticsPanel(diagnostics);
+                if (briefing.generated_at) {
+                    html += '<div class="text-xs text-gray-400 mt-3">Generated ' + new Date(briefing.generated_at).toLocaleString();
+                    if (briefing.metrics_fetched) {
+                        html += ' · live metrics included';
+                    } else {
+                        html += ' · assignment data only';
+                    }
+                    html += '</div>';
+                }
                 return html;
             }
 
@@ -3126,7 +3363,7 @@
                 return html;
             }
 
-            function renderCtolenBriefingPanelBody(briefing, emptyMessage, staleness) {
+            function renderCtolenBriefingPanelBody(briefing, emptyMessage, staleness, diagnostics) {
                 if (!briefing) {
                     return '<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">' +
                         (emptyMessage || 'Add assignments to generate your CTOLens briefing.') +
@@ -3394,7 +3631,7 @@
 
                 if (briefingOn) {
                     const briefing = briefingData && briefingData.briefing;
-                    const briefingSubtitle = formatBriefingSubtitle(briefing, ctolensOn, briefingStaleness);
+                    const briefingSubtitle = formatCtolenRunHeader(briefingData, briefing, ctolensOn, briefingStaleness);
                     const exportBtn = briefingOn && (briefing || ctolensOn)
                         ? '<button type="button" id="briefing-share-btn" onclick="shareBriefingReport()" class="text-xs sm:text-sm bg-emerald-600 text-white px-2 sm:px-3 py-1.5 rounded-lg hover:bg-emerald-700 whitespace-nowrap">Share</button>'
                         + '<button type="button" id="briefing-export-pdf-btn" onclick="exportBriefingPdf()" class="text-xs sm:text-sm bg-blue-600 text-white px-2 sm:px-3 py-1.5 rounded-lg hover:bg-blue-700 whitespace-nowrap">PDF</button>'
@@ -3404,7 +3641,7 @@
                         'briefing',
                         briefingTitle,
                         briefingSubtitle,
-                        renderBriefingPanelBody(briefing, briefingData && briefingData.message, ctolensOn, briefingStaleness),
+                        renderBriefingPanelBody(briefing, briefingData && briefingData.message, ctolensOn, briefingData && briefingData.staleness, briefingData && briefingData.diagnostics),
                         false,
                         exportBtn
                     );
@@ -3470,6 +3707,9 @@
                     await Promise.all(tasks);
 
                     root.innerHTML = renderOverviewPanelsLayout(portfolioData, briefingData, portfolioOn, attentionOn, ctolensOn);
+                    if (briefingData && briefingData.briefing) {
+                        trackInsightViewed('briefing');
+                    }
                 } catch (e) {
                     console.warn('Overview panels load failed:', e);
                     root.innerHTML = '';
@@ -4522,6 +4762,9 @@
                     if (section.classList.contains('hidden')) {
                         section.classList.remove('hidden');
                         icon.textContent = '🔽️';
+                        if (sectionId === 'overview-briefing-body') {
+                            trackInsightViewed('briefing');
+                        }
                     } else {
                         section.classList.add('hidden');
                         icon.textContent = '▶️';
@@ -5959,11 +6202,12 @@
                         data.briefing,
                         data.message,
                         ctolensOn,
-                        data.staleness
+                        data.staleness,
+                        data.diagnostics
                     );
                     const subtitleEl = document.getElementById('overview-briefing-subtitle');
                     if (subtitleEl) {
-                        subtitleEl.textContent = formatBriefingSubtitle(data.briefing, ctolensOn, data.staleness);
+                        subtitleEl.textContent = formatCtolenRunHeader(data, data.briefing, ctolensOn, data.staleness);
                     }
                 } catch (e) {
                     console.warn('Briefing panel reload failed:', e);
@@ -5982,7 +6226,7 @@
 
                     if (body) {
                         body.innerHTML = '<div class="text-sm text-gray-500 p-4">' +
-                            (fetchMetrics ? 'Updating with live connector metrics (this may take 90+ seconds)...' : 'Updating briefing...') +
+                            (fetchMetrics ? 'Refreshing live metrics (this may take 90+ seconds)...' : 'Updating briefing (fast)...') +
                             '</div>';
                     }
 
@@ -6006,12 +6250,13 @@
                             data.briefing,
                             data.message,
                             ctolensOn,
-                            data.staleness
+                            data.staleness,
+                            data.diagnostics
                         );
                     }
                     const subtitleEl = document.getElementById('overview-briefing-subtitle');
                     if (subtitleEl) {
-                        subtitleEl.textContent = formatBriefingSubtitle(data.briefing, ctolensOn, data.staleness);
+                        subtitleEl.textContent = formatCtolenRunHeader(data, data.briefing, ctolensOn, data.staleness);
                     }
                 } catch (e) {
                     console.warn('Attention refresh failed:', e);

@@ -31,13 +31,15 @@ def _input_fingerprint(assignments: List[Dict[str, Any]]) -> str:
     """Stable hash of assignment snapshot for change detection."""
     payload = []
     for a in sorted(assignments, key=lambda x: str(x.get("id") or x.get("assignment_id") or "")):
-        payload.append({
-            "id": a.get("id") or a.get("assignment_id"),
-            "status": a.get("status"),
-            "burn": a.get("monthly_burn_rate"),
-            "target": a.get("target_monthly_burn"),
-            "team": a.get("team_size"),
-        })
+        payload.append(
+            {
+                "id": a.get("id") or a.get("assignment_id"),
+                "status": a.get("status"),
+                "burn": a.get("monthly_burn_rate"),
+                "target": a.get("target_monthly_burn"),
+                "team": a.get("team_size"),
+            }
+        )
     raw = json.dumps(payload, sort_keys=True)
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
@@ -56,13 +58,15 @@ def _risk_signals(
 
     for item in attention.get("items", []):
         if item.get("severity") in ("critical", "warning"):
-            signals.append({
-                "type": item.get("type", "attention"),
-                "severity": item.get("severity"),
-                "assignment_id": item.get("assignment_id"),
-                "title": item.get("name") or item.get("assignment_id"),
-                "detail": item.get("message"),
-            })
+            signals.append(
+                {
+                    "type": item.get("type", "attention"),
+                    "severity": item.get("severity"),
+                    "assignment_id": item.get("assignment_id"),
+                    "title": item.get("name") or item.get("assignment_id"),
+                    "detail": item.get("message"),
+                }
+            )
 
     # Stalled / overloaded heuristics from assignment fields only.
     active = [a for a in assignments if (a.get("status") or "active") == "active"]
@@ -70,46 +74,54 @@ def _risk_signals(
         team = a.get("team_size")
         burn = a.get("monthly_burn_rate")
         if team and int(team) >= 12:
-            signals.append({
-                "type": "overloaded_team",
-                "severity": "warning",
-                "assignment_id": a.get("id"),
-                "title": a.get("name"),
-                "detail": f"{a.get('name')} has {team} people — consider splitting workstreams",
-            })
-        if burn and team and int(team) > 0:
-            per_head = int(burn) / int(team)
-            if per_head > 15000:
-                signals.append({
-                    "type": "high_burn_per_head",
+            signals.append(
+                {
+                    "type": "overloaded_team",
                     "severity": "warning",
                     "assignment_id": a.get("id"),
                     "title": a.get("name"),
-                    "detail": (
-                        f"{a.get('name')} burn is ${_fmt(burn)}/mo "
-                        f"({_fmt(int(per_head))}/person) — review staffing efficiency"
-                    ),
-                })
+                    "detail": f"{a.get('name')} has {team} people — consider splitting workstreams",
+                }
+            )
+        if burn and team and int(team) > 0:
+            per_head = int(burn) / int(team)
+            if per_head > 15000:
+                signals.append(
+                    {
+                        "type": "high_burn_per_head",
+                        "severity": "warning",
+                        "assignment_id": a.get("id"),
+                        "title": a.get("name"),
+                        "detail": (
+                            f"{a.get('name')} burn is ${_fmt(burn)}/mo "
+                            f"({_fmt(int(per_head))}/person) — review staffing efficiency"
+                        ),
+                    }
+                )
 
     readiness = connectors.get("readiness_pct")
     if readiness is not None and readiness < 50:
-        signals.append({
-            "type": "connector_gap",
-            "severity": "critical" if readiness < 25 else "warning",
-            "assignment_id": None,
-            "title": "Connector readiness",
-            "detail": f"Only {readiness}% of enabled connectors have credentials configured",
-        })
+        signals.append(
+            {
+                "type": "connector_gap",
+                "severity": "critical" if readiness < 25 else "warning",
+                "assignment_id": None,
+                "title": "Connector readiness",
+                "detail": f"Only {readiness}% of enabled connectors have credentials configured",
+            }
+        )
 
     missing = budget.get("missing_target_count", 0)
     if missing > 0:
-        signals.append({
-            "type": "missing_budget_targets",
-            "severity": "info",
-            "assignment_id": None,
-            "title": "Budget visibility gap",
-            "detail": f"{missing} active assignment(s) lack target monthly burn",
-        })
+        signals.append(
+            {
+                "type": "missing_budget_targets",
+                "severity": "info",
+                "assignment_id": None,
+                "title": "Budget visibility gap",
+                "detail": f"{missing} active assignment(s) lack target monthly burn",
+            }
+        )
 
     # Sort: critical first, then warning, then info.
     rank = {"critical": 0, "warning": 1, "info": 2}
@@ -128,63 +140,73 @@ def _opportunity_signals(
     # Under-budget assignments — room to invest or reallocate.
     for row in budget.get("assignments", []):
         if row.get("status") == "under" and row.get("variance_pct", 0) <= -15:
-            opportunities.append({
-                "type": "budget_headroom",
-                "impact": "medium",
-                "assignment_id": row.get("assignment_id"),
-                "title": row.get("name"),
-                "detail": (
-                    f"{row['name']} is {abs(row['variance_pct'])}% under target — "
-                    "capacity may be available for acceleration or cost reallocation"
-                ),
-            })
+            opportunities.append(
+                {
+                    "type": "budget_headroom",
+                    "impact": "medium",
+                    "assignment_id": row.get("assignment_id"),
+                    "title": row.get("name"),
+                    "detail": (
+                        f"{row['name']} is {abs(row['variance_pct'])}% under target — "
+                        "capacity may be available for acceleration or cost reallocation"
+                    ),
+                }
+            )
 
     # Connectors not enabled — automation candidates.
     for a in active:
         cfg = a.get("metrics_config") or {}
         enabled = [k for k, v in cfg.items() if isinstance(v, dict) and v.get("enabled")]
         if not enabled:
-            opportunities.append({
-                "type": "automation_candidate",
-                "impact": "high",
-                "assignment_id": a.get("id"),
-                "title": a.get("name"),
-                "detail": (
-                    f"{a.get('name')} has no connectors enabled — "
-                    "connect GitHub/Jira for automated health signals"
-                ),
-            })
+            opportunities.append(
+                {
+                    "type": "automation_candidate",
+                    "impact": "high",
+                    "assignment_id": a.get("id"),
+                    "title": a.get("name"),
+                    "detail": (
+                        f"{a.get('name')} has no connectors enabled — "
+                        "connect GitHub/Jira for automated health signals"
+                    ),
+                }
+            )
         elif "github" not in enabled and "jira" not in enabled:
-            opportunities.append({
-                "type": "delivery_visibility",
-                "impact": "medium",
-                "assignment_id": a.get("id"),
-                "title": a.get("name"),
-                "detail": f"{a.get('name')} lacks GitHub/Jira — add delivery metrics for earlier risk detection",
-            })
+            opportunities.append(
+                {
+                    "type": "delivery_visibility",
+                    "impact": "medium",
+                    "assignment_id": a.get("id"),
+                    "title": a.get("name"),
+                    "detail": f"{a.get('name')} lacks GitHub/Jira — add delivery metrics for earlier risk detection",
+                }
+            )
 
     total_enabled = connectors.get("total_enabled", 0)
     total_ready = connectors.get("total_ready", 0)
     if total_enabled > 0 and total_ready == total_enabled:
-        opportunities.append({
-            "type": "full_connector_coverage",
-            "impact": "low",
-            "assignment_id": None,
-            "title": "Connector stack ready",
-            "detail": "All enabled connectors are configured — good baseline for daily briefings",
-        })
+        opportunities.append(
+            {
+                "type": "full_connector_coverage",
+                "impact": "low",
+                "assignment_id": None,
+                "title": "Connector stack ready",
+                "detail": "All enabled connectors are configured — good baseline for daily briefings",
+            }
+        )
 
     if len(active) >= 3 and not opportunities:
-        opportunities.append({
-            "type": "portfolio_optimization",
-            "impact": "medium",
-            "assignment_id": None,
-            "title": "Cross-portfolio review",
-            "detail": (
-                f"Managing {len(active)} active assignments — "
-                "periodic burn and connector review can surface consolidation wins"
-            ),
-        })
+        opportunities.append(
+            {
+                "type": "portfolio_optimization",
+                "impact": "medium",
+                "assignment_id": None,
+                "title": "Cross-portfolio review",
+                "detail": (
+                    f"Managing {len(active)} active assignments — "
+                    "periodic burn and connector review can surface consolidation wins"
+                ),
+            }
+        )
 
     return opportunities[:15]
 
@@ -231,9 +253,11 @@ def _executive_briefing(
 
     return {
         "headline": (
-            "Portfolio needs attention" if crit else
-            "Portfolio has warnings" if warn else
-            "Portfolio is stable"
+            "Portfolio needs attention"
+            if crit
+            else "Portfolio has warnings"
+            if warn
+            else "Portfolio is stable"
         ),
         "active_assignments": active,
         "total_assignments": total,
@@ -266,13 +290,9 @@ def _cto_narrative(
 
     crit = [r for r in risks if r.get("severity") == "critical"]
     if crit:
-        parts.append(
-            f"The most urgent item is {crit[0].get('title')}: {crit[0].get('detail')}"
-        )
+        parts.append(f"The most urgent item is {crit[0].get('title')}: {crit[0].get('detail')}")
     elif risks:
-        parts.append(
-            f"Top concern: {risks[0].get('detail')}"
-        )
+        parts.append(f"Top concern: {risks[0].get('detail')}")
     else:
         parts.append("No critical blockers were detected in this refresh.")
 
@@ -284,9 +304,7 @@ def _cto_narrative(
         )
 
     if opportunities:
-        parts.append(
-            f"A high-impact opportunity: {opportunities[0].get('detail')}"
-        )
+        parts.append(f"A high-impact opportunity: {opportunities[0].get('detail')}")
 
     comps = health.get("components") or {}
     weak = []

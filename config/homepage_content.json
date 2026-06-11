@@ -166,7 +166,7 @@
   },
   "footer": {
     "tagline": "Know what needs your attention before it becomes a problem.",
-    "company_url": "https://idpetech.com",
+    "company_url": "http://idpetech.com",
     "sections": [
       {
         "title": "Product",
@@ -179,14 +179,14 @@
       {
         "title": "Company",
         "links": [
-          {"text": "IdepTech", "url": "https://idpetech.com"},
-          {"text": "Contact", "url": "https://idpetech.com"}
+          {"text": "IdepTech", "url": "http://idpetech.com"},
+          {"text": "Contact", "url": "http://idpetech.com"}
         ]
       },
       {
         "title": "Legal",
         "links": [
-          {"text": "Privacy", "url": "https://idpetech.com"}
+          {"text": "Privacy", "url": "http://idpetech.com"}
         ]
       }
     ],

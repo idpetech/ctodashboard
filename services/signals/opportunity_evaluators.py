@@ -14,7 +14,9 @@ from services.signals.config import rule_confidence, rule_enabled
 from services.signals.context import ProjectContext, SignalEvaluationContext
 from services.signals.models import Signal, SignalSeverity, SignalType, build_signal
 
-Evaluator = Callable[[SignalEvaluationContext, ProjectContext, Dict[str, Dict[str, Any]]], Optional[Signal]]
+Evaluator = Callable[
+    [SignalEvaluationContext, ProjectContext, Dict[str, Dict[str, Any]]], Optional[Signal]
+]
 
 
 class OpportunityEvaluator(ABC):
@@ -309,8 +311,7 @@ class TechDebtAccumulationEvaluator(OpportunityEvaluator):
             rules,
             title="Tech debt accumulation",
             description=(
-                f"{issues} Jira issues in the last 7 days vs {commits} commits "
-                f"(ratio {ratio:.1f})."
+                f"{issues} Jira issues in the last 7 days vs {commits} commits (ratio {ratio:.1f})."
             ),
             metric_value=round(ratio, 2),
             threshold=min_ratio,

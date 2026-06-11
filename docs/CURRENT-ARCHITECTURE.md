@@ -172,3 +172,39 @@ export ENABLE_WORKSPACES=true
   refresh via Overview UI button or refresh endpoint.
 - **UI:** `#attention-briefing-section` in Overview tab; import dialog accepts
   `.json`, `.csv`, `.xlsx` with drag-and-drop.
+---
+
+## API routes (modular)
+
+**Entry:** `routes/api_routes.py` re-exports `register_routes` for backward compatibility.
+
+**Implementation:** `routes/api/` — domain modules registered from `routes/api/__init__.py`:
+
+| Module | Responsibility |
+|--------|----------------|
+| `deps.py` | Shared services, auth decorators, metrics collection |
+| `pages.py` | Dashboard pages, health, public share links |
+| `system.py` | Feature flags, legacy service stubs |
+| `assignments.py` | Assignments CRUD, portfolio summary, connector metrics |
+| `chatbot.py` | Chatbot streaming endpoints |
+| `auth_billing.py` | Auth, trial, Stripe billing |
+| `workspaces.py` | Workspaces, connectors, credentials, import/export |
+| `credentials.py` | Connector credential validation helpers |
+| `briefing.py` | Attention engine + CTOLens briefing API |
+| `audit.py` | Assignment export, history, audit log |
+| `import_export.py` | Import validation, templates, static files |
+| `analytics.py` | Product analytics API |
+
+**Pattern:** Each module exposes `register_*_routes(app)`; no route logic in `integrated_dashboard.py`.
+
+## Product analytics (MVP, feature-flagged)
+
+**Flag:** `ENABLE_PRODUCT_ANALYTICS` (default `false`).
+
+- **Module:** `services/analytics/` — `track_event`, sessions, activation (`report_generated`)
+- **Tables:** `analytics_events`, `analytics_sessions`, `analytics_user_profiles`
+- **API:** `POST /api/analytics/events`, `GET /api/analytics/users/me/activity`, `GET /api/analytics/summary` (admin), `POST /api/analytics/page-view` (anonymous)
+- **Client:** dashboard beacons (`page_view`, `insight_viewed`, `feature_used`); homepage anonymous page-view script
+- **Queries:** `services/analytics/queries.py` — platform summary + retention cohorts
+- **Plan:** [backlog/PRODUCT-ANALYTICS-PLAN.md](./backlog/PRODUCT-ANALYTICS-PLAN.md)
+

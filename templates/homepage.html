@@ -43,7 +43,7 @@
                     <a href="/" class="text-2xl font-bold text-gray-900 hover:text-gray-700">
                         <span class="text-blue-600">CTO</span> Lens
                     </a>
-                    <span class="ml-2 text-xs text-gray-400 hidden sm:inline">by <a href="https://idpetech.com" class="hover:text-blue-600" target="_blank" rel="noopener noreferrer">idpetech.com</a></span>
+                    <span class="ml-2 text-xs text-gray-400 hidden sm:inline">by <a href="http://idpetech.com" class="hover:text-blue-600" target="_blank" rel="noopener noreferrer">idpetech.com</a></span>
                 </div>
                 <div class="flex items-center space-x-4">
                     <a href="/dashboard" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium">
@@ -313,7 +313,7 @@
                         {{ content.footer.tagline }}
                     </p>
                     <p class="text-gray-500 text-xs">
-                        A product of <a href="https://idpetech.com" class="text-blue-400 hover:text-white" target="_blank" rel="noopener noreferrer">idpetech.com</a>
+                        A product of <a href="http://idpetech.com" class="text-blue-400 hover:text-white" target="_blank" rel="noopener noreferrer">idpetech.com</a>
                     </p>
                 </div>
                 
@@ -331,7 +331,7 @@
             
             <div class="border-t border-gray-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
                 <p class="text-gray-400 text-sm">
-                    © 2026 <a href="https://idpetech.com" class="text-gray-400 hover:text-white underline" target="_blank" rel="noopener noreferrer">idpetech.com</a> All rights reserved.
+                    © 2026 <a href="http://idpetech.com" class="text-gray-400 hover:text-white underline" target="_blank" rel="noopener noreferrer">idpetech.com</a> All rights reserved.
                 </p>
                 <div class="flex space-x-6 mt-4 md:mt-0">
                     {% for social in content.footer.social_links %}
@@ -351,5 +351,22 @@
             </div>
         </div>
     </footer>
+    <script>
+        (function() {
+            var storageKey = 'analytics_home_pv';
+            if (sessionStorage.getItem(storageKey)) return;
+            sessionStorage.setItem(storageKey, '1');
+            var anonId = localStorage.getItem('analytics_anon_id');
+            if (!anonId) {
+                anonId = (Math.random().toString(36).slice(2) + Date.now().toString(36)).slice(0, 16);
+                localStorage.setItem('analytics_anon_id', anonId);
+            }
+            fetch('/api/analytics/page-view', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: window.location.pathname || '/', anonymous_id: anonId }),
+            }).catch(function() {});
+        })();
+    </script>
 </body>
 </html>

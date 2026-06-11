@@ -50,7 +50,9 @@ def normalize_trial_fields(user_data: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     legacy = prefs.get("trial") or {}
-    start = _parse_dt(prefs.get("trial_start_date") or legacy.get("started_at") or user_data.get("created_at"))
+    start = _parse_dt(
+        prefs.get("trial_start_date") or legacy.get("started_at") or user_data.get("created_at")
+    )
     end = _parse_dt(prefs.get("trial_end_date") or legacy.get("expires_at"))
 
     if not end and start:
@@ -93,7 +95,9 @@ def normalize_trial_fields(user_data: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def trial_prefs_for_new_user(start: Optional[datetime] = None, days: Optional[int] = None) -> Dict[str, Any]:
+def trial_prefs_for_new_user(
+    start: Optional[datetime] = None, days: Optional[int] = None
+) -> Dict[str, Any]:
     """Preferences fragment for a newly registered trial user."""
     _start = start or datetime.utcnow()
     _days = days if days is not None else DEFAULT_TRIAL_DAYS
@@ -114,17 +118,20 @@ def trial_prefs_for_new_user(start: Optional[datetime] = None, days: Optional[in
 
 def can_write(user_data: Optional[Dict[str, Any]]) -> bool:
     from services.user_access import can_write as unified_can_write
+
     return unified_can_write(user_data)
 
 
 def trial_write_denied_response():
     from flask import jsonify
 
-    return jsonify({
-        "error": "trial_expired",
-        "message": "Your trial has expired. Upgrade to continue.",
-        "trial_status": "expired",
-    }), 403
+    return jsonify(
+        {
+            "error": "trial_expired",
+            "message": "Your trial has expired. Upgrade to continue.",
+            "trial_status": "expired",
+        }
+    ), 403
 
 
 def admin_trial_summary(user_data: Dict[str, Any]) -> Dict[str, Any]:

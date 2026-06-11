@@ -135,6 +135,16 @@ else
     ERRORS=$((ERRORS + 1))
 fi
 
+# 6b. Ruff lint + format (production paths)
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "6️⃣b RUFF LINT + FORMAT"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+if ./scripts/ruff_check.sh; then
+    echo ""
+else
+    ERRORS=$((ERRORS + 1))
+fi
+
 # 7. Check requirements.txt
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "7️⃣  CHECKING REQUIREMENTS.TXT"

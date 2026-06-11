@@ -205,18 +205,14 @@ def enrich_briefing_for_executives(
 ) -> Dict[str, Any]:
     """Apply founder-friendly language to a briefing dict in place."""
     out = dict(briefing)
-    out["risk_signals"] = [
-        translate_risk_signal(s) for s in (briefing.get("risk_signals") or [])
-    ]
+    out["risk_signals"] = [translate_risk_signal(s) for s in (briefing.get("risk_signals") or [])]
     out["opportunity_signals"] = [
         translate_opportunity_signal(s) for s in (briefing.get("opportunity_signals") or [])
     ]
 
     attention_items = []
     if attention:
-        attention_items = [
-            translate_attention_item(i) for i in (attention.get("items") or [])
-        ]
+        attention_items = [translate_attention_item(i) for i in (attention.get("items") or [])]
         out["founder_attention_items"] = attention_items
 
     health = out.get("system_health_score") or {}

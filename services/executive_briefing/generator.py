@@ -13,7 +13,6 @@ from typing import Any, Dict, List, Optional
 
 from config.logging_config import get_logger
 from services.executive_briefing.assembler import (
-    assess_data_completeness,
     build_briefing_input,
     pre_sort_facts,
 )
@@ -34,8 +33,8 @@ from services.signals.engine import SignalEngine
 logger = get_logger(__name__)
 
 try:
-    from langchain_openai import ChatOpenAI
     from langchain.schema import HumanMessage, SystemMessage
+    from langchain_openai import ChatOpenAI
 
     _LANGCHAIN_AVAILABLE = True
 except ImportError:
@@ -96,7 +95,7 @@ class ExecutiveBriefingGenerator:
         pre_sorted: Dict[str, Any],
     ) -> ExecutiveBriefingOutput:
         completeness = briefing_input.data_completeness
-        health = (briefing_input.portfolio_metrics.get("health_score") or {})
+        health = briefing_input.portfolio_metrics.get("health_score") or {}
         score = health.get("overall_score")
         band = health.get("band") or "unknown"
         active = (briefing_input.portfolio_metrics.get("summary") or {}).get(

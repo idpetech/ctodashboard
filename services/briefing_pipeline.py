@@ -49,19 +49,21 @@ def build_metrics_overlays(
     assignments: List[Dict[str, Any]],
     *,
     fetch_metrics: bool = False,
-) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
     """
     Build delivery_metrics and connector_metrics maps keyed by assignment id.
 
+    Returns connector_runs diagnostics (per assignment / enabled connector).
     When fetch_metrics is False, returns empty overlays (budget/team signals still fire).
     """
     if not fetch_metrics:
-        return {}, {}
+        return {}, {}, []
 
     from routes.api_routes import collect_assignment_metrics
 
     delivery: Dict[str, Dict[str, Any]] = {}
     connector: Dict[str, Dict[str, Any]] = {}
+    connector_runs: List[Dict[str, Any]] = []
 
     for assignment in assignments or []:
         if (assignment.get("status") or "active") != "active":
@@ -70,45 +72,76 @@ def build_metrics_overlays(
         if not aid:
             continue
 
+        name = assignment.get("name") or aid
+        metrics_config = assignment.get("metrics_config") or {}
+        enabled_connectors = [
+            k for k, cfg in metrics_config.items() if isinstance(cfg, dict) and cfg.get("enabled")
+        ]
+
         raw = collect_assignment_metrics(workspace_id, aid, assignment)
         failures: List[str] = []
+        successes: List[str] = []
         last_success: Optional[str] = None
-
-        github_block = raw.get("github")
-        jira_block = raw.get("jira")
         delivery_row: Dict[str, Any] = {}
 
-        if isinstance(github_block, list):
-            if github_block and isinstance(github_block[0], dict) and github_block[0].get("error"):
-                failures.append("github")
-            else:
-                commits_30 = sum(
-                    int(r.get("commits_last_30_days") or 0)
-                    for r in github_block
-                    if isinstance(r, dict) and not r.get("error")
-                )
-                if commits_30 == 0:
-                    delivery_row["commits_last_7_days"] = 0
-                    delivery_row["commits_last_14_days"] = 0
-                last_success = _utc_now()
+        github_block = raw.get("github")
+        if "github" in enabled_connectors:
+            if isinstance(github_block, list):
+                if (
+                    github_block
+                    and isinstance(github_block[0], dict)
+                    and github_block[0].get("error")
+                ):
+                    failures.append("github")
+                else:
+                    c7 = sum(
+                        int(r.get("commits_last_7_days") or 0)
+                        for r in github_block
+                        if isinstance(r, dict) and not r.get("error")
+                    )
+                    c14 = sum(
+                        int(r.get("commits_last_14_days") or 0)
+                        for r in github_block
+                        if isinstance(r, dict) and not r.get("error")
+                    )
+                    cprior = sum(
+                        int(r.get("commits_prior_7_days") or 0)
+                        for r in github_block
+                        if isinstance(r, dict) and not r.get("error")
+                    )
+                    delivery_row["commits_last_7_days"] = c7
+                    delivery_row["commits_last_14_days"] = c14
+                    delivery_row["commits_prior_7_days"] = cprior
+                    successes.append("github")
+                    last_success = _utc_now()
 
-        if isinstance(jira_block, dict):
-            if jira_block.get("error"):
-                failures.append("jira")
-            else:
-                issues_30 = jira_block.get("total_issues_last_30_days")
-                if issues_30 is not None:
-                    delivery_row.setdefault("jira_issues_last_7_days", int(issues_30))
-                last_success = last_success or _utc_now()
+        jira_block = raw.get("jira")
+        if "jira" in enabled_connectors:
+            if isinstance(jira_block, dict):
+                if jira_block.get("error"):
+                    failures.append("jira")
+                else:
+                    issues_7 = jira_block.get("jira_issues_last_7_days")
+                    if issues_7 is not None:
+                        delivery_row["jira_issues_last_7_days"] = int(issues_7)
+                    successes.append("jira")
+                    last_success = last_success or _utc_now()
 
-        for name, block in raw.items():
-            if name in ("github", "jira"):
+        for conn_name in enabled_connectors:
+            if conn_name in ("github", "jira"):
                 continue
+            block = raw.get(conn_name)
             if isinstance(block, dict) and block.get("error"):
-                failures.append(name)
-            elif isinstance(block, list) and block and isinstance(block[0], dict) and block[0].get("error"):
-                failures.append(name)
+                failures.append(conn_name)
+            elif (
+                isinstance(block, list)
+                and block
+                and isinstance(block[0], dict)
+                and block[0].get("error")
+            ):
+                failures.append(conn_name)
             elif block is not None:
+                successes.append(conn_name)
                 last_success = last_success or _utc_now()
 
         if delivery_row:
@@ -119,7 +152,22 @@ def build_metrics_overlays(
             "last_success_at": last_success if not failures else None,
         }
 
-    return delivery, connector
+        for conn_name in enabled_connectors:
+            status = (
+                "ok"
+                if conn_name in successes
+                else ("error" if conn_name in failures else "skipped")
+            )
+            connector_runs.append(
+                {
+                    "assignment_id": aid,
+                    "assignment_name": name,
+                    "connector": conn_name,
+                    "status": status,
+                }
+            )
+
+    return delivery, connector, connector_runs
 
 
 def assignments_fingerprint(assignments: List[Dict[str, Any]]) -> str:
@@ -194,20 +242,25 @@ def run_ctolens_pipeline(
     *,
     fetch_metrics: bool = False,
     use_ai: Optional[bool] = None,
+    run_source: str = "manual",
 ) -> Dict[str, Any]:
     """Run full pipeline and return storable briefing payload."""
-    delivery_metrics, connector_metrics = build_metrics_overlays(
+    from services.ctolens_run_metadata import filter_signals_for_run_mode, new_run_id
+
+    run_id = new_run_id()
+    delivery_metrics, connector_metrics, connector_runs = build_metrics_overlays(
         workspace_id,
         assignments,
         fetch_metrics=fetch_metrics,
     )
 
     signal_engine = SignalEngine()
-    signals = signal_engine.evaluate_assignments(
+    raw_signals = signal_engine.evaluate_assignments(
         assignments,
         delivery_metrics=delivery_metrics,
         connector_metrics=connector_metrics,
     )
+    signals = filter_signals_for_run_mode(raw_signals, fetch_metrics)
     signal_dicts = [s.to_dict() for s in signals]
 
     recommendations = RecommendationEngine().recommend(signals)
@@ -222,16 +275,27 @@ def run_ctolens_pipeline(
 
     from services.executive_briefing.assembler import build_portfolio_metrics
 
+    connectors_attempted = sorted(
+        {r["connector"] for r in connector_runs if r.get("status") == "ok"}
+    )
+
     return {
         "generated_at": executive.generated_at,
         "workspace_id": workspace_id,
         "source_fingerprint": assignments_fingerprint(assignments),
+        "run_id": run_id,
+        "run_source": run_source,
         "signals": signal_dicts,
         "recommendations": rec_dicts,
         "executive_briefing": executive.to_dict(),
         "portfolio_metrics": build_portfolio_metrics(assignments),
         "metrics_fetched": fetch_metrics,
         "generation_mode": executive.generation_mode,
+        "connector_runs": connector_runs,
+        "signals_evaluated_count": len(signal_dicts),
+        "signals_shown_count": len(executive.to_dict().get("top_risks") or [])
+        + len(executive.to_dict().get("opportunities") or []),
+        "connectors_attempted": connectors_attempted,
     }
 
 
@@ -287,15 +351,139 @@ def refresh_workspace_ctolens_briefing(
     *,
     fetch_metrics: bool = False,
     use_ai: Optional[bool] = None,
+    run_source: str = "manual",
 ) -> Dict[str, Any]:
-    briefing = run_ctolens_pipeline(
+    import time
+
+    from services.ctolens_run_metadata import (
+        build_run_log_entry,
+        build_run_status,
+        persist_run_metadata,
+    )
+
+    run_type = "enriched" if fetch_metrics else "fast"
+    active_count = len(
+        [a for a in (assignments or []) if (a.get("status") or "active") == "active"]
+    )
+    logger.info(
+        "briefing_run_started workspace_id=%s run_type=%s source=%s assignments=%s",
         workspace_id,
-        assignments,
-        fetch_metrics=fetch_metrics,
-        use_ai=use_ai,
+        run_type,
+        run_source,
+        active_count,
+        extra={
+            "operation": "briefing_run_started",
+            "workspace_id": workspace_id,
+            "run_type": run_type,
+            "run_source": run_source,
+        },
+    )
+    started = time.monotonic()
+    error_msg = None
+    status = "success"
+    briefing: Dict[str, Any] = {}
+
+    try:
+        briefing = run_ctolens_pipeline(
+            workspace_id,
+            assignments,
+            fetch_metrics=fetch_metrics,
+            use_ai=use_ai,
+            run_source=run_source,
+        )
+        if fetch_metrics and briefing.get("connector_runs"):
+            failed = [r for r in briefing["connector_runs"] if r.get("status") == "error"]
+            if failed and len(failed) < len(briefing["connector_runs"]):
+                status = "partial"
+            elif failed:
+                status = "failed"
+    except Exception as exc:
+        error_msg = str(exc)
+        status = "failed"
+        logger.exception("CTOLens briefing run failed for %s", workspace_id)
+        previous = get_stored_ctolens_briefing(secure_db, workspace_id)
+        if previous:
+            briefing = dict(previous)
+            briefing["feedback_summary"] = feedback_summary(secure_db, workspace_id)
+            duration = time.monotonic() - started
+            run_status = build_run_status(
+                run_id=briefing.get("run_id", "failed"),
+                run_type=run_type,
+                source=run_source,
+                status=status,
+                duration_seconds=duration,
+                assignments_evaluated=active_count,
+                connectors_attempted=briefing.get("connectors_attempted") or [],
+                metrics_fetched=fetch_metrics,
+            )
+            persist_run_metadata(
+                secure_db,
+                workspace_id,
+                run_status,
+                build_run_log_entry(
+                    run_id=run_status["last_run_id"],
+                    run_type=run_type,
+                    source=run_source,
+                    status=status,
+                    duration_seconds=duration,
+                    assignments_evaluated=active_count,
+                    connectors_attempted=briefing.get("connectors_attempted") or [],
+                    metrics_fetched=fetch_metrics,
+                    error=error_msg,
+                ),
+            )
+            logger.info(
+                "briefing_run_completed workspace_id=%s status=%s kept_previous=1",
+                workspace_id,
+                status,
+            )
+            return briefing
+        raise
+
+    duration = time.monotonic() - started
+    run_status = build_run_status(
+        run_id=briefing.get("run_id", ""),
+        run_type=run_type,
+        source=run_source,
+        status=status,
+        duration_seconds=duration,
+        assignments_evaluated=active_count,
+        connectors_attempted=briefing.get("connectors_attempted") or [],
+        metrics_fetched=fetch_metrics,
+        connector_runs=briefing.get("connector_runs"),
     )
     store_ctolens_briefing(secure_db, workspace_id, briefing)
+    persist_run_metadata(
+        secure_db,
+        workspace_id,
+        run_status,
+        build_run_log_entry(
+            run_id=briefing.get("run_id", ""),
+            run_type=run_type,
+            source=run_source,
+            status=status,
+            duration_seconds=duration,
+            assignments_evaluated=active_count,
+            connectors_attempted=briefing.get("connectors_attempted") or [],
+            metrics_fetched=fetch_metrics,
+            error=error_msg,
+        ),
+    )
     briefing["feedback_summary"] = feedback_summary(secure_db, workspace_id)
+    logger.info(
+        "briefing_run_completed workspace_id=%s run_type=%s status=%s duration=%.1fs",
+        workspace_id,
+        run_type,
+        status,
+        duration,
+        extra={
+            "operation": "briefing_run_completed",
+            "workspace_id": workspace_id,
+            "run_type": run_type,
+            "status": status,
+            "duration_seconds": round(duration, 1),
+        },
+    )
     return briefing
 
 

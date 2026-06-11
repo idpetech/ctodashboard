@@ -33,10 +33,11 @@
     <nav class="bg-blue-600 text-white p-4 shadow-lg">
         <div class="container mx-auto flex justify-between items-center">
             <div>
-                <a href="/" class="text-2xl font-bold hover:text-blue-200">🚀 CTO Lens</a>
+                <a href="/dashboard" class="text-2xl font-bold hover:text-blue-200">🚀 CTO Lens</a>
                 <span class="text-blue-200 ml-4">/ Workspace Settings</span>
             </div>
             <div class="flex space-x-4">
+                <a href="/dashboard" class="bg-blue-500 hover:bg-blue-400 px-3 py-1 text-sm rounded">← Back to Dashboard</a>
                 <div id="userInfo" class="flex items-center space-x-4">
                     <span id="userName" class="text-sm"></span>
                     <button onclick="handleLogout()" class="bg-red-500 hover:bg-red-600 px-3 py-1 text-sm rounded">Logout</button>
@@ -81,6 +82,66 @@
                 <div id="workspaceInfo" class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <!-- Workspace details will be populated here -->
                 </div>
+            </div>
+
+            <!-- CTOLens scheduled enrichment -->
+            <div id="ctolensScheduleCard" class="bg-white rounded-lg shadow-lg p-6 mb-8">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-800">CTOLens Live Metrics Schedule</h2>
+                        <p class="text-gray-600 text-sm mt-1">Optional periodic refresh of connector metrics (GitHub, Jira). Fast briefing updates remain manual or on assignment changes.</p>
+                    </div>
+                    <button id="saveCtolenScheduleBtn" onclick="saveCtolenSchedule()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                        Save Schedule
+                    </button>
+                </div>
+
+                <div id="ctolensScheduleDisabled" class="hidden bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded mb-4 text-sm">
+                    Scheduled enrichment is disabled on this deployment. Set <code class="bg-yellow-100 px-1 rounded">ENABLE_CTOLENS_SCHEDULED_ENRICHMENT=true</code> to enable saving schedules.
+                </div>
+                <div id="ctolensScheduleMessage" class="hidden mb-4 text-sm rounded px-4 py-3"></div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" id="ctolensScheduleEnabled" class="rounded border-gray-300">
+                        <span class="text-sm text-gray-700">Enable scheduled live metrics runs</span>
+                    </label>
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" id="ctolensScheduleOnImport" class="rounded border-gray-300">
+                        <span class="text-sm text-gray-700">Run enriched briefing after CSV import</span>
+                    </label>
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">Frequency</label>
+                        <select id="ctolensScheduleFrequency" class="w-full border rounded px-3 py-2 text-sm">
+                            <option value="manual_only">Manual only</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">Time (UTC)</label>
+                        <input type="time" id="ctolensScheduleTimeUtc" value="06:00" class="w-full border rounded px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">Day of week (weekly)</label>
+                        <select id="ctolensScheduleDay" class="w-full border rounded px-3 py-2 text-sm">
+                            <option value="monday">Monday</option>
+                            <option value="tuesday">Tuesday</option>
+                            <option value="wednesday">Wednesday</option>
+                            <option value="thursday">Thursday</option>
+                            <option value="friday">Friday</option>
+                            <option value="saturday">Saturday</option>
+                            <option value="sunday">Sunday</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="ctolensRunStatus" class="bg-gray-50 rounded p-4 mb-4 text-sm text-gray-700 hidden"></div>
+
+                <details class="border rounded-lg">
+                    <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-gray-700 bg-gray-50 rounded-lg">Recent run log</summary>
+                    <div id="ctolensRunLog" class="px-4 py-3 text-sm text-gray-600"></div>
+                </details>
             </div>
 
             <!-- Connector Credentials -->
@@ -599,6 +660,7 @@
                 console.log(`[DEBUG] Workspace settings loaded:`, workspaceSettings);
                 displayWorkspaceSettings();
                 loadCredentialStatus();
+                loadCtolenSchedule();
 
             } catch (error) {
                 console.error('Error loading workspace settings:', error);
@@ -678,6 +740,100 @@
                         `<option value="${assignment.id}">${assignment.name || assignment.id}</option>`
                     ).join('');
             });
+        }
+
+        async function loadCtolenSchedule() {
+            const card = document.getElementById('ctolensScheduleCard');
+            if (!card || !currentWorkspace) return;
+            try {
+                const response = await fetch(`/api/workspaces/${currentWorkspace}/ctolens/schedule`, {
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (!response.ok) {
+                    const errText = await response.text();
+                    card.classList.remove('hidden');
+                    document.getElementById('ctolensScheduleMessage').className = 'mb-4 text-sm rounded px-4 py-3 bg-red-100 text-red-700 border border-red-200';
+                    document.getElementById('ctolensScheduleMessage').classList.remove('hidden');
+                    document.getElementById('ctolensScheduleMessage').textContent = `Could not load schedule (HTTP ${response.status}). ${errText}`;
+                    return;
+                }
+                const data = await response.json();
+                card.classList.remove('hidden');
+
+                const schedule = data.schedule || {};
+                const flagEnabled = !!data.scheduled_enrichment_enabled;
+                document.getElementById('ctolensScheduleDisabled').classList.toggle('hidden', flagEnabled);
+                document.getElementById('saveCtolenScheduleBtn').disabled = !flagEnabled;
+
+                document.getElementById('ctolensScheduleEnabled').checked = !!schedule.enabled;
+                document.getElementById('ctolensScheduleOnImport').checked = !!schedule.on_import;
+                document.getElementById('ctolensScheduleFrequency').value = schedule.frequency || 'manual_only';
+                document.getElementById('ctolensScheduleTimeUtc').value = schedule.time_utc || '06:00';
+                document.getElementById('ctolensScheduleDay').value = schedule.day_of_week || 'monday';
+
+                const runStatus = data.run_status || {};
+                const statusEl = document.getElementById('ctolensRunStatus');
+                if (runStatus.last_run_at) {
+                    statusEl.classList.remove('hidden');
+                    const conn = (runStatus.connectors_attempted || []).join(', ') || 'none';
+                    statusEl.innerHTML = `
+                        <div class="font-medium text-gray-800 mb-1">Last run</div>
+                        <div>${runStatus.last_run_at} · ${runStatus.last_run_type || 'unknown'} · ${runStatus.status || 'unknown'}</div>
+                        <div class="mt-1">Metrics fetched: ${runStatus.metrics_fetched ? 'yes' : 'no'} · Connectors: ${conn}</div>
+                    `;
+                } else {
+                    statusEl.classList.add('hidden');
+                }
+
+                const log = data.run_log || [];
+                const logEl = document.getElementById('ctolensRunLog');
+                logEl.innerHTML = log.length
+                    ? log.map(entry => `
+                        <div class="border-b py-2 last:border-b-0">
+                            <div>${entry.started_at || ''} · ${entry.run_type || ''} · ${entry.status || ''}</div>
+                            <div class="text-xs text-gray-500">${entry.assignments_evaluated || 0} assignments · ${(entry.connectors_attempted || []).join(', ') || 'none'}${entry.error ? ` · ${entry.error}` : ''}</div>
+                        </div>
+                    `).join('')
+                    : '<p class="text-gray-500">No runs recorded yet.</p>';
+            } catch (error) {
+                console.error('Error loading CTOLens schedule:', error);
+                card.classList.remove('hidden');
+                document.getElementById('ctolensScheduleMessage').className = 'mb-4 text-sm rounded px-4 py-3 bg-red-100 text-red-700 border border-red-200';
+                document.getElementById('ctolensScheduleMessage').classList.remove('hidden');
+                document.getElementById('ctolensScheduleMessage').textContent = `Could not load schedule: ${error.message}`;
+            }
+        }
+
+        async function saveCtolenSchedule() {
+            const msgEl = document.getElementById('ctolensScheduleMessage');
+            const payload = {
+                enabled: document.getElementById('ctolensScheduleEnabled').checked,
+                on_import: document.getElementById('ctolensScheduleOnImport').checked,
+                frequency: document.getElementById('ctolensScheduleFrequency').value,
+                time_utc: document.getElementById('ctolensScheduleTimeUtc').value || '06:00',
+                day_of_week: document.getElementById('ctolensScheduleDay').value || 'monday',
+            };
+            try {
+                const response = await fetch(`/api/workspaces/${currentWorkspace}/ctolens/schedule`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const data = await response.json();
+                msgEl.classList.remove('hidden');
+                if (!response.ok) {
+                    msgEl.className = 'mb-4 text-sm rounded px-4 py-3 bg-red-100 text-red-700 border border-red-200';
+                    msgEl.textContent = data.error || 'Failed to save schedule';
+                    return;
+                }
+                msgEl.className = 'mb-4 text-sm rounded px-4 py-3 bg-green-100 text-green-700 border border-green-200';
+                msgEl.textContent = 'Schedule saved.';
+                loadCtolenSchedule();
+            } catch (error) {
+                msgEl.classList.remove('hidden');
+                msgEl.className = 'mb-4 text-sm rounded px-4 py-3 bg-red-100 text-red-700 border border-red-200';
+                msgEl.textContent = `Failed to save schedule: ${error.message}`;
+            }
         }
 
         async function loadCredentialStatus() {

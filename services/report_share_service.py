@@ -18,7 +18,9 @@ from services.portfolio_service import build_portfolio_overview
 logger = get_logger(__name__)
 
 _INDEX_ENV = "REPORT_SHARE_INDEX_PATH"
-_DEFAULT_INDEX = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "report_share_index.json")
+_DEFAULT_INDEX = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), "data", "report_share_index.json"
+)
 _MAX_VIEWS_LOG = 50
 
 
@@ -173,10 +175,12 @@ def get_share_report(
     if record_view:
         record["view_count"] = int(record.get("view_count") or 0) + 1
         views: List[Dict[str, str]] = list(record.get("views") or [])
-        views.append({
-            "viewed_at": datetime.utcnow().isoformat(),
-            "user_agent": (user_agent or "")[:200],
-        })
+        views.append(
+            {
+                "viewed_at": datetime.utcnow().isoformat(),
+                "user_agent": (user_agent or "")[:200],
+            }
+        )
         record["views"] = views[-_MAX_VIEWS_LOG:]
         shared[token] = record
         settings = ws.get("settings") or {}
@@ -205,7 +209,9 @@ def build_report_template_context(report: Dict[str, Any]) -> Dict[str, Any]:
 
     briefing = normalize_briefing_for_export(report.get("briefing") or {})
     portfolio = report.get("portfolio") or {}
-    summary = portfolio.get("summary") or briefing.get("portfolio_snapshot", {}).get("summary") or {}
+    summary = (
+        portfolio.get("summary") or briefing.get("portfolio_snapshot", {}).get("summary") or {}
+    )
     health = briefing.get("system_health_score") or portfolio.get("health_score") or {}
     eb = briefing.get("executive_briefing") or {}
     risks = briefing.get("risk_signals") or []
@@ -228,9 +234,9 @@ def build_report_template_context(report: Dict[str, Any]) -> Dict[str, Any]:
     generated_display = generated
     if generated:
         try:
-            generated_display = datetime.fromisoformat(
-                generated.replace("Z", "+00:00")
-            ).strftime("%B %d, %Y")
+            generated_display = datetime.fromisoformat(generated.replace("Z", "+00:00")).strftime(
+                "%B %d, %Y"
+            )
         except (TypeError, ValueError):
             pass
 
@@ -262,14 +268,10 @@ def build_report_template_context(report: Dict[str, Any]) -> Dict[str, Any]:
         ]
 
     projects_requiring_attention = (
-        briefing.get("projects_requiring_attention")
-        or eb.get("projects_requiring_attention")
-        or []
+        briefing.get("projects_requiring_attention") or eb.get("projects_requiring_attention") or []
     )
     confidence_assessment = (
-        briefing.get("confidence_assessment")
-        or eb.get("confidence_assessment")
-        or {}
+        briefing.get("confidence_assessment") or eb.get("confidence_assessment") or {}
     )
 
     return {
@@ -303,12 +305,14 @@ def list_share_links(secure_db: Any, workspace_id: str) -> List[Dict[str, Any]]:
     shared = (ws.get("settings") or {}).get("shared_reports") or {}
     out = []
     for token, rec in shared.items():
-        out.append({
-            "token": token,
-            "created_at": rec.get("created_at"),
-            "expires_at": rec.get("expires_at"),
-            "view_count": rec.get("view_count", 0),
-            "path": f"/r/{token}",
-        })
+        out.append(
+            {
+                "token": token,
+                "created_at": rec.get("created_at"),
+                "expires_at": rec.get("expires_at"),
+                "view_count": rec.get("view_count", 0),
+                "path": f"/r/{token}",
+            }
+        )
     out.sort(key=lambda x: x.get("created_at") or "", reverse=True)
     return out

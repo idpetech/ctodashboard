@@ -9,27 +9,27 @@ from typing import Dict
 
 logger = logging.getLogger(__name__)
 
-from .workspace.workspace_service import WorkspaceService
 from .embedded.aws_metrics import EmbeddedAWSMetrics
 from .embedded.github_metrics import EmbeddedGitHubMetrics
 from .embedded.jira_metrics import EmbeddedJiraMetrics
 from .embedded.railway_metrics import RailwayMetrics
+from .workspace.workspace_service import WorkspaceService
 
 
 class MetricsAggregator:
     """Aggregates metrics from all embedded services - workspace-only"""
-    
+
     def __init__(self):
         self.workspace_service = WorkspaceService()
-    
+
     def _get_workspace_connectors(self, workspace_id: str, assignment_id: str) -> Dict:
         """Create workspace-scoped connector instances with credentials"""
         return {
-            'aws': EmbeddedAWSMetrics(workspace_id=workspace_id, assignment_id=assignment_id),
-            'github': EmbeddedGitHubMetrics(workspace_id=workspace_id, assignment_id=assignment_id),
-            'jira': EmbeddedJiraMetrics(workspace_id=workspace_id, assignment_id=assignment_id)
+            "aws": EmbeddedAWSMetrics(workspace_id=workspace_id, assignment_id=assignment_id),
+            "github": EmbeddedGitHubMetrics(workspace_id=workspace_id, assignment_id=assignment_id),
+            "jira": EmbeddedJiraMetrics(workspace_id=workspace_id, assignment_id=assignment_id),
         }
-    
+
     async def get_all_metrics(self, workspace_id: str, assignment_id: str) -> Dict:
         """
         Get metrics for an assignment from all configured services.
@@ -40,21 +40,21 @@ class MetricsAggregator:
         if not assignment:
             return {
                 "error": f"Assignment '{assignment_id}' not found in workspace '{workspace_id}'",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
-        
+
         # Create workspace connectors with credentials
         connectors = self._get_workspace_connectors(workspace_id, assignment_id)
-        
+
         metrics = {
             "timestamp": datetime.now().isoformat(),
             "assignment_id": assignment_id,
-            "workspace_id": workspace_id
+            "workspace_id": workspace_id,
         }
-        
+
         # Get metrics using correct schema: metrics_config.<connector>
         metrics_config = assignment.get("metrics_config", {})
-        
+
         # Get AWS metrics if configured
         aws_config = metrics_config.get("aws", {})
         if aws_config.get("enabled", False):
@@ -62,7 +62,7 @@ class MetricsAggregator:
                 metrics["aws"] = connectors["aws"].get_metrics()
             except Exception as e:
                 metrics["aws"] = {"error": str(e)}
-        
+
         # Get GitHub metrics if configured
         github_config = metrics_config.get("github", {})
         if github_config.get("enabled", False):
@@ -71,9 +71,7 @@ class MetricsAggregator:
                     github_metrics_config as build_github_metrics_config,
                 )
 
-                gh_cfg = build_github_metrics_config(
-                    workspace_id, assignment_id, github_config
-                )
+                gh_cfg = build_github_metrics_config(workspace_id, assignment_id, github_config)
                 metrics["github"] = connectors["github"].get_metrics(gh_cfg)
             except Exception as e:
                 metrics["github"] = {"error": str(e)}
@@ -87,13 +85,11 @@ class MetricsAggregator:
                 )
 
                 metrics["jira"] = connectors["jira"].get_metrics(
-                    build_jira_metrics_config(
-                        workspace_id, assignment_id, jira_config
-                    )
+                    build_jira_metrics_config(workspace_id, assignment_id, jira_config)
                 )
             except Exception as e:
                 metrics["jira"] = {"error": str(e)}
-        
+
         # Get OpenAI metrics if configured
         openai_config = metrics_config.get("openai", {})
         if openai_config.get("enabled", False):
@@ -101,7 +97,7 @@ class MetricsAggregator:
                 metrics["openai"] = connectors["openai"].get_usage_metrics(openai_config)
             except Exception as e:
                 metrics["openai"] = {"error": str(e)}
-        
+
         # Get Railway metrics if configured
         railway_config = metrics_config.get("railway", {})
         if railway_config.get("enabled", False):
@@ -110,18 +106,17 @@ class MetricsAggregator:
                 project_name = railway_config.get("project_name")
                 railway_metrics = RailwayMetrics()
                 metrics["railway"] = await railway_metrics.get_metrics(
-                    project_id=project_id, 
-                    project_name=project_name
+                    project_id=project_id, project_name=project_name
                 )
             except Exception as e:
                 metrics["railway"] = {"error": str(e)}
-        
+
         return metrics
-    
+
     def find_assignment(self, assignment_id: str, workspace_id: str = None) -> Dict:
         """Find assignment using workspace store"""
         return self.workspace_service.find_assignment(assignment_id, workspace_id)
-    
+
     def get_all_assignments(self) -> list:
         """Get all assignments from workspace store"""
         all_assignments = []
@@ -134,5 +129,5 @@ class MetricsAggregator:
                         all_assignments.extend(result["assignments"])
         except Exception as e:
             logger.error("Error aggregating assignments: %s", e, exc_info=True)
-        
+
         return all_assignments

@@ -64,9 +64,7 @@ class RecommendationEngine:
         )
 
         return Recommendation(
-            recommendation_id=Recommendation.make_id(
-                signal.project_id, signal.signal_type.value
-            ),
+            recommendation_id=Recommendation.make_id(signal.project_id, signal.signal_type.value),
             title=str(entry["title"]),
             description=description,
             category=str(entry.get("category") or signal.category.value),

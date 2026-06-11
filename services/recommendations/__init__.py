@@ -6,7 +6,11 @@ Upstream: services.signals.SignalEngine
 """
 
 from services.recommendations.engine import RecommendationEngine
-from services.recommendations.models import Recommendation, RecommendationPriority, RecommendationRationale
+from services.recommendations.models import (
+    Recommendation,
+    RecommendationPriority,
+    RecommendationRationale,
+)
 from services.recommendations.ranking import classify_priority, compute_priority_score
 
 __all__ = [

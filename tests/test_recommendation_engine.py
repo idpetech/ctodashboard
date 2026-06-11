@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
+from services.executive_briefing.assembler import OPPORTUNITY_SIGNAL_TYPES
 from services.recommendations.engine import RecommendationEngine
 from services.recommendations.models import RecommendationPriority
 from services.recommendations.ranking import classify_priority, compute_priority_score
-from services.executive_briefing.assembler import OPPORTUNITY_SIGNAL_TYPES
 from services.signals.engine import SignalEngine
 from services.signals.models import Signal, SignalCategory, SignalSeverity, SignalType
 
@@ -52,7 +52,9 @@ class TestRanking:
         catalog = RecommendationEngine().catalog
         critical = _signal(severity=SignalSeverity.CRITICAL, confidence=0.95)
         warning = _signal(severity=SignalSeverity.WARNING, confidence=0.95)
-        assert compute_priority_score(critical, 8, catalog) > compute_priority_score(warning, 8, catalog)
+        assert compute_priority_score(critical, 8, catalog) > compute_priority_score(
+            warning, 8, catalog
+        )
 
     def test_priority_bands(self):
         catalog = RecommendationEngine().catalog
@@ -79,7 +81,10 @@ class TestRecommendationMapping:
         )
         recs = RecommendationEngine().recommend([signal])
         assert len(recs) == 1
-        assert expected_title_fragment.lower() in recs[0].title.lower() or expected_title_fragment.lower() in recs[0].description.lower()
+        assert (
+            expected_title_fragment.lower() in recs[0].title.lower()
+            or expected_title_fragment.lower() in recs[0].description.lower()
+        )
 
     def test_all_signal_types_have_catalog_entries(self):
         engine = RecommendationEngine()

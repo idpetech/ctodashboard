@@ -1,0 +1,25 @@
+[project]
+name = "ctodashboard"
+requires-python = ">=3.12"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+exclude = [
+    "_attic",
+    "venv",
+    ".ruff_cache",
+    ".git",
+]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+# Logging/bootstrap must run before other imports.
+"integrated_dashboard.py" = ["E402"]
+# Large route module uses lazy imports inside register_routes().
+"routes/api_routes.py" = ["E402"]
+# Legacy path manipulation before connector imports.
+"services/chatbot_service.py" = ["E402"]
+"services/metrics_aggregator.py" = ["E402"]

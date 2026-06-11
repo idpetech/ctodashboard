@@ -46,8 +46,7 @@ _STRIPE_STATUS_MAP = {
 
 def is_billing_enabled() -> bool:
     return (
-        os.getenv("ENABLE_STRIPE_BILLING", os.getenv("ENABLE_BILLING", "false")).lower()
-        == "true"
+        os.getenv("ENABLE_STRIPE_BILLING", os.getenv("ENABLE_BILLING", "false")).lower() == "true"
     )
 
 
@@ -66,10 +65,7 @@ def _plan_env_value(plan: str) -> str:
     if plan not in PLANS:
         raise ValueError(f"Unknown plan: {plan}")
     meta = PLANS[plan]
-    return (
-        os.getenv(meta["price_env"], "").strip()
-        or os.getenv(meta["product_env"], "").strip()
-    )
+    return os.getenv(meta["price_env"], "").strip() or os.getenv(meta["product_env"], "").strip()
 
 
 def _stripe_field(obj: Any, key: str, default: Any = None) -> Any:
@@ -306,9 +302,7 @@ def _sync_subscription(subscription: Dict[str, Any], *, deleted: bool = False) -
 
     plan = _stripe_field(metadata, "plan") or _plan_from_price_id(price_id)
     renewal = _stripe_field(subscription, "current_period_end")
-    renewal_date = (
-        datetime.utcfromtimestamp(renewal).isoformat() if renewal else None
-    )
+    renewal_date = datetime.utcfromtimestamp(renewal).isoformat() if renewal else None
 
     billing: Dict[str, Any] = {
         "stripe_customer_id": customer_id,
@@ -358,4 +352,9 @@ def _persist_billing(email: str, billing_update: Dict[str, Any]) -> None:
     user["preferences"] = prefs
     audit = {"user_email": email, "ip_address": "stripe_webhook", "user_agent": "stripe"}
     secure_db.store_user_credentials(email, user, audit)
-    logger.info("Billing updated for %s: status=%s plan=%s", email, billing.get("billing_status"), billing.get("plan"))
+    logger.info(
+        "Billing updated for %s: status=%s plan=%s",
+        email,
+        billing.get("billing_status"),
+        billing.get("plan"),
+    )

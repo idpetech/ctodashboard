@@ -30,7 +30,14 @@
       "project_name": "Project Alpha",
       "signal_type": "STALE_DATA",
       "severity": "warning",
-      "summary": "Last successful connector sync was 159.4 hours ago.",
+      "summary": "Last successful connector sync was 228.1 hours ago.",
+      "confidence": 0.88
+    },
+    {
+      "project_name": "Project Beta",
+      "signal_type": "STALE_DATA",
+      "severity": "warning",
+      "summary": "Last successful connector sync was 86.1 hours ago.",
       "confidence": 0.88
     },
     {
@@ -60,13 +67,6 @@
       "severity": "critical",
       "summary": "GitHub reported 0 commits in the last 14 days.",
       "confidence": 0.92
-    },
-    {
-      "project_name": "Project Alpha",
-      "signal_type": "COST_SPIKE",
-      "severity": "critical",
-      "summary": "Monthly burn increased from 40000 to 55000 (37.5% change).",
-      "confidence": 0.85
     }
   ],
   "opportunities": [
@@ -219,6 +219,20 @@
       ]
     },
     {
+      "recommendation_id": "rec:BETA:STALE_DATA",
+      "title": "Refresh connector data",
+      "description": "Refresh stale connector data for Project Beta to restore timely portfolio visibility.",
+      "priority": "medium",
+      "impact_score": 6,
+      "project_name": "Project Beta",
+      "why": "Outdated metrics increase the risk of decisions based on expired information.",
+      "reason": "Refresh stale connector data for Project Beta to restore timely portfolio visibility.",
+      "signal_type": "STALE_DATA",
+      "source_signal_ids": [
+        "BETA:STALE_DATA"
+      ]
+    },
+    {
       "recommendation_id": "rec:BETA:UNDER_BUDGET",
       "title": "Review unused capacity",
       "description": "Review unused capacity and evaluate acceleration opportunities for Project Beta.",
@@ -245,20 +259,6 @@
       "source_signal_ids": [
         "BETA:UNUSED_CAPACITY"
       ]
-    },
-    {
-      "recommendation_id": "rec:ALPHA:NO_JIRA_ACTIVITY",
-      "title": "Validate delivery tracking",
-      "description": "Validate Jira activity for Project Alpha; no issue updates were recorded in the lookback window.",
-      "priority": "medium",
-      "impact_score": 5,
-      "project_name": "Project Alpha",
-      "why": "Missing issue activity reduces visibility into in-flight work and blockers.",
-      "reason": "Validate Jira activity for Project Alpha; no issue updates were recorded in the lookback window.",
-      "signal_type": "NO_JIRA_ACTIVITY",
-      "source_signal_ids": [
-        "ALPHA:NO_JIRA_ACTIVITY"
-      ]
     }
   ],
   "projects_requiring_attention": [
@@ -272,6 +272,14 @@
         "Connector fetch failed for: jira.",
         "Jira reported 0 issue updates in the last 7 days.",
         "Commits fell from 10 to 2 week-over-week (80.0% decrease)."
+      ]
+    },
+    {
+      "project_name": "Project Beta",
+      "highest_severity": "warning",
+      "signal_count": 1,
+      "summaries": [
+        "Last successful connector sync was 86.1 hours ago."
       ]
     },
     {
@@ -290,6 +298,6 @@
     "low_confidence_signal_count": 2,
     "narrative": "Overall data confidence is low. Connector readiness is 0.0%. 2 supplied signal(s) have confidence below 0.75. Treat findings as directional until connector coverage improves."
   },
-  "generated_at": "2026-06-08T03:24:47Z",
+  "generated_at": "2026-06-11T00:06:04Z",
   "generation_mode": "deterministic"
 }

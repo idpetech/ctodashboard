@@ -9,6 +9,7 @@ from typing import List, Optional
 
 SCHEMA_NAME = "ctodashboard"
 
+
 class _Tables:
     USERS = "users"
     WORKSPACES = "workspaces"
@@ -16,6 +17,10 @@ class _Tables:
     CREDENTIALS = "credentials"
     AUDIT_LOGS = "audit_logs"
     SCHEMA_VERSION = "schema_version"
+    ANALYTICS_EVENTS = "analytics_events"
+    ANALYTICS_SESSIONS = "analytics_sessions"
+    ANALYTICS_USER_PROFILES = "analytics_user_profiles"
+
 
 TABLES = _Tables()
 
@@ -103,6 +108,40 @@ DDL_STATEMENTS: List[str] = [
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """,
+    f"""
+    CREATE TABLE IF NOT EXISTS {TABLES.ANALYTICS_SESSIONS} (
+        session_id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        ended_at TIMESTAMP,
+        duration_seconds INTEGER,
+        event_count INTEGER NOT NULL DEFAULT 0,
+        last_event_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    f"""
+    CREATE TABLE IF NOT EXISTS {TABLES.ANALYTICS_EVENTS} (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        session_id TEXT NOT NULL,
+        event_name TEXT NOT NULL,
+        occurred_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        metadata JSONB NOT NULL DEFAULT '{{}}'::jsonb
+    )
+    """,
+    f"""
+    CREATE TABLE IF NOT EXISTS {TABLES.ANALYTICS_USER_PROFILES} (
+        user_id TEXT PRIMARY KEY,
+        first_seen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_seen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        has_activated BOOLEAN NOT NULL DEFAULT FALSE,
+        first_activation_time TIMESTAMP
+    )
+    """,
+    f"CREATE INDEX IF NOT EXISTS idx_analytics_events_user_time ON {TABLES.ANALYTICS_EVENTS} (user_id, occurred_at)",
+    f"CREATE INDEX IF NOT EXISTS idx_analytics_events_session ON {TABLES.ANALYTICS_EVENTS} (session_id)",
+    f"CREATE INDEX IF NOT EXISTS idx_analytics_events_name_time ON {TABLES.ANALYTICS_EVENTS} (event_name, occurred_at)",
+    f"CREATE INDEX IF NOT EXISTS idx_analytics_sessions_user_started ON {TABLES.ANALYTICS_SESSIONS} (user_id, started_at)",
     f"""
     CREATE TABLE IF NOT EXISTS {TABLES.SCHEMA_VERSION} (
         version INTEGER PRIMARY KEY,

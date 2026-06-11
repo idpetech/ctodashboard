@@ -4,7 +4,7 @@ Assemble BriefingInput and pre-sorted fact slices for the generator.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 from services.executive_briefing.schema import (
     ActionItem,
@@ -80,9 +80,7 @@ def assess_data_completeness(
     connectors = portfolio_metrics.get("connector_health") or {}
     readiness = connectors.get("readiness_pct")
     low_conf = sum(1 for s in signals if float(s.get("confidence") or 0) < 0.75)
-    missing_targets = (portfolio_metrics.get("summary") or {}).get(
-        "assignments_missing_target", 0
-    )
+    missing_targets = (portfolio_metrics.get("summary") or {}).get("assignments_missing_target", 0)
 
     if readiness is None:
         level = "low"

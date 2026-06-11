@@ -1,6 +1,6 @@
 # CTOLens Metrics Enrichment — Plan & Execution TODO
 
-**Status:** Backlog (not implemented)  
+**Status:** Phases 0–2 shipped (2026-06-05); Phase 3 backlog  
 **Created:** 2026-06-05  
 **Related:** `services/briefing_pipeline.py`, `routes/api_routes.py` (`collect_assignment_metrics`), CTOLens dashboard panel  
 **Jira import:** `docs/backlog/CTOLENS-METRICS-ENRICHMENT-JIRA.csv`
@@ -144,29 +144,29 @@ Keep in exports: executive summary, top risks, opportunities (summarized), recom
 
 ### Phase 0 — Clarify today (low risk)
 
-- [ ] Show `generated_at` + `metrics_fetched` in CTOLens panel header
-- [ ] Rename refresh buttons (fast vs live metrics)
-- [ ] Strip diagnostics/raw signals from share/PDF export path
-- [ ] Confirm GET `/ctolens/briefing` never calls `fetch_metrics=true`
-- [ ] Document behavior pointer in `docs/HYBRID-BRIEFING-ENGINE.md`
+- [x] Show `generated_at` + `metrics_fetched` in CTOLens panel header
+- [x] Rename refresh buttons (fast vs live metrics)
+- [x] Strip diagnostics/raw signals from share/PDF export path
+- [x] Confirm GET `/ctolens/briefing` never calls `fetch_metrics=true`
+- [x] Document behavior pointer in `docs/HYBRID-BRIEFING-ENGINE.md`
 
 ### Phase 1 — Run metadata + collapsed diagnostics
 
-- [ ] Persist `ctolens_run_status` on every fast/enriched run
-- [ ] Persist rolling `ctolens_run_log` (max 10)
-- [ ] Collapsed diagnostics UI in `dashboard.html`
-- [ ] Separate staleness: assignment fingerprint vs metrics age
-- [ ] Fix `build_metrics_overlays()` GitHub/Jira core mapping (7d/14d/prior commits, jira 7d)
-- [ ] Structured app logs: `briefing_run_started` / `briefing_run_completed`
+- [x] Persist `ctolens_run_status` on every fast/enriched run
+- [x] Persist rolling `ctolens_run_log` (max 10)
+- [x] Collapsed diagnostics UI in `dashboard.html`
+- [x] Separate staleness: assignment fingerprint vs metrics age
+- [x] Fix `build_metrics_overlays()` GitHub/Jira core mapping (7d/14d/prior commits, jira 7d)
+- [x] Structured app logs: `briefing_run_started` / `briefing_run_completed`
 
 ### Phase 2 — Workspace schedule + Railway cron
 
-- [ ] Workspace settings UI for schedule (frequency, time UTC, on_import)
-- [ ] API: GET/PUT schedule in workspace settings
-- [ ] Protected endpoint: `POST /api/internal/ctolens/scheduled-refresh` (secret header)
-- [ ] Railway cron service hitting endpoint per deployment
-- [ ] On scheduled failure: keep last good briefing, log partial status
-- [ ] Feature flag: `ENABLE_CTOLENS_SCHEDULED_ENRICHMENT` (default false)
+- [x] Workspace settings UI for schedule (frequency, time UTC, on_import)
+- [x] API: GET/PUT schedule in workspace settings
+- [x] Protected endpoint: `POST /api/internal/ctolens/scheduled-refresh` (secret header)
+- [x] Railway cron service hitting endpoint per deployment
+- [x] On scheduled failure: keep last good briefing, log partial status
+- [x] Feature flag: `ENABLE_CTOLENS_SCHEDULED_ENRICHMENT` (default false)
 
 ### Phase 3 — Polish
 
@@ -203,7 +203,7 @@ Enriched runs are only valuable after **Phase 1 overlay mapping** is fixed.
 - [ ] Collapsed panel not present in share URL or PDF
 - [ ] Unconfigured connectors absent from diagnostics
 - [ ] All existing `tests/` pass (58+)
-- [ ] New tests for run metadata persistence and export stripping
+- [x] New tests for run metadata persistence and export stripping
 
 ---
 

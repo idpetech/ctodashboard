@@ -47,7 +47,9 @@ def build_executive_focus(
 
     top_action = actions[0] if actions else None
     if top_action:
-        do_first = f"{top_action.get('title', 'Action')} — {top_action.get('project_name', 'Portfolio')}"
+        do_first = (
+            f"{top_action.get('title', 'Action')} — {top_action.get('project_name', 'Portfolio')}"
+        )
         why_first = _compose_why(top_action)
         source_rec_id = str(top_action.get("recommendation_id") or "")
         source_signal_ids = list(top_action.get("source_signal_ids") or [])

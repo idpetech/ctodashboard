@@ -21,7 +21,9 @@ def compute_priority_score(
     catalog: Dict[str, Any],
 ) -> float:
     """Priority Score = impact_score × severity_weight × confidence."""
-    return float(impact_score) * severity_weight(catalog, signal.severity) * float(signal.confidence)
+    return (
+        float(impact_score) * severity_weight(catalog, signal.severity) * float(signal.confidence)
+    )
 
 
 def classify_priority(priority_score: float, catalog: Dict[str, Any]) -> RecommendationPriority:

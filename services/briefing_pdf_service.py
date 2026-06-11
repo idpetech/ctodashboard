@@ -50,26 +50,32 @@ def _collect_attention_items(
 ) -> List[Dict[str, Any]]:
     items: List[Dict[str, Any]] = []
     for it in briefing.get("founder_attention_items") or []:
-        items.append({
-            "severity": it.get("severity", "info"),
-            "message": it.get("message") or "",
-        })
+        items.append(
+            {
+                "severity": it.get("severity", "info"),
+                "message": it.get("message") or "",
+            }
+        )
     if items:
         return items
 
     ac = portfolio.get("attention_center") or {}
     for it in ac.get("items") or []:
-        items.append({
-            "severity": it.get("severity", "info"),
-            "message": it.get("message") or it.get("name") or "",
-        })
+        items.append(
+            {
+                "severity": it.get("severity", "info"),
+                "message": it.get("message") or it.get("name") or "",
+            }
+        )
 
     if not items:
         for r in (briefing.get("risk_signals") or [])[:8]:
-            items.append({
-                "severity": r.get("severity", "warning"),
-                "message": r.get("detail") or r.get("title") or "",
-            })
+            items.append(
+                {
+                    "severity": r.get("severity", "warning"),
+                    "message": r.get("detail") or r.get("title") or "",
+                }
+            )
     return items
 
 
@@ -109,11 +115,7 @@ class _PdfWriter:
         for line in wrapped:
             self._y -= leading
             x = _MARGIN_L + indent
-            escaped = (
-                line.replace("\\", "\\\\")
-                .replace("(", "\\(")
-                .replace(")", "\\)")
-            )
+            escaped = line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
             ops = self._ops()
             ops.append("BT")
             ops.append(f"{font} {size} Tf")
@@ -127,7 +129,9 @@ class _PdfWriter:
         self._y -= 6
         self.text(title, size=12, bold=True, leading=16)
         y_line = self._y + 6
-        self._ops().append(f"{_MARGIN_L:.2f} {y_line:.2f} m {_PAGE_W - _MARGIN_R:.2f} {y_line:.2f} l S")
+        self._ops().append(
+            f"{_MARGIN_L:.2f} {y_line:.2f} m {_PAGE_W - _MARGIN_R:.2f} {y_line:.2f} l S"
+        )
         self._y -= 6
 
     def header_band(self, title: str, subtitle: str) -> None:
@@ -146,12 +150,15 @@ class _PdfWriter:
         box_y = self._y - 40
         self._ops().append("0.94 0.97 1 rg")
         self._ops().append("0.15 0.39 0.92 RG")
-        self._ops().append(
-            f"{_MARGIN_L:.2f} {box_y:.2f} {_CONTENT_W:.2f} 40 re B"
-        )
+        self._ops().append(f"{_MARGIN_L:.2f} {box_y:.2f} {_CONTENT_W:.2f} 40 re B")
         self._ops().append("0 0 0 rg")
         self._y = box_y + 28
-        self.text(f"Health Score: {score if score is not None else '--'}/100  ({band})", size=12, bold=True, leading=16)
+        self.text(
+            f"Health Score: {score if score is not None else '--'}/100  ({band})",
+            size=12,
+            bold=True,
+            leading=16,
+        )
         self._y = box_y - 8
 
     def build(self) -> bytes:
@@ -173,9 +180,7 @@ class _PdfWriter:
         for page_ops in self._pages:
             stream = "\n".join(page_ops).encode("latin-1", errors="replace")
             content_body = (
-                f"<< /Length {len(stream)} >>\nstream\n".encode("latin-1")
-                + stream
-                + b"\nendstream"
+                f"<< /Length {len(stream)} >>\nstream\n".encode("latin-1") + stream + b"\nendstream"
             )
             content_idx = add_obj(content_body)
             page_idx = add_obj(
@@ -250,7 +255,10 @@ def generate_briefing_pdf(
     writer.section("Portfolio Metrics")
     summary = portfolio.get("summary") or {}
     metrics: List[Tuple[str, str]] = [
-        ("Active Assignments", f"{summary.get('active_assignments', 0)} of {summary.get('total_assignments', 0)}"),
+        (
+            "Active Assignments",
+            f"{summary.get('active_assignments', 0)} of {summary.get('total_assignments', 0)}",
+        ),
         ("Monthly Burn", _fmt_money(summary.get("total_monthly_burn"))),
         ("Target Burn", _fmt_money(summary.get("total_target_burn"))),
         ("Total Team", str(summary.get("total_team_size", 0))),
@@ -312,20 +320,32 @@ def generate_briefing_pdf(
                 writer.text(f"Why: {why}", indent=8)
             signal_ids = action.get("source_signal_ids") or []
             if signal_ids:
-                writer.text(f"Source signals: {', '.join(str(s) for s in signal_ids[:3])}", indent=8)
+                writer.text(
+                    f"Source signals: {', '.join(str(s) for s in signal_ids[:3])}", indent=8
+                )
 
     confidence = executive.get("confidence_assessment") or briefing.get("confidence_assessment")
     if confidence:
         writer.section("Confidence Assessment")
-        writer.text(confidence.get("narrative") or f"Overall confidence: {confidence.get('overall_level', 'unknown')}")
+        writer.text(
+            confidence.get("narrative")
+            or f"Overall confidence: {confidence.get('overall_level', 'unknown')}"
+        )
 
-    projects = executive.get("projects_requiring_attention") or briefing.get("projects_requiring_attention") or []
+    projects = (
+        executive.get("projects_requiring_attention")
+        or briefing.get("projects_requiring_attention")
+        or []
+    )
     if projects:
         writer.section("Projects Requiring Attention")
         for project in projects:
             name = project.get("project_name") or "Project"
             sev = project.get("highest_severity") or "warning"
-            writer.text(f"{name} [{str(sev).upper()}] — {project.get('signal_count', 0)} signal(s)", bold=True)
+            writer.text(
+                f"{name} [{str(sev).upper()}] — {project.get('signal_count', 0)} signal(s)",
+                bold=True,
+            )
             for summary in (project.get("summaries") or [])[:4]:
                 writer.text(f"• {summary}", indent=8)
 
