@@ -9,6 +9,8 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from flask import jsonify
+
 from config.logging_config import get_logger
 from connectors.registry import ConnectorRegistry
 from services.assignment_metrics_config import (
@@ -123,6 +125,41 @@ def get_require_web_auth():
 def get_require_web_workspace_access():
     decorators = get_auth_decorators()
     return decorators[4] if len(decorators) >= 5 else None
+
+
+def get_require_admin():
+    decorators = get_auth_decorators()
+    return decorators[5] if len(decorators) >= 6 else None
+
+
+def deny_unless_workspace_access(workspace_id: str):
+    """Return a Flask error response if the current user cannot access workspace_id."""
+    if not workspace_id:
+        return jsonify(
+            {
+                "error": "Workspace ID required",
+                "message": "This operation requires a workspace ID",
+            }
+        ), 400
+
+    user = get_current_user()
+    if not user:
+        return jsonify(
+            {
+                "error": "Authentication required",
+                "message": "Please log in to access this resource",
+            }
+        ), 401
+
+    if not get_user_service().check_workspace_access(user.get("email"), workspace_id):
+        return jsonify(
+            {
+                "error": "Access denied",
+                "message": f"You don't have access to workspace '{workspace_id}'",
+            }
+        ), 403
+
+    return None
 
 
 # Global connector instances (for backward compatibility)
@@ -278,6 +315,8 @@ __all__ = [
     "get_export_service",
     "get_import_service",
     "get_optional_auth",
+    "deny_unless_workspace_access",
+    "get_require_admin",
     "get_require_auth",
     "get_require_web_auth",
     "get_require_web_workspace_access",

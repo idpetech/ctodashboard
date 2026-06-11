@@ -2,9 +2,7 @@
 
 from flask import jsonify, request, send_from_directory
 
-from routes.api.deps import (
-    get_import_service,
-)
+from routes.api.deps import get_import_service, get_require_auth
 
 
 def register_import_export_routes(app):
@@ -14,6 +12,7 @@ def register_import_export_routes(app):
     # ============================================================================
 
     @app.route("/api/import/validate", methods=["POST"])
+    @get_require_auth()
     def validate_import_data():
         """Validate import data structure without importing"""
         try:
@@ -28,6 +27,7 @@ def register_import_export_routes(app):
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/import/templates")
+    @get_require_auth()
     def get_import_templates():
         """Get available assignment templates for quick setup"""
         try:
@@ -38,6 +38,7 @@ def register_import_export_routes(app):
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/export/download/<filename>")
+    @get_require_auth()
     def download_export_file(filename):
         """Download export file - secure file serving for legacy compatibility"""
         try:

@@ -2,7 +2,7 @@
 
 from flask import jsonify, request
 
-from routes.api.deps import logger
+from routes.api.deps import deny_unless_workspace_access, get_require_auth, logger
 from services.chatbot_service import (
     clear_conversation_history,
     get_conversation_history,
@@ -12,14 +12,26 @@ from services.chatbot_service import (
 )
 
 
+def _deny_chatbot_workspace_access(data):
+    workspace_id = (data or {}).get("workspace_id")
+    if workspace_id:
+        return deny_unless_workspace_access(workspace_id)
+    return None
+
+
 def register_chatbot_routes(app):
     """Register chatbot routes."""
 
     @app.route("/api/chatbot/ask-stream", methods=["POST"])
+    @get_require_auth()
     def ask_chatbot_stream():
         """AI-powered chatbot with streaming response and workspace context"""
         try:
-            data = request.get_json()
+            data = request.get_json() or {}
+            denied = _deny_chatbot_workspace_access(data)
+            if denied:
+                return denied
+
             question = data.get("question", "")
             user_id = data.get("user_id", "default")
             workspace_id = data.get("workspace_id")
@@ -53,10 +65,15 @@ def register_chatbot_routes(app):
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/chatbot/ask", methods=["POST"])
+    @get_require_auth()
     def ask_chatbot():
         """AI-powered chatbot endpoint with workspace context"""
         try:
-            data = request.get_json()
+            data = request.get_json() or {}
+            denied = _deny_chatbot_workspace_access(data)
+            if denied:
+                return denied
+
             question = data.get("question", "")
             user_id = data.get("user_id", "default")
             workspace_id = data.get("workspace_id")
@@ -99,6 +116,7 @@ def register_chatbot_routes(app):
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/chatbot/history")
+    @get_require_auth()
     def get_chatbot_history():
         """Get chatbot conversation history"""
         try:
@@ -110,6 +128,7 @@ def register_chatbot_routes(app):
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/chatbot/clear", methods=["POST"])
+    @get_require_auth()
     def clear_chatbot_history():
         """Clear chatbot conversation history"""
         try:

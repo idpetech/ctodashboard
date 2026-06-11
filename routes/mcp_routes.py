@@ -28,6 +28,7 @@ workspace_service = WorkspaceService()
     optional_auth,
     require_web_auth,
     require_web_workspace_access,
+    _require_admin,
 ) = create_auth_decorators(user_service)
 
 # Global MCP server instances per workspace

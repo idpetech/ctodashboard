@@ -200,6 +200,25 @@ def create_auth_decorators(user_service):
 
         return decorated_function
 
+    def require_admin(f):
+        """Require authenticated user with admin role."""
+
+        @require_auth
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            user = getattr(g, "current_user", None)
+            if not user or user.get("role") != "admin":
+                return jsonify(
+                    {
+                        "error": "Admin access required",
+                        "message": "This endpoint is restricted to administrators",
+                    }
+                ), 403
+
+            return f(*args, **kwargs)
+
+        return decorated_function
+
     def require_web_workspace_access(f):
         """
         Decorator for web pages that require workspace access.
@@ -288,6 +307,7 @@ def create_auth_decorators(user_service):
         optional_auth,
         require_web_auth,
         require_web_workspace_access,
+        require_admin,
     )
 
 

@@ -7,6 +7,7 @@ from flask import jsonify, request
 from routes.api.deps import (
     aws_metrics,
     collect_assignment_metrics,
+    deny_unless_workspace_access,
     get_current_user,
     get_require_auth,
     get_user_service,
@@ -158,6 +159,10 @@ def register_assignments_routes(app):
                     ), 404
 
         # Use defensive resolver for workspace context (when workspace_id is provided)
+        denied = deny_unless_workspace_access(workspace_id)
+        if denied:
+            return denied
+
         result = get_workspace_service().find_assignment(assignment_id, workspace_id)
 
         if result.get("status") == 200:
@@ -250,6 +255,7 @@ def register_assignments_routes(app):
             return jsonify({"error": f"Failed to delete assignment: {str(e)}"}), 500
 
     @app.route("/api/aws-metrics")
+    @get_require_auth()
     def get_aws_metrics():
         """Get AWS metrics"""
         try:
@@ -259,18 +265,33 @@ def register_assignments_routes(app):
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/github-metrics/<assignment_id>")
+    @get_require_auth()
     def get_github_metrics(assignment_id):
         """Get GitHub metrics for specific assignment"""
         try:
             workspace_id = request.args.get("workspace_id")
             if workspace_id:
+                denied = deny_unless_workspace_access(workspace_id)
+                if denied:
+                    return denied
                 assignment = get_workspace_service().get_assignment(workspace_id, assignment_id)
             else:
-                result = get_workspace_service().find_assignment(assignment_id)
-                if result.get("status") != 200:
+                current_user = get_current_user()
+                user_workspace_ids = (
+                    get_user_service()
+                    .get_user_workspaces(current_user.get("email"))
+                    .get("workspaces", [])
+                )
+                found = None
+                for ws_id in user_workspace_ids:
+                    assignment = get_workspace_service().get_assignment(ws_id, assignment_id)
+                    if assignment:
+                        found = {"workspace_id": ws_id, "assignment": assignment}
+                        break
+                if not found:
                     return jsonify({"error": "Assignment not found"}), 404
-                workspace_id = result["workspace_id"]
-                assignment = result["assignment"]
+                workspace_id = found["workspace_id"]
+                assignment = found["assignment"]
 
             if not assignment:
                 return jsonify({"error": "Assignment not found"}), 404
@@ -286,6 +307,7 @@ def register_assignments_routes(app):
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/github-token-status")
+    @get_require_auth()
     def check_github_token_status():
         """Check GitHub token validation status"""
         try:

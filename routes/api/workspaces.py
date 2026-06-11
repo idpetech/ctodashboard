@@ -18,7 +18,6 @@ from routes.api.deps import (
     get_export_service,
     get_import_service,
     get_optional_auth,
-    get_require_auth,
     get_require_workspace_access,
     get_user_service,
     get_workspace_connectors,
@@ -326,6 +325,7 @@ def register_workspaces_routes(app):
     @app.route(
         "/api/workspaces/<workspace_id>/connector-templates/<connector_type>", methods=["POST"]
     )
+    @get_require_workspace_access()
     def create_connector_template(workspace_id, connector_type):
         """Create a connector template"""
         data = request.get_json()
@@ -351,6 +351,7 @@ def register_workspaces_routes(app):
         "/api/workspaces/<workspace_id>/connector-templates/<connector_type>/<template_name>",
         methods=["GET", "DELETE"],
     )
+    @get_require_workspace_access()
     def connector_template_detail(workspace_id, connector_type, template_name):
         """Get or delete specific connector template"""
         if request.method == "GET":
@@ -373,6 +374,7 @@ def register_workspaces_routes(app):
                 return jsonify(result), 400
 
     @app.route("/api/workspaces/<workspace_id>/assignments/from-template", methods=["POST"])
+    @get_require_workspace_access()
     def create_assignment_from_template(workspace_id):
         denied = require_trial_write_access()
         if denied:
@@ -405,7 +407,7 @@ def register_workspaces_routes(app):
         "/api/workspaces/<workspace_id>/assignments/<assignment_id>/auth/<connector_type>",
         methods=["GET", "PUT"],
     )
-    @get_require_auth()
+    @get_require_workspace_access()
     def assignment_auth(workspace_id, assignment_id, connector_type):
         if request.method == "GET":
             from services.auth.credential_service import CredentialService
@@ -433,6 +435,7 @@ def register_workspaces_routes(app):
     # ===== WORKSPACE SETTINGS & CREDENTIAL MANAGEMENT =====
 
     @app.route("/api/workspaces/<workspace_id>/settings", methods=["GET", "PUT"])
+    @get_require_workspace_access()
     def workspace_settings(workspace_id):
         """Get or update workspace settings"""
         if request.method == "GET":
@@ -467,6 +470,7 @@ def register_workspaces_routes(app):
                 return jsonify(result), 400
 
     @app.route("/api/workspaces/<workspace_id>/credentials", methods=["GET"])
+    @get_require_workspace_access()
     def get_workspace_credentials(workspace_id):
         """Get credential status for all connectors in workspace"""
         try:
@@ -478,7 +482,7 @@ def register_workspaces_routes(app):
     @app.route(
         "/api/workspaces/<workspace_id>/credentials/<connector_type>", methods=["PUT", "DELETE"]
     )
-    @get_require_auth()
+    @get_require_workspace_access()
     def manage_connector_credentials(workspace_id, connector_type):
         """Set or delete credentials for a specific connector type"""
         if request.method == "PUT":
@@ -556,6 +560,7 @@ def register_workspaces_routes(app):
                 return jsonify(result), 400
 
     @app.route("/api/workspaces/<workspace_id>/credentials/<connector_type>/test", methods=["POST"])
+    @get_require_workspace_access()
     def test_connector_credentials(workspace_id, connector_type):
         """Test connector credentials without saving them"""
         data = request.get_json()
@@ -572,7 +577,7 @@ def register_workspaces_routes(app):
     # ===== PHASE 5C: IMPORT/EXPORT ENDPOINTS =====
 
     @app.route("/api/workspaces/<workspace_id>/export", methods=["GET"])
-    @get_require_auth()
+    @get_require_workspace_access()
     def export_workspace_data(workspace_id):
         """Export all workspace data - Enhanced with Phase 2 export service"""
         try:

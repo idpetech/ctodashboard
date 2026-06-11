@@ -5,6 +5,7 @@ Provides endpoints to monitor and manage the secure database
 
 from flask import jsonify, render_template_string
 
+from routes.api.deps import get_require_admin
 from services.security.secure_database import secure_db
 
 
@@ -12,6 +13,7 @@ def register_database_admin_routes(app):
     """Register database administration routes"""
 
     @app.route("/admin/db/health")
+    @get_require_admin()
     def admin_db_health():
         """Database health check with detailed information"""
         try:
@@ -41,6 +43,7 @@ def register_database_admin_routes(app):
             return jsonify({"error": str(e), "database_connected": False}), 500
 
     @app.route("/admin/db/status")
+    @get_require_admin()
     def admin_db_status():
         """Simple database status page for Railway monitoring"""
         try:
@@ -130,6 +133,7 @@ def register_database_admin_routes(app):
             return error_html, 500
 
     @app.route("/admin/db/audit")
+    @get_require_admin()
     def admin_db_audit():
         """Recent audit logs (non-sensitive information only)"""
         try:
