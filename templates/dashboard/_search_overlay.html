@@ -1,0 +1,85 @@
+<!-- Phase 5C: Search/Filtering Overlay with Accessibility -->
+            <div id="search-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-40 pt-20"
+                 role="dialog" aria-modal="true" aria-labelledby="search-title" aria-describedby="search-description">
+                <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-hidden">
+                    <div class="p-6 border-b border-gray-200">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 id="search-title" class="text-lg font-semibold text-gray-800">🔍 Search & Filter Assignments</h3>
+                            <button onclick="hideSearchOverlay()" 
+                                    class="text-gray-500 hover:text-gray-700 text-2xl focus:ring-2 focus:ring-gray-200 focus:outline-none rounded"
+                                    aria-label="Close search overlay">&times;</button>
+                        </div>
+                        
+                        <div class="space-y-4" id="search-description">
+                            <div>
+                                <label for="search-input" class="sr-only">Search assignments</label>
+                                <input type="text" 
+                                       id="search-input" 
+                                       placeholder="Search assignments by name, description, or tech stack..." 
+                                       class="w-full border rounded-lg px-4 py-3 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                                       oninput="performSearch()"
+                                       aria-describedby="search-help"
+                                       role="searchbox"
+                                       aria-label="Search assignments by name, description, or technology">
+                                <div id="search-help" class="text-xs text-gray-500 mt-1">Press Enter to search, Escape to close</div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4" role="group" aria-label="Filter options">
+                                <div>
+                                    <label for="filter-status" class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                                    <select id="filter-status" 
+                                            class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none" 
+                                            onchange="performSearch()"
+                                            aria-describedby="status-help">
+                                        <option value="">All Statuses</option>
+                                        <option value="active">Active</option>
+                                        <option value="paused">Paused</option>
+                                        <option value="completed">Completed</option>
+                                        <option value="archived">Archived</option>
+                                    </select>
+                                    <div id="status-help" class="text-xs text-gray-500 mt-1">Filter by assignment status</div>
+                                </div>
+                                
+                                <div>
+                                    <label for="filter-team-size" class="block text-sm font-medium text-gray-700 mb-2">Team Size</label>
+                                    <select id="filter-team-size" 
+                                            class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none" 
+                                            onchange="performSearch()"
+                                            aria-describedby="team-help">
+                                        <option value="">Any Size</option>
+                                        <option value="1">1 person</option>
+                                        <option value="2-5">2-5 people</option>
+                                        <option value="6-10">6-10 people</option>
+                                        <option value="10+">10+ people</option>
+                                    </select>
+                                    <div id="team-help" class="text-xs text-gray-500 mt-1">Filter by team size</div>
+                                </div>
+                                
+                                <div>
+                                    <label for="filter-connectors" class="block text-sm font-medium text-gray-700 mb-2">Connectors</label>
+                                    <select id="filter-connectors" 
+                                            class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none" 
+                                            onchange="performSearch()"
+                                            aria-describedby="connectors-help">
+                                        <option value="">Any Connectors</option>
+                                        <option value="github">Has GitHub</option>
+                                        <option value="jira">Has Jira</option>
+                                        <option value="aws">Has AWS</option>
+                                        <option value="railway">Has Railway</option>
+                                        <option value="openai">Has OpenAI</option>
+                                    </select>
+                                    <div id="connectors-help" class="text-xs text-gray-500 mt-1">Filter by service connectors</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-6 overflow-y-auto max-h-96" role="region" aria-label="Search results">
+                        <div id="search-results" class="space-y-3" role="list" aria-live="polite" aria-atomic="false">
+                            <div class="text-center text-gray-500 py-8" role="status">
+                                Type to search assignments...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>

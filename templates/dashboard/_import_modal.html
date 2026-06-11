@@ -1,0 +1,66 @@
+<!-- Import Modal - Phase 2 Simple Implementation -->
+    <div id="import-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-800">📥 Import Data</h2>
+                    <button onclick="hideImportModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                
+                <div id="import-message" class="hidden mb-4 p-3 rounded"></div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Import Source</label>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="radio" name="import-source" value="file" checked class="mr-2">
+                                <span>Upload File (JSON/CSV)</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="import-source" value="template" class="mr-2">
+                                <span>Use Template</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- File Upload Section -->
+                    <div id="file-import-section">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Select File</label>
+                        <input type="file" id="import-file" accept=".json,.csv" class="w-full border rounded px-3 py-2" onchange="handleFileSelect()">
+                        <div class="text-xs text-gray-500 mt-1">
+                            Accepts JSON exports from this dashboard or CSV files
+                        </div>
+                    </div>
+                    
+                    <!-- Template Section -->
+                    <div id="template-import-section" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Select Template</label>
+                        <select id="import-template" class="w-full border rounded px-3 py-2">
+                            <option value="">Loading templates...</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Import Mode</label>
+                        <select id="import-mode" class="w-full border rounded px-3 py-2">
+                            <option value="create_new">Create New (rename duplicates)</option>
+                            <option value="merge">Merge (keep existing data)</option>
+                            <option value="overwrite">Overwrite (replace existing)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="text-xs text-gray-500">
+                        ⚠️ Import will validate data structure before processing. No credentials will be imported.
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button onclick="hideImportModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                    <button onclick="executeImport()" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700" id="import-btn" disabled>
+                        📥 Import
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>

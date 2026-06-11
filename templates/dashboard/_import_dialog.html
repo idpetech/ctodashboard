@@ -1,0 +1,55 @@
+<!-- Phase 5C: Import Dialog -->
+            <div id="import-dialog" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40"
+                 role="dialog" aria-modal="true" aria-labelledby="import-title">
+                <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+                    <div class="p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 id="import-title" class="text-lg font-semibold text-gray-800">📥 Import Assignments</h3>
+                            <button onclick="hideImportDialog()" 
+                                    class="text-gray-500 hover:text-gray-700 text-2xl focus:ring-2 focus:ring-gray-200 focus:outline-none rounded"
+                                    aria-label="Close import dialog">&times;</button>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div id="import-drop-zone"
+                                 class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors"
+                                 ondragover="event.preventDefault(); this.classList.add('border-blue-400','bg-blue-50');"
+                                 ondragleave="this.classList.remove('border-blue-400','bg-blue-50');"
+                                 ondrop="handleImportDrop(event)">
+                                <label for="import-file" class="block text-sm font-medium text-gray-700 mb-2">Upload File</label>
+                                <input type="file" id="import-file" accept=".json,.csv,.xlsx,.xlsm" 
+                                       class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                                       aria-describedby="file-help"
+                                       onchange="updateImportDropLabel()">
+                                <div id="file-help" class="text-xs text-gray-500 mt-2">JSON export, CSV, or Excel (.xlsx). Drag and drop supported.</div>
+                                <div id="import-drop-label" class="text-sm text-gray-600 mt-2">Drop file here or click to browse</div>
+                            </div>
+                            
+                            <div>
+                                <label for="import-mode" class="block text-sm font-medium text-gray-700 mb-2">Import Mode</label>
+                                <select id="import-mode" 
+                                        class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                                        aria-describedby="mode-help">
+                                    <option value="create_new">Create New (rename if conflicts)</option>
+                                    <option value="overwrite">Overwrite Existing</option>
+                                    <option value="merge">Merge with Existing</option>
+                                </select>
+                                <div id="mode-help" class="text-xs text-gray-500 mt-1">Choose how to handle existing assignments with the same ID</div>
+                            </div>
+                            
+                            <div id="import-message" class="hidden p-3 rounded" role="alert"></div>
+                        </div>
+                        
+                        <div class="flex justify-end space-x-3 mt-6">
+                            <button type="button" onclick="hideImportDialog()" 
+                                    class="px-4 py-2 text-gray-600 hover:text-gray-800 focus:ring-2 focus:ring-gray-200 focus:outline-none rounded">
+                                Cancel
+                            </button>
+                            <button type="button" onclick="performImport()" 
+                                    class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                Import Assignments
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>

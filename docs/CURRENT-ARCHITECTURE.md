@@ -1,6 +1,6 @@
 # CTO Dashboard — Current Architecture (source of truth)
 
-**Last updated:** 2026-06-06  
+**Last updated:** 2026-06-11  
 **Git baseline:** `origin/master` @ `322a4da` and later  
 **Read this first.** It overrides stale bullets in root `CLAUDE.md` (InsightVault rules) and outdated sections in `.cursorrules`.
 
@@ -27,7 +27,9 @@ Feature-flagged via `ENABLE_ATTENTION_ENGINE` (+ `ENABLE_PORTFOLIO_DASHBOARD` fo
 ## What this app is
 
 - **One Flask app:** `integrated_dashboard.py` (port 8520 locally)
-- **UI:** Server-rendered HTML — `templates/dashboard.html`, Tailwind via CDN
+- **UI:** Server-rendered HTML — `templates/dashboard.html` (~1.4k lines shell + modals), Tailwind via CDN
+- **Dashboard client JS:** `static/js/dashboard/00-state.js` … `11-export-import.js` (load order in template); re-extract via `scripts/extract_dashboard_js.py` from rollback tag if needed
+- **Dashboard templates:** `templates/dashboard.html` shell + `templates/dashboard/_*.html` partials; re-split via `scripts/split_dashboard_partials.py`
 - **Not in use:** React frontend (archived under `_attic/frontend/`)
 - **Deploy target:** Railway with `DATABASE_URL` → PostgreSQL
 

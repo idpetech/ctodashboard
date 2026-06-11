@@ -1,0 +1,137 @@
+<!-- Create Assignment Modal -->
+    <div id="createAssignmentModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-screen overflow-y-auto">
+            <!-- Modal Header -->
+            <div class="bg-gray-50 px-6 py-4 border-b">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-medium text-gray-800">Create New Assignment</h3>
+                    <button onclick="closeCreateAssignmentModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-6">
+                <div id="assignmentError" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"></div>
+                <div id="assignmentSuccess" class="hidden bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4"></div>
+
+                <form onsubmit="createAssignment(event)">
+                    <!-- Basic Info -->
+                    <div class="mb-6">
+                        <h4 class="font-medium text-gray-800 mb-4">Assignment Details</h4>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Assignment ID *</label>
+                                <input type="text" id="assignment_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="my_project">
+                                <p class="text-xs text-gray-500 mt-1">Unique identifier (lowercase, no spaces)</p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Display Name *</label>
+                                <input type="text" id="assignment_name" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="My Project">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                            <textarea id="assignment_description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Brief description of this assignment..."></textarea>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Team Size</label>
+                                <input type="number" id="team_size" min="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="5">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Monthly Budget</label>
+                                <input type="number" id="monthly_burn_rate" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="10000">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Target Monthly Burn</label>
+                                <input type="number" id="target_monthly_burn" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="10000">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                                <select id="assignment_status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="active">Active</option>
+                                    <option value="planned">Planned</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="on_hold">On Hold</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Connector Selection -->
+                    <div class="mb-6">
+                        <h4 class="font-medium text-gray-800 mb-4">Select Connectors</h4>
+                        <p class="text-sm text-gray-600 mb-4">Choose which services this assignment will integrate with</p>
+                        
+                        <div class="space-y-3">
+                            <label class="flex items-center">
+                                <input type="checkbox" id="enable_github" class="rounded border-gray-300 mr-3">
+                                <div class="flex items-center">
+                                    <div class="w-6 h-6 bg-gray-800 rounded text-white flex items-center justify-center text-xs font-bold mr-3">GH</div>
+                                    <div>
+                                        <div class="font-medium text-gray-800">GitHub</div>
+                                        <div class="text-sm text-gray-600">Repository metrics and activity tracking</div>
+                                    </div>
+                                </div>
+                            </label>
+                            
+                            <label class="flex items-center">
+                                <input type="checkbox" id="enable_jira" class="rounded border-gray-300 mr-3">
+                                <div class="flex items-center">
+                                    <div class="w-6 h-6 bg-blue-600 rounded text-white flex items-center justify-center text-xs font-bold mr-3">JI</div>
+                                    <div>
+                                        <div class="font-medium text-gray-800">Jira</div>
+                                        <div class="text-sm text-gray-600">Project management and issue tracking</div>
+                                    </div>
+                                </div>
+                            </label>
+                            
+                            <label class="flex items-center">
+                                <input type="checkbox" id="enable_aws" class="rounded border-gray-300 mr-3">
+                                <div class="flex items-center">
+                                    <div class="w-6 h-6 bg-orange-500 rounded text-white flex items-center justify-center text-xs font-bold mr-3">AWS</div>
+                                    <div>
+                                        <div class="font-medium text-gray-800">AWS</div>
+                                        <div class="text-sm text-gray-600">Cloud infrastructure and cost tracking</div>
+                                    </div>
+                                </div>
+                            </label>
+                            
+                            <label class="flex items-center">
+                                <input type="checkbox" id="enable_openai" class="rounded border-gray-300 mr-3">
+                                <div class="flex items-center">
+                                    <div class="w-6 h-6 bg-green-600 rounded text-white flex items-center justify-center text-xs font-bold mr-3">AI</div>
+                                    <div>
+                                        <div class="font-medium text-gray-800">OpenAI</div>
+                                        <div class="text-sm text-gray-600">AI-powered insights and analysis</div>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <p class="text-xs text-gray-500 mt-3">You can configure credentials for enabled connectors after creating the assignment</p>
+                    </div>
+                    
+                    <div class="flex space-x-3">
+                        <button type="button" onclick="closeCreateAssignmentModal()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                            Cancel
+                        </button>
+                        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                            Create Assignment
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>

@@ -1,0 +1,129 @@
+<!-- Phase 5B: Assignment Edit Modal (extends profile modal pattern) -->
+        <div id="assignment-edit-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold text-gray-800">✏️ Edit Assignment</h2>
+                        <button onclick="hideAssignmentEditModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                    </div>
+                    
+                    <div id="assignment-edit-message" class="hidden mb-4 p-3 rounded"></div>
+                    
+                    <!-- Tab Navigation -->
+                    <div class="mb-6">
+                        <div class="border-b border-gray-200">
+                            <nav class="-mb-px flex space-x-8">
+                                <button type="button" 
+                                        onclick="switchAssignmentTab('basic')"
+                                        id="basic-tab"
+                                        class="assignment-tab-btn border-b-2 border-blue-500 text-blue-600 whitespace-nowrap py-2 px-1 font-medium text-sm">
+                                    📝 Basic Info
+                                </button>
+                                <button type="button" 
+                                        onclick="switchAssignmentTab('connectors')"
+                                        id="connectors-tab"
+                                        class="assignment-tab-btn border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 font-medium text-sm">
+                                    🔗 Service Connectors
+                                </button>
+                            </nav>
+                        </div>
+                    </div>
+                    
+                    <form id="assignment-edit-form" onsubmit="saveAssignmentChanges(event)">
+                        <!-- Basic Info Tab -->
+                        <div id="basic-tab-content" class="assignment-tab-content">
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Assignment Name</label>
+                                    <input type="text" id="assignment-name" class="w-full border rounded px-3 py-2" required>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                    <textarea id="assignment-description" class="w-full border rounded px-3 py-2 h-20 resize-none" placeholder="Assignment description..."></textarea>
+                                </div>
+                                
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                        <select id="assignment-status" class="w-full border rounded px-3 py-2">
+                                            <option value="active">Active</option>
+                                            <option value="paused">Paused</option>
+                                            <option value="completed">Completed</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Team Size</label>
+                                        <input type="number" id="assignment-team-size" class="w-full border rounded px-3 py-2" min="1">
+                                    </div>
+                                </div>
+                                
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Monthly Burn Rate ($)</label>
+                                        <input type="number" id="assignment-burn-rate" class="w-full border rounded px-3 py-2" min="0">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Target Monthly Burn ($)</label>
+                                        <input type="number" id="assignment-target-burn" class="w-full border rounded px-3 py-2" min="0">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                                        <input type="date" id="assignment-start-date" class="w-full border rounded px-3 py-2">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Service Connectors Tab -->
+                        <div id="connectors-tab-content" class="assignment-tab-content hidden">
+                            <div class="space-y-6">
+                                <!-- Assignment Connectors Header -->
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <h3 class="text-lg font-medium text-gray-800">🔗 Service Connectors</h3>
+                                        <p class="text-sm text-gray-600">Configure integrations for this assignment</p>
+                                    </div>
+                                    <button type="button" onclick="addConnectorToAssignment()" class="bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700">
+                                        + Add Connector
+                                    </button>
+                                </div>
+                                
+                                <!-- Configured Connectors List -->
+                                <div id="assignmentModalConnectorsList">
+                                    <!-- Will be populated dynamically -->
+                                </div>
+                                
+                                <!-- Empty State -->
+                                <div id="assignmentModalNoConnectors" class="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                                    <div class="text-4xl mb-4">⚡</div>
+                                    <h4 class="text-lg font-medium text-gray-800 mb-2">No connectors configured</h4>
+                                    <p class="text-gray-600 mb-4">Add connectors to track metrics for this assignment</p>
+                                    <button type="button" onclick="addConnectorToAssignment()" class="text-blue-600 hover:underline">
+                                        Add your first connector
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <input type="hidden" id="assignment-id" value="">
+                        
+                        <div class="flex justify-between items-center mt-6">
+                            <!-- Phase 5C: Assignment History Button -->
+                            <button type="button" onclick="showAssignmentHistory()" 
+                                    class="px-3 py-2 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 focus:ring-2 focus:ring-gray-500 focus:outline-none"
+                                    aria-label="View assignment change history">
+                                📋 View History
+                            </button>
+                            <div class="flex space-x-3">
+                                <button type="button" onclick="hideAssignmentEditModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Changes</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>

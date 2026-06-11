@@ -1,0 +1,33 @@
+<!-- Share Report Dialog -->
+            <div id="share-link-dialog" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+                 role="dialog" aria-modal="true" aria-labelledby="share-link-title">
+                <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+                    <div class="p-6">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 id="share-link-title" class="text-lg font-semibold text-gray-800">Share Executive Report</h3>
+                            <button type="button" onclick="hideShareLinkDialog()"
+                                    class="text-gray-500 hover:text-gray-700 text-2xl focus:ring-2 focus:ring-gray-200 focus:outline-none rounded"
+                                    aria-label="Close share dialog">&times;</button>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-4">Anyone with this link can view a read-only report — no login required.</p>
+                        <label for="share-link-input" class="block text-sm font-medium text-gray-700 mb-2">Share link</label>
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <input type="text" id="share-link-input" readonly
+                                   class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                   onclick="this.select()">
+                            <button type="button" id="share-link-copy-btn" onclick="copyShareLink()"
+                                    class="shrink-0 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none whitespace-nowrap">
+                                Copy link
+                            </button>
+                        </div>
+                        <p id="share-link-expiry" class="text-xs text-gray-500 mt-3"></p>
+                        <p id="share-link-copy-status" class="text-sm text-emerald-700 mt-2 hidden" role="status"></p>
+                        <div class="flex justify-end mt-6">
+                            <button type="button" onclick="hideShareLinkDialog()"
+                                    class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 focus:ring-2 focus:ring-gray-200 focus:outline-none">
+                                Done
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>

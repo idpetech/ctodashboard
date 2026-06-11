@@ -1,0 +1,65 @@
+<!-- Phase 5A: Profile Management Modal -->
+        <div id="profile-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold text-gray-800">👤 Profile Settings</h2>
+                        <button onclick="hideProfileModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                    </div>
+                    
+                    <div id="profile-message" class="hidden mb-4 p-3 rounded"></div>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
+                            <input type="text" id="profile-name" class="w-full border rounded px-3 py-2" placeholder="Your Name">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <input type="email" id="profile-email" class="w-full border rounded px-3 py-2 bg-gray-100" readonly>
+                        </div>
+
+                        <div id="profile-trial-info" class="hidden bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm">
+                            <h3 class="font-semibold text-gray-800 mb-2">Trial</h3>
+                            <div class="grid grid-cols-2 gap-2 text-gray-600">
+                                <span>Status</span><span id="profile-trial-status" class="font-medium text-gray-800 text-right"></span>
+                                <span>Started</span><span id="profile-trial-start" class="text-right"></span>
+                                <span>Ends</span><span id="profile-trial-end" class="text-right"></span>
+                                <span>Days left</span><span id="profile-trial-days" class="font-medium text-right"></span>
+                            </div>
+                        </div>
+
+                        <div id="profile-billing-section" class="hidden bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-sm">
+                            <h3 class="font-semibold text-gray-800 mb-2">Billing</h3>
+                            <div class="grid grid-cols-2 gap-2 text-gray-600 mb-3">
+                                <span>Plan</span><span id="profile-billing-plan" class="font-medium text-gray-800 text-right"></span>
+                                <span>Status</span><span id="profile-billing-status" class="font-medium text-right"></span>
+                                <span>Renews</span><span id="profile-billing-renewal" class="text-right"></span>
+                            </div>
+                            <div id="profile-billing-upgrade" class="hidden space-y-2 mb-2">
+                                <p class="text-xs text-gray-500">Choose a plan to upgrade from trial:</p>
+                                <div id="profile-billing-upgrade-buttons" class="flex flex-wrap gap-2"></div>
+                            </div>
+                            <button type="button" id="profile-billing-manage-btn" onclick="openBillingPortal()" class="hidden w-full px-3 py-1.5 bg-white border border-indigo-300 text-indigo-700 rounded text-xs hover:bg-indigo-100">Manage Billing</button>
+                        </div>
+
+                        <div id="admin-trial-panel" class="hidden border-t border-gray-200 pt-4 mt-2">
+                            <h3 class="text-sm font-semibold text-gray-800 mb-2">Admin — User Trials</h3>
+                            <div id="admin-trial-list" class="text-xs text-gray-600 max-h-40 overflow-y-auto space-y-1"></div>
+                        </div>
+                        
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-700 mb-2">Change Password</h3>
+                            <input type="password" id="new-password" class="w-full border rounded px-3 py-2 mb-2" placeholder="New Password">
+                            <input type="password" id="confirm-password" class="w-full border rounded px-3 py-2" placeholder="Confirm Password">
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <button onclick="hideProfileModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                        <button onclick="saveProfile()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
