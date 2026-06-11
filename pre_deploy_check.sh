@@ -83,7 +83,7 @@ check_imports "services/embedded/github_metrics.py" "os" "requests"
 check_imports "services/embedded/jira_metrics.py" "os" "requests"
 check_imports "services/embedded/openai_metrics.py" "os" "requests"
 check_imports "services/service_manager.py" "os"
-check_imports "routes/api_routes.py" "os" "json"
+check_imports "routes/api/deps.py" "os"
 echo ""
 
 # 4. Check for missing __init__.py files
@@ -94,6 +94,7 @@ REQUIRED_INIT_FILES=(
     "services/__init__.py"
     "services/embedded/__init__.py"
     "routes/__init__.py"
+    "routes/api/__init__.py"
 )
 
 for init_file in "${REQUIRED_INIT_FILES[@]}"; do

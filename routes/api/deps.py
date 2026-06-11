@@ -266,3 +266,28 @@ def _refresh_workspace_attention_briefing(workspace_id: str) -> None:
         store_briefing_in_workspace(secure_db, workspace_id, briefing)
     except Exception as e:
         logger.warning("Briefing auto-refresh failed for %s: %s", workspace_id, e)
+
+
+__all__ = [
+    "aws_metrics",
+    "build_github_metrics_config",
+    "build_jira_metrics_config",
+    "collect_assignment_metrics",
+    "get_auth_decorators",
+    "get_current_user",
+    "get_export_service",
+    "get_import_service",
+    "get_optional_auth",
+    "get_require_auth",
+    "get_require_web_auth",
+    "get_require_web_workspace_access",
+    "get_require_workspace_access",
+    "get_service_manager",
+    "get_user_service",
+    "get_workspace_connectors",
+    "get_workspace_service",
+    "github_metrics",
+    "jira_metrics",
+    "logger",
+    "railway_metrics",
+]
