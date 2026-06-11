@@ -459,36 +459,16 @@ async function exportBriefingPdf() {
 }
 
 async function reloadBriefingPanelOnly() {
-    const body = document.getElementById('overview-briefing-body');
-    if (!body || !currentWorkspace) return;
+    if (!currentWorkspace) return;
     try {
-        const flagsResp = await fetch('/api/feature-flags');
-        const flags = await flagsResp.json();
-        const ctolensOn = flags && flags.ctolens_briefing;
-        const url = ctolensOn
-            ? '/api/workspaces/' + encodeURIComponent(currentWorkspace) + '/ctolens/briefing'
-            : '/api/workspaces/' + encodeURIComponent(currentWorkspace) + '/attention/briefing';
-        const resp = await authFetch(url);
-        if (!resp.ok) return;
-        const data = await resp.json();
-        body.innerHTML = renderBriefingPanelBody(
-            data.briefing,
-            data.message,
-            ctolensOn,
-            data.staleness,
-            data.diagnostics
-        );
-        const subtitleEl = document.getElementById('overview-briefing-subtitle');
-        if (subtitleEl) {
-            subtitleEl.textContent = formatCtolenRunHeader(data, data.briefing, ctolensOn, data.staleness);
-        }
+        await loadOverviewPanels();
     } catch (e) {
         console.warn('Briefing panel reload failed:', e);
     }
 }
 
 async function refreshAttentionBriefing(fetchMetrics) {
-    const body = document.getElementById('overview-briefing-body');
+    const root = document.getElementById('overview-panels-root');
     if (!currentWorkspace) return;
     try {
         const flagsResp = await fetch('/api/feature-flags');
@@ -497,8 +477,8 @@ async function refreshAttentionBriefing(fetchMetrics) {
         const attentionOn = flags && flags.attention_engine;
         if (!ctolensOn && !attentionOn) return;
 
-        if (body) {
-            body.innerHTML = '<div class="text-sm text-gray-500 p-4">' +
+        if (root) {
+            root.innerHTML = '<div class="text-sm text-gray-500 p-4 bg-white rounded-lg shadow mb-4">' +
                 (fetchMetrics ? 'Refreshing live metrics (this may take 90+ seconds)...' : 'Updating briefing (fast)...') +
                 '</div>';
         }
@@ -517,20 +497,7 @@ async function refreshAttentionBriefing(fetchMetrics) {
             await reloadBriefingPanelOnly();
             return;
         }
-        const data = await resp.json();
-        if (body) {
-            body.innerHTML = renderBriefingPanelBody(
-                data.briefing,
-                data.message,
-                ctolensOn,
-                data.staleness,
-                data.diagnostics
-            );
-        }
-        const subtitleEl = document.getElementById('overview-briefing-subtitle');
-        if (subtitleEl) {
-            subtitleEl.textContent = formatCtolenRunHeader(data, data.briefing, ctolensOn, data.staleness);
-        }
+        await loadOverviewPanels();
     } catch (e) {
         console.warn('Attention refresh failed:', e);
         await reloadBriefingPanelOnly();

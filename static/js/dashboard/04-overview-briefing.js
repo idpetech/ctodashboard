@@ -373,17 +373,19 @@ function formatBriefingSubtitle(briefing, ctolensOn, staleness) {
     return subtitle || 'Executive narrative and signals';
 }
 
-function renderBriefingPanelBody(briefing, emptyMessage, ctolensMode, staleness, diagnostics) {
+function renderBriefingPanelBody(briefing, emptyMessage, ctolensMode, staleness, diagnostics, showRefreshToolbar) {
     if (ctolensMode) {
         return renderCtolenBriefingPanelBody(briefing, emptyMessage, staleness, diagnostics);
     }
     if (!briefing) {
         return '<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">' +
-            (emptyMessage || 'No briefing yet. Import data or click Refresh.') +
-            ' <button type="button" onclick="refreshAttentionBriefing()" class="text-blue-600 hover:underline ml-2">Refresh</button></div>';
+            (emptyMessage || 'No briefing yet. Use Refresh briefing in the command strip above.') + '</div>';
     }
     const eb = briefing.executive_briefing || {};
-    let html = '<div class="flex justify-end mb-3"><button type="button" onclick="refreshAttentionBriefing()" class="text-sm text-blue-600 hover:underline">Refresh briefing</button></div>';
+    let html = '';
+    if (showRefreshToolbar !== false) {
+        html += '<div class="flex justify-end mb-3"><button type="button" onclick="refreshAttentionBriefing()" class="text-sm text-blue-600 hover:underline">Refresh briefing</button></div>';
+    }
     if (eb.bullets && eb.bullets.length) {
         html += '<ul class="text-sm text-gray-700 list-disc ml-4 mb-4">';
         eb.bullets.forEach(function(b) { html += '<li>' + b + '</li>'; });
@@ -663,68 +665,321 @@ function renderPortfolioDetailsBody(data) {
     return html;
 }
 
+
+function renderOverviewPanelCard(title, subtitle, bodyHtml, headerActionsHtml, options) {
+    options = options || {};
+    let html = '<div class="bg-white rounded-lg shadow mb-4 overflow-hidden">';
+    html += '<div class="p-4 flex items-start justify-between gap-3 border-b border-gray-100 bg-gray-50/80">';
+    html += '<div class="min-w-0 flex-1"><h3 class="text-lg font-bold text-gray-800">' + title + '</h3>';
+    if (subtitle) {
+        const subtitleIdAttr = options.subtitleId ? ' id="' + options.subtitleId + '"' : '';
+        html += '<p class="text-sm text-gray-500 mt-0.5"' + subtitleIdAttr + '>' + subtitle + '</p>';
+    }
+    html += '</div>';
+    if (headerActionsHtml) {
+        html += '<div class="flex flex-wrap items-center gap-2 shrink-0">' + headerActionsHtml + '</div>';
+    }
+    html += '</div><div class="p-4">';
+    if (options.bodyId) {
+        html += '<div id="' + options.bodyId + '">';
+    }
+    html += bodyHtml;
+    if (options.bodyId) {
+        html += '</div>';
+    }
+    html += '</div></div>';
+    return html;
+}
+
+function renderOverviewCommandStrip(portfolioData, briefingData, portfolioOn, attentionOn, ctolensOn, attentionCount, staleness) {
+    const hasPortfolio = portfolioOn && portfolioData && !portfolioData.error;
+    const briefing = briefingData && briefingData.briefing;
+    const s = (hasPortfolio && portfolioData.summary) || {};
+    const h = (hasPortfolio && portfolioData.health_score) || {};
+    const band = h.band || 'healthy';
+    const bandColor = _pfBandColor(band);
+
+    let html = '<div class="overview-command-strip sticky top-0 z-20 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg shadow-sm p-3 sm:p-4 mb-4">';
+    html += '<div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">';
+    html += '<div class="flex flex-wrap items-center gap-x-5 gap-y-2 min-w-0 text-sm">';
+
+    if (hasPortfolio && h.overall_score != null) {
+        html += '<div class="flex items-center gap-2"><span class="text-gray-500">Health</span>';
+        html += '<span class="text-xl font-bold text-' + bandColor + '-600">' + h.overall_score + '<span class="text-sm font-medium">/100</span></span>';
+        html += '<span class="text-xs uppercase px-2 py-0.5 rounded-full bg-' + bandColor + '-100 text-' + bandColor + '-800">' + band.replace('_', ' ') + '</span></div>';
+    } else if (portfolioOn) {
+        html += '<div class="text-gray-500">Health <span class="font-medium text-gray-700">\u2014</span></div>';
+    }
+
+    const attColor = attentionCount > 0 ? 'amber' : 'green';
+    const attLabel = attentionCount > 0 ? attentionCount + ' need attention' : 'All clear';
+    html += '<div class="flex items-center gap-2"><span class="text-gray-500">Attention</span>';
+    html += '<span class="font-semibold text-' + attColor + '-700">' + attLabel + '</span></div>';
+
+    if (hasPortfolio) {
+        html += '<div class="flex items-center gap-2"><span class="text-gray-500">Burn</span>';
+        html += '<span class="font-semibold text-gray-800">' + _pfMoney(s.total_monthly_burn) + '</span>';
+        html += '<span class="text-gray-400">/ ' + _pfMoney(s.total_target_burn) + ' target</span></div>';
+        html += '<div class="hidden sm:block text-gray-500">' + (s.active_assignments || 0) + ' active</div>';
+    }
+
+    let runLine = formatCtolenRunHeader(briefingData, briefing, ctolensOn, staleness);
+    if (runLine) {
+        html += '<div class="w-full lg:w-auto text-xs text-gray-500 truncate max-w-xl" title="' + _pfEscapeHtml(runLine) + '">' + _pfEscapeHtml(runLine) + '</div>';
+    }
+
+    html += '</div>';
+    html += '<div class="flex flex-wrap gap-2 shrink-0">';
+    if (ctolensOn || attentionOn) {
+        html += '<button type="button" onclick="refreshAttentionBriefing()" class="text-xs sm:text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 whitespace-nowrap">Refresh briefing</button>';
+        if (ctolensOn) {
+            html += '<button type="button" onclick="refreshAttentionBriefing(true)" class="text-xs sm:text-sm border border-indigo-300 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-50 whitespace-nowrap" title="Include live connector metrics">Live metrics</button>';
+        }
+        if (briefing || ctolensOn) {
+            html += '<button type="button" id="briefing-share-btn" onclick="shareBriefingReport()" class="text-xs sm:text-sm bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700 whitespace-nowrap">Share</button>';
+            html += '<button type="button" id="briefing-export-pdf-btn" onclick="exportBriefingPdf()" class="text-xs sm:text-sm bg-gray-700 text-white px-3 py-1.5 rounded-lg hover:bg-gray-800 whitespace-nowrap">PDF</button>';
+        }
+    }
+    html += '</div></div></div>';
+    return html;
+}
+
+function renderPortfolioHealthCompact(data, briefing) {
+    const h = data.health_score || {};
+    const band = h.band || 'healthy';
+    const bandColor = _pfBandColor(band);
+    const bv = data.budget_variance || {};
+    const ch = data.connector_health || {};
+    const trends = (data && data.score_trends) || (briefing && briefing.score_trends);
+    let html = '<div class="bg-' + bandColor + '-50 border border-' + bandColor + '-200 rounded-lg p-4 mb-4 relative">';
+    html += '<div class="text-sm font-medium text-' + bandColor + '-800 flex items-center gap-1">';
+    html += 'Overall' + renderHealthScoreHelpIcon(data) + '</div>';
+    html += '<div class="text-4xl font-bold text-' + bandColor + '-600">' + (h.overall_score != null ? h.overall_score : '\u2014') + '<span class="text-lg font-medium">/100</span></div>';
+    html += '<div class="text-xs text-' + bandColor + '-700 mt-1 uppercase">' + band.replace('_', ' ') + '</div></div>';
+
+    if (h.components) {
+        html += '<div class="space-y-2 mb-4">';
+        [
+            ['Financial', h.components.financial],
+            ['Connectors', h.components.connector],
+            ['Delivery', h.components.delivery]
+        ].forEach(function(row) {
+            if (row[1] == null) return;
+            const rc = row[1] >= 80 ? 'green' : (row[1] >= 60 ? 'yellow' : 'red');
+            html += '<div class="flex items-center justify-between text-sm py-1 border-b border-gray-100">';
+            html += '<span class="text-gray-600">' + row[0] + '</span>';
+            html += '<span class="font-semibold text-' + rc + '-700">' + row[1] + '/100</span></div>';
+        });
+        html += '</div>';
+    }
+
+    const pvp = bv.portfolio_variance_pct;
+    const pvColor = pvp == null ? 'gray' : (pvp > 20 ? 'red' : (pvp > 10 ? 'yellow' : 'green'));
+    html += '<div class="text-sm text-gray-700 mb-3"><span class="font-medium text-gray-800">Budget:</span> ';
+    html += _pfMoney(bv.portfolio_actual_burn) + ' vs ' + _pfMoney(bv.portfolio_target_burn) + ' ';
+    html += '<span class="text-' + pvColor + '-600 font-semibold">(' + (pvp == null ? 'no targets' : (pvp > 0 ? '+' : '') + pvp + '%') + ')</span></div>';
+
+    html += '<div class="text-sm text-gray-700 mb-3"><span class="font-medium text-gray-800">Connectors:</span> ';
+    html += (ch.readiness_pct == null ? 'n/a' : ch.readiness_pct + '% ready') + '</div>';
+
+    if (h.overall_score != null && h.overall_score < 80) {
+        const tipData = buildHealthScoreTips(data);
+        html += '<div class="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">';
+        html += '<span class="font-semibold">Below 80 because:</span>';
+        if (tipData.drivers.length) {
+            html += '<ul class="mt-1 list-disc ml-4 space-y-0.5">';
+            tipData.drivers.slice(0, 3).forEach(function(t) {
+                html += '<li>' + _pfEscapeHtml(t) + '</li>';
+            });
+            html += '</ul>';
+        }
+        html += '</div>';
+    }
+
+    if (trends && trends.health) {
+        html += '<div class="text-xs text-gray-500 border-t border-gray-100 pt-3">';
+        html += _renderScoreTrendRow('Health trend', trends.health);
+        html += '</div>';
+    }
+    return html;
+}
+
+function _overviewJsQuote(str) {
+    return String(str == null ? '' : str).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+function renderAssignmentHealthMatrix(portfolioData) {
+    const rank = (portfolioData && portfolioData.assignment_ranking) || [];
+    if (!rank.length) {
+        return '<div class="text-sm text-gray-500 py-2">No active assignments to rank.</div>';
+    }
+    let html = '<div class="overflow-x-auto -mx-1"><table class="min-w-full text-sm"><thead><tr class="text-left text-xs uppercase text-gray-500 border-b border-gray-200">';
+    html += '<th class="px-3 py-2 font-medium">Assignment</th><th class="px-3 py-2 font-medium">Status</th>';
+    html += '<th class="px-3 py-2 font-medium text-right">Burn</th><th class="px-3 py-2 font-medium text-right">Variance</th>';
+    html += '<th class="px-3 py-2 font-medium text-right">Connectors</th><th class="px-3 py-2 font-medium text-right">Risk</th>';
+    html += '</tr></thead><tbody>';
+    rank.forEach(function(r, i) {
+        const lc = _pfBandColor(r.attention_level);
+        const aid = r.assignment_id || '';
+        const name = _pfEscapeHtml(r.name || aid);
+        const selClass = selectedAssignmentId === aid ? ' bg-blue-50 ring-1 ring-blue-200' : '';
+        html += '<tr class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer' + selClass + '" ';
+        html += 'onclick="selectAssignment(\'' + _overviewJsQuote(aid) + '\', \'' + _overviewJsQuote(r.name || aid) + '\'); showTab(\'assignment-' + _overviewJsQuote(aid) + '\')">';
+        html += '<td class="px-3 py-2.5"><div class="flex items-center gap-2">';
+        html += '<span class="text-gray-400 text-xs w-4">' + (i + 1) + '</span>';
+        html += '<span class="font-medium text-gray-900">' + name + '</span></div></td>';
+        html += '<td class="px-3 py-2.5"><span class="text-xs px-2 py-1 rounded-full bg-' + lc + '-100 text-' + lc + '-800 capitalize">' + (r.attention_level || 'healthy').replace('_', ' ') + '</span></td>';
+        html += '<td class="px-3 py-2.5 text-right text-gray-700">' + _pfMoney(r.monthly_burn) + '</td>';
+        html += '<td class="px-3 py-2.5 text-right text-gray-700">' + (r.variance_pct == null ? '\u2014' : (r.variance_pct > 0 ? '+' : '') + r.variance_pct + '%') + '</td>';
+        html += '<td class="px-3 py-2.5 text-right text-gray-600">' + r.ready_connectors + '/' + r.enabled_connectors + '</td>';
+        html += '<td class="px-3 py-2.5 text-right font-medium text-gray-800">' + (r.risk_score != null ? r.risk_score : '\u2014') + '</td>';
+        html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    html += '<p class="text-xs text-gray-400 mt-2">Click a row to jump to that assignment tab.</p>';
+    return html;
+}
+
+function renderOverviewStatCards(assignments) {
+    const activeCount = assignments.filter(function(a) { return a.status === 'active'; }).length;
+    const completedCount = assignments.filter(function(a) { return a.status === 'completed'; }).length;
+    const archivedCount = assignments.filter(function(a) { return a.status === 'archived'; }).length;
+    const totalTeamSize = assignments.reduce(function(sum, a) { return sum + (a.team_size || 0); }, 0);
+    let html = '<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">';
+    const cards = [
+        ['green', '🟢', 'Active', activeCount],
+        ['blue', '🔵', 'Completed', completedCount],
+        ['yellow', '🟡', 'Archived', archivedCount],
+        ['purple', '👥', 'Total Team', totalTeamSize]
+    ];
+    cards.forEach(function(c) {
+        html += '<div class="bg-' + c[0] + '-50 border border-' + c[0] + '-200 rounded-lg p-4">';
+        html += '<div class="flex items-center"><div class="text-2xl mr-2">' + c[1] + '</div><div>';
+        html += '<h3 class="text-sm font-semibold text-' + c[0] + '-800">' + c[2] + '</h3>';
+        html += '<p class="text-xl font-bold text-' + c[0] + '-600">' + c[3] + '</p></div></div></div>';
+    });
+    html += '</div>';
+    return html;
+}
+
+function renderOverviewAssignmentsTable(assignments) {
+    let html = '<div class="overflow-x-auto"><table class="min-w-full table-auto">';
+    html += '<thead><tr class="bg-gray-50">';
+    html += '<th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Name</th>';
+    html += '<th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Status</th>';
+    html += '<th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Team Size</th>';
+    html += '<th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Monthly Burn</th>';
+    html += '<th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Services</th>';
+    html += '<th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Action</th>';
+    html += '</tr></thead><tbody>';
+    assignments.forEach(function(assignment) {
+        const statusColor = assignment.status === 'active' ? 'green' : (assignment.status === 'completed' ? 'blue' : 'yellow');
+        const statusEmoji = assignment.status === 'active' ? '🟢' : (assignment.status === 'completed' ? '🔵' : '🟡');
+        const selectedClass = selectedAssignmentId === assignment.id ? ' bg-blue-100 border-blue-200' : '';
+        html += '<tr class="border-b border-gray-200 hover:bg-blue-50 cursor-pointer' + selectedClass + '" onclick="selectAssignment(\'' + _overviewJsQuote(assignment.id) + '\', \'' + _overviewJsQuote(assignment.name || assignment.id) + '\')">';
+        html += '<td class="px-4 py-3"><div class="font-medium text-gray-900">' + (assignment.name || assignment.id);
+        if (selectedAssignmentId === assignment.id) html += ' <span class="text-blue-600 text-xs">✓ Selected</span>';
+        html += '</div><div class="text-sm text-gray-500">' + (assignment.description || '') + '</div></td>';
+        html += '<td class="px-4 py-3"><span class="inline-flex items-center px-2 py-1 bg-' + statusColor + '-100 text-' + statusColor + '-800 text-xs rounded-full">' + statusEmoji + ' ' + (assignment.status || 'unknown') + '</span></td>';
+        html += '<td class="px-4 py-3 text-sm text-gray-900">' + (assignment.team_size || 'N/A') + '</td>';
+        html += '<td class="px-4 py-3 text-sm text-gray-900">$' + (assignment.monthly_burn_rate || 0).toLocaleString() + '</td>';
+        html += '<td class="px-4 py-3">';
+        if (assignment.metrics_config) {
+            const services = [];
+            if (assignment.metrics_config.github && assignment.metrics_config.github.enabled) services.push('GitHub');
+            if (assignment.metrics_config.jira && assignment.metrics_config.jira.enabled) services.push('Jira');
+            if (assignment.metrics_config.aws && assignment.metrics_config.aws.enabled) services.push('AWS');
+            if (assignment.metrics_config.railway && assignment.metrics_config.railway.enabled) services.push('Railway');
+            services.forEach(function(service) {
+                const color = service === 'GitHub' ? 'purple' : (service === 'Jira' ? 'blue' : (service === 'AWS' ? 'orange' : 'green'));
+                html += '<span class="inline-block px-2 py-1 bg-' + color + '-100 text-' + color + '-800 text-xs rounded mr-1 mb-1">' + service + '</span>';
+            });
+        }
+        html += '</td><td class="px-4 py-3">';
+        html += '<button onclick="event.stopPropagation(); showTab(\'assignment-' + _overviewJsQuote(assignment.id) + '\')" class="bg-blue-600 text-white px-3 py-1 text-sm rounded hover:bg-blue-700">View Details</button>';
+        html += '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    return html;
+}
+
+function renderOverviewAdminSection(assignments) {
+    let html = '<details class="bg-white rounded-lg shadow mb-6 overflow-hidden group">';
+    html += '<summary class="cursor-pointer p-4 font-semibold text-gray-800 hover:bg-gray-50 border-b border-gray-100 list-none flex items-center justify-between">';
+    html += '<span>📋 Portfolio admin — status counts &amp; full assignment list</span>';
+    html += '<span class="text-gray-400 text-sm group-open:hidden">Show</span></summary>';
+    html += '<div class="p-4 border-t border-gray-100">';
+    html += renderOverviewStatCards(assignments);
+    html += renderOverviewAssignmentsTable(assignments);
+    html += '</div></details>';
+    return html;
+}
+
 function renderOverviewPanelsLayout(portfolioData, briefingData, portfolioOn, attentionOn, ctolensOn) {
     let html = '';
     const briefingStaleness = briefingData && briefingData.staleness;
+    const briefing = briefingData && briefingData.briefing;
+    const briefingOn = ctolensOn || attentionOn;
     const attentionItems = collectAttentionItems(portfolioData, briefingData, ctolensOn);
     const attentionCount = attentionItems.length;
-    const attentionExpanded = attentionCount > 0;
-    const briefingOn = ctolensOn || attentionOn;
+    const hasPortfolio = portfolioOn && portfolioData && !portfolioData.error;
+    const briefingCardOpts = { bodyId: 'overview-briefing-body', subtitleId: 'overview-briefing-subtitle' };
 
     if (portfolioOn || briefingOn) {
-        html += renderOverviewCollapsible(
-            'attention',
-            '\uD83D\uDEA8 Needs Attention' + (attentionCount ? ' (' + attentionCount + ')' : ''),
-            attentionCount ? 'Items requiring your action' : 'All clear',
-            renderAttentionItemsBody(attentionItems),
-            attentionExpanded
+        html += renderOverviewCommandStrip(
+            portfolioData, briefingData, portfolioOn, attentionOn, ctolensOn, attentionCount, briefingStaleness
         );
     }
 
-    if (portfolioOn && portfolioData && !portfolioData.error) {
-        const briefing = briefingData && briefingData.briefing;
-        const h = portfolioData.health_score || {};
-        const band = (h.band || 'healthy').replace('_', ' ');
-        let statusLabel = band;
-        if (ctolensOn && briefing && briefing.executive_briefing) {
-            const conf = briefing.executive_briefing.confidence_assessment || {};
-            statusLabel = (conf.overall_level || band) + ' confidence';
-        } else if (briefing && briefing.portfolio_status) {
-            statusLabel = briefing.portfolio_status;
-        }
-        html += renderOverviewCollapsible(
-            'health',
-            '\uD83E\uDDED Portfolio Health',
-            'Score ' + (h.overall_score != null ? h.overall_score : '\u2014') + '/100 \u2022 ' + statusLabel,
-            renderPortfolioHealthBody(portfolioData, briefing),
-            true
+    if ((portfolioOn || briefingOn) && attentionCount > 0) {
+        html += renderOverviewPanelCard(
+            '🚨 Needs Attention (' + attentionCount + ')',
+            'Items requiring your action',
+            renderAttentionItemsBody(attentionItems)
         );
-        html += renderOverviewCollapsible(
-            'details',
-            '\uD83D\uDCCA Portfolio Details',
-            'Budget variance, connectors, assignment ranking',
-            renderPortfolioDetailsBody(portfolioData),
-            false
-        );
-    } else if (portfolioOn && portfolioData && portfolioData.error) {
+    }
+
+    if (portfolioOn && portfolioData && portfolioData.error) {
         html += '<div class="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg mb-4">Portfolio dashboard unavailable: ' + portfolioData.error + '</div>';
     }
 
-    if (briefingOn) {
-        const briefing = briefingData && briefingData.briefing;
-        const briefingSubtitle = formatCtolenRunHeader(briefingData, briefing, ctolensOn, briefingStaleness);
-        const exportBtn = briefingOn && (briefing || ctolensOn)
-            ? '<button type="button" id="briefing-share-btn" onclick="shareBriefingReport()" class="text-xs sm:text-sm bg-emerald-600 text-white px-2 sm:px-3 py-1.5 rounded-lg hover:bg-emerald-700 whitespace-nowrap">Share</button>'
-            + '<button type="button" id="briefing-export-pdf-btn" onclick="exportBriefingPdf()" class="text-xs sm:text-sm bg-blue-600 text-white px-2 sm:px-3 py-1.5 rounded-lg hover:bg-blue-700 whitespace-nowrap">PDF</button>'
-            : '';
-        const briefingTitle = ctolensOn ? '\uD83C\uDFAF CTOLens Daily Briefing' : '\uD83C\uDFAF Daily CTO Briefing';
-        html += renderOverviewCollapsible(
-            'briefing',
-            briefingTitle,
-            briefingSubtitle,
-            renderBriefingPanelBody(briefing, briefingData && briefingData.message, ctolensOn, briefingData && briefingData.staleness, briefingData && briefingData.diagnostics),
-            false,
-            exportBtn
+    const briefingSubtitle = formatCtolenRunHeader(briefingData, briefing, ctolensOn, briefingStaleness);
+    const briefingTitle = ctolensOn ? '🎯 CTOLens Daily Briefing' : '🎯 Daily CTO Briefing';
+    const briefingBody = renderBriefingPanelBody(
+        briefing,
+        briefingData && briefingData.message,
+        ctolensOn,
+        briefingStaleness,
+        briefingData && briefingData.diagnostics,
+        false
+    );
+
+    if (briefingOn && hasPortfolio) {
+        html += '<div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-4">';
+        html += '<div class="lg:col-span-3">';
+        html += renderOverviewPanelCard(briefingTitle, briefingSubtitle, briefingBody, null, briefingCardOpts);
+        html += '</div><div class="lg:col-span-2">';
+        html += renderOverviewPanelCard(
+            '🧭 Portfolio Health',
+            'Components, budget, and connectors',
+            renderPortfolioHealthCompact(portfolioData, briefing)
+        );
+        html += '</div></div>';
+    } else if (briefingOn) {
+        html += renderOverviewPanelCard(briefingTitle, briefingSubtitle, briefingBody, null, briefingCardOpts);
+    } else if (hasPortfolio) {
+        html += renderOverviewPanelCard(
+            '🧭 Portfolio Health',
+            'Portfolio score and summary',
+            renderPortfolioHealthBody(portfolioData, briefing)
+        );
+    }
+
+    if (hasPortfolio) {
+        html += renderOverviewPanelCard(
+            '📊 Assignment Health',
+            'Ranked by attention need — click a row to open',
+            renderAssignmentHealthMatrix(portfolioData)
         );
     }
 
@@ -806,116 +1061,10 @@ function _pfBandColor(band) { return band === 'healthy' ? 'green' : (band === 'a
 function _pfSeverityColor(sev) { return sev === 'critical' ? 'red' : (sev === 'warning' ? 'yellow' : 'blue'); }
 
 function generateOverviewContent(assignments) {
-    // Calculate statistics
-    const activeCount = assignments.filter(a => a.status === 'active').length;
-    const completedCount = assignments.filter(a => a.status === 'completed').length;
-    const archivedCount = assignments.filter(a => a.status === 'archived').length;
-    const totalTeamSize = assignments.reduce((sum, a) => sum + (a.team_size || 0), 0);
-    const totalBurnRate = assignments.reduce((sum, a) => sum + (a.monthly_burn_rate || 0), 0);
-    
-    let html = '<div id="overview-panels-root" class="mb-8"></div>';
-    html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">';
-    
-    // Status Cards
-    html += '<div class="bg-green-50 border border-green-200 rounded-lg p-4">';
-    html += '<div class="flex items-center">';
-    html += '<div class="text-3xl mr-3">🟢</div>';
-    html += '<div>';
-    html += '<h3 class="text-lg font-semibold text-green-800">Active</h3>';
-    html += '<p class="text-2xl font-bold text-green-600">' + activeCount + '</p>';
-    html += '</div>';
-    html += '</div></div>';
-    
-    html += '<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">';
-    html += '<div class="flex items-center">';
-    html += '<div class="text-3xl mr-3">🔵</div>';
-    html += '<div>';
-    html += '<h3 class="text-lg font-semibold text-blue-800">Completed</h3>';
-    html += '<p class="text-2xl font-bold text-blue-600">' + completedCount + '</p>';
-    html += '</div>';
-    html += '</div></div>';
-    
-    html += '<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">';
-    html += '<div class="flex items-center">';
-    html += '<div class="text-3xl mr-3">🟡</div>';
-    html += '<div>';
-    html += '<h3 class="text-lg font-semibold text-yellow-800">Archived</h3>';
-    html += '<p class="text-2xl font-bold text-yellow-600">' + archivedCount + '</p>';
-    html += '</div>';
-    html += '</div></div>';
-    
-    html += '<div class="bg-purple-50 border border-purple-200 rounded-lg p-4">';
-    html += '<div class="flex items-center">';
-    html += '<div class="text-3xl mr-3">👥</div>';
-    html += '<div>';
-    html += '<h3 class="text-lg font-semibold text-purple-800">Total Team</h3>';
-    html += '<p class="text-2xl font-bold text-purple-600">' + totalTeamSize + '</p>';
-    html += '</div>';
-    html += '</div></div>';
-    
-    html += '</div>';
-    
-    // Assignments Summary Table
-    html += '<div class="bg-white rounded-lg shadow p-6">';
-    html += '<h3 class="text-xl font-bold text-gray-800 mb-4">📋 All Assignments</h3>';
-    html += '<div class="overflow-x-auto">';
-    html += '<table class="min-w-full table-auto">';
-    html += '<thead><tr class="bg-gray-50">';
-    html += '<th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Name</th>';
-    html += '<th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Status</th>';
-    html += '<th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Team Size</th>';
-    html += '<th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Monthly Burn</th>';
-    html += '<th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Services</th>';
-    html += '<th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Action</th>';
-    html += '</tr></thead><tbody>';
-    
-    assignments.forEach(assignment => {
-        const statusColor = assignment.status === 'active' ? 'green' : 
-                           assignment.status === 'completed' ? 'blue' : 'yellow';
-        const statusEmoji = assignment.status === 'active' ? '🟢' : 
-                           assignment.status === 'completed' ? '🔵' : '🟡';
-        
-        const selectedClass = selectedAssignmentId === assignment.id ? ' bg-blue-100 border-blue-200' : '';
-        html += '<tr class="border-b border-gray-200 hover:bg-blue-50 cursor-pointer' + selectedClass + '" onclick="selectAssignment(\'' + assignment.id + '\', \'' + (assignment.name || assignment.id) + '\')">';
-        html += '<td class="px-4 py-3">';
-        html += '<div class="font-medium text-gray-900">' + (assignment.name || assignment.id) + (selectedAssignmentId === assignment.id ? ' <span class="text-blue-600 text-xs">✓ Selected</span>' : '') + '</div>';
-        html += '<div class="text-sm text-gray-500">' + (assignment.description || '') + '</div>';
-        html += '</td>';
-        html += '<td class="px-4 py-3">';
-        html += '<span class="inline-flex items-center px-2 py-1 bg-' + statusColor + '-100 text-' + statusColor + '-800 text-xs rounded-full">';
-        html += statusEmoji + ' ' + (assignment.status || 'unknown');
-        html += '</span></td>';
-        html += '<td class="px-4 py-3 text-sm text-gray-900">' + (assignment.team_size || 'N/A') + '</td>';
-        html += '<td class="px-4 py-3 text-sm text-gray-900">$' + (assignment.monthly_burn_rate || 0).toLocaleString() + '</td>';
-        html += '<td class="px-4 py-3">';
-        
-        if (assignment.metrics_config) {
-            const services = [];
-            if (assignment.metrics_config.github?.enabled) services.push('GitHub');
-            if (assignment.metrics_config.jira?.enabled) services.push('Jira');
-            if (assignment.metrics_config.aws?.enabled) services.push('AWS');
-            if (assignment.metrics_config.railway?.enabled) services.push('Railway');
-            
-            services.forEach(service => {
-                const color = service === 'GitHub' ? 'purple' : 
-                             service === 'Jira' ? 'blue' : 
-                             service === 'AWS' ? 'orange' : 'green';
-                html += '<span class="inline-block px-2 py-1 bg-' + color + '-100 text-' + color + '-800 text-xs rounded mr-1 mb-1">' + service + '</span>';
-            });
-        }
-        
-        html += '</td>';
-        html += '<td class="px-4 py-3">';
-        html += '<button onclick="showTab(' + "'assignment-" + assignment.id + "'" + ')" class="bg-blue-600 text-white px-3 py-1 text-sm rounded hover:bg-blue-700">View Details</button>';
-        html += '</td>';
-        html += '</tr>';
-    });
-    
-    html += '</tbody></table></div></div>';
-    
+    let html = '<div id="overview-panels-root" class="mb-6"></div>';
+    html += renderOverviewAdminSection(assignments);
     return html;
 }
-
 function generateAssignmentContent(assignment) {
     let html = '<div class="bg-white rounded-lg shadow-lg p-6">';
     html += '<div class="flex justify-between items-start mb-4">';
