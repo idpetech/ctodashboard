@@ -38,19 +38,20 @@
     <!-- Header -->
     <header class="bg-white shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center py-4">
+            <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center py-4">
                 <div class="flex items-center">
                     <a href="/" class="text-2xl font-bold text-gray-900 hover:text-gray-700">
                         <span class="text-blue-600">CTO</span> Lens
                     </a>
                     <span class="ml-2 text-xs text-gray-400 hidden sm:inline">by <a href="http://idpetech.com" class="hover:text-blue-600" target="_blank" rel="noopener noreferrer">idpetech.com</a></span>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <a href="/dashboard" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium">
+                <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 shrink-0 max-sm:w-full">
+                    <a href="/dashboard" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium text-center sm:text-left">
                         Login
                     </a>
-                    <a href="/dashboard?signup=1" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
-                        Start 7-Day Free Trial
+                    <a href="/dashboard?signup=1" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors text-center whitespace-nowrap">
+                        <span class="sm:hidden">Start Free Trial</span>
+                        <span class="hidden sm:inline">Start 7-Day Free Trial</span>
                     </a>
                 </div>
             </div>

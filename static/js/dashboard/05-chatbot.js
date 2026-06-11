@@ -1,4 +1,11 @@
 /* CTO Lens dashboard module: 05-chatbot.js */
+
+function scrollActiveDashboardTabIntoView(tabId) {
+    const button = document.getElementById('tab-' + tabId);
+    if (!button || typeof button.scrollIntoView !== 'function') return;
+    button.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+}
+
 function showTab(tabId) {
     // Hide all tab contents
     const tabContents = document.querySelectorAll('.tab-content');
@@ -31,6 +38,7 @@ function showTab(tabId) {
         selectedAssignmentId = null;
     }
     updateChatbotPrompts();
+    scrollActiveDashboardTabIntoView(tabId);
 }
 
 function getActiveAssignmentId() {

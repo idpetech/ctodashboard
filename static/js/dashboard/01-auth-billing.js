@@ -111,13 +111,14 @@ function applyTrialUI(trial) {
     }
 
     const readOnly = trial && trial.can_write === false;
-    const importBtn = document.getElementById('import-assignments-btn');
-    if (importBtn) {
+    ['import-assignments-btn', 'import-assignments-btn-mobile'].forEach(function(importBtnId) {
+        const importBtn = document.getElementById(importBtnId);
+        if (!importBtn) return;
         importBtn.disabled = readOnly;
         importBtn.classList.toggle('opacity-50', readOnly);
         importBtn.classList.toggle('cursor-not-allowed', readOnly);
         importBtn.title = readOnly ? 'Trial expired — upgrade to import' : '';
-    }
+    });
     const addTab = document.getElementById('tab-add-new');
     if (addTab) {
         addTab.classList.toggle('pointer-events-none', readOnly);

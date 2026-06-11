@@ -121,11 +121,34 @@
                 .tab-button { padding: 0.5rem 1rem; font-size: 0.875rem; }
                 .workspace-selector { position: relative !important; top: auto !important; left: auto !important; width: 100%; margin: 1rem 0; }
                 #auth-overlay .w-full.max-w-md { max-width: 95vw; margin: 1rem; }
-                .grid { grid-template-columns: 1fr !important; gap: 0.5rem; }
                 .text-4xl { font-size: 1.875rem; }
                 .text-2xl { font-size: 1.5rem; }
                 .px-6 { padding-left: 1rem; padding-right: 1rem; }
                 .py-4 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+            }
+
+            /* Scrollable assignment tabs on narrow viewports */
+            .dashboard-tab-scroll {
+                position: relative;
+            }
+            .dashboard-tab-scroll::after {
+                content: '';
+                position: absolute;
+                top: 0;
+                right: 0;
+                bottom: 0;
+                width: 2rem;
+                pointer-events: none;
+                background: linear-gradient(to left, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0));
+            }
+            .dashboard-tab-row {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: thin;
+            }
+            .dashboard-tab-row .tab-button {
+                flex-shrink: 0;
+                white-space: nowrap;
             }
             
             /* Phase 5C: Enhanced Mobile Responsiveness */

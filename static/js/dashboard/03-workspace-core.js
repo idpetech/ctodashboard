@@ -1212,11 +1212,11 @@ function displayAssignments(assignments) {
     if (assignments.length === 0) {
         // Show welcome message with "+" tab for creating first assignment
         let html = '<div class="bg-white rounded-lg shadow-lg mb-6">';
-        html += '<div class="flex border-b border-gray-200">';
+        html += '<div class="dashboard-tab-scroll"><div class="dashboard-tab-row flex border-b border-gray-200" role="tablist">';
         html += '<button onclick="createNewAssignment()" id="tab-add-new" class="px-6 py-4 text-sm font-medium text-blue-600 hover:text-blue-800 hover:border-b-2 hover:border-blue-600 tab-button">';
         html += '➕ Create Your First Assignment';
         html += '</button>';
-        html += '</div></div>';
+        html += '</div></div></div>';
         
         html += `
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
@@ -1236,7 +1236,7 @@ function displayAssignments(assignments) {
     
     // Create tab navigation
     let html = '<div class="bg-white rounded-lg shadow-lg mb-6">';
-    html += '<div class="flex border-b border-gray-200">';
+    html += '<div class="dashboard-tab-scroll"><div class="dashboard-tab-row flex border-b border-gray-200" role="tablist">';
     
     // Main Overview Tab
     html += '<button onclick="showTab(' + "'overview'" + ')" id="tab-overview" class="px-6 py-4 text-sm font-medium text-gray-700 hover:text-blue-600 hover:border-b-2 hover:border-blue-600 tab-button active-tab">';
@@ -1257,7 +1257,7 @@ function displayAssignments(assignments) {
     html += '➕ New Assignment';
     html += '</button>';
     
-    html += '</div>';
+    html += '</div></div>';
     html += '</div>';
     
     // Tab Content Areas
