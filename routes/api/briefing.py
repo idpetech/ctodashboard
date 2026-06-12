@@ -374,8 +374,10 @@ def register_briefing_routes(app):
         from services.briefing_pipeline import refresh_workspace_ctolens_briefing
         from services.ctolens_run_metadata import (
             cron_secret,
+            get_run_status,
             get_workspace_schedule,
             is_scheduled_enrichment_enabled,
+            should_run_enriched_now,
         )
         from services.security.secure_database import secure_db
 
@@ -401,6 +403,13 @@ def register_briefing_routes(app):
             ws = secure_db.get_workspace(ws_id) or {}
             schedule = get_workspace_schedule(ws.get("settings") or {})
             if not schedule.get("enabled"):
+                continue
+            run_status = get_run_status(ws.get("settings") or {})
+            due, skip_reason = should_run_enriched_now(
+                schedule, run_status.get("last_enriched_run_at")
+            )
+            if not due:
+                results.append({"workspace_id": ws_id, "status": "skipped", "reason": skip_reason})
                 continue
             assignments = _load_workspace_assignments(ws_id)
             if not assignments:

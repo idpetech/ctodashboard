@@ -225,46 +225,56 @@ class EmbeddedJiraMetrics:
             project_response = requests.get(project_url, auth=auth, headers=headers, timeout=10)
             project_data = project_response.json() if project_response.status_code == 200 else {}
 
-            # Issues last 7 and 30 days
+            # Issues created in last 30 days
+            issues_created_30 = self._search_issues(project_key, auth, headers, days=30)
             issues_7 = self._search_issues(project_key, auth, headers, days=7)
-            search_url = f"{self.base_url}/rest/api/3/search/jql"
-            jql_query = f"project = '{project_key}' AND created >= -30d"
-            search_payload = {
-                "jql": jql_query,
-                "fields": ["status", "priority", "created", "resolutiondate"],
-                "maxResults": 100,
-            }
-
-            headers_with_content = {**headers, "Content-Type": "application/json"}
-            search_response = requests.post(
-                search_url, auth=auth, headers=headers_with_content, json=search_payload, timeout=10
+            issues_resolved_30 = self._count_jql(
+                project_key,
+                auth,
+                headers,
+                jql_suffix="resolutiondate >= -30d",
             )
-
-            if search_response.status_code != 200:
-                return {
-                    "error": f"Jira API returned {search_response.status_code}: {search_response.text[:200]}"
-                }
-
-            search_data = search_response.json()
-            issues = search_data.get("issues", [])
-
-            # Calculate metrics
-            total_issues = len(issues)
-            resolved_issues = len([i for i in issues if i["fields"].get("resolutiondate")])
+            open_backlog = self._count_jql(
+                project_key,
+                auth,
+                headers,
+                jql_suffix="resolutiondate is EMPTY",
+            )
 
             return {
                 "project_key": project_key,
                 "project_name": project_data.get("name", "Unknown"),
                 "jira_issues_last_7_days": issues_7,
-                "total_issues_last_30_days": total_issues,
-                "resolved_issues_last_30_days": resolved_issues,
-                "resolution_rate": round(resolved_issues / total_issues * 100, 1)
-                if total_issues > 0
-                else 0,
+                "issues_created_last_30_days": issues_created_30,
+                "issues_resolved_last_30_days": issues_resolved_30,
+                "open_issues_count": open_backlog,
+                # Backward-compatible aliases (deprecated — misleading resolution_rate removed)
+                "total_issues_last_30_days": issues_created_30,
+                "resolved_issues_last_30_days": issues_resolved_30,
             }
 
         except Exception as e:
             return {"error": f"Jira API error: {str(e)}"}
+
+    def _count_jql(self, project_key: str, auth, headers, *, jql_suffix: str) -> int:
+        search_url = f"{self.base_url}/rest/api/3/search/jql"
+        jql_query = f"project = '{project_key}' AND {jql_suffix}"
+        search_payload = {
+            "jql": jql_query,
+            "fields": ["status"],
+            "maxResults": 100,
+        }
+        headers_with_content = {**headers, "Content-Type": "application/json"}
+        search_response = requests.post(
+            search_url,
+            auth=auth,
+            headers=headers_with_content,
+            json=search_payload,
+            timeout=10,
+        )
+        if search_response.status_code != 200:
+            return 0
+        return len(search_response.json().get("issues", []))
 
     def _search_issues(self, project_key: str, auth, headers, *, days: int) -> int:
         search_url = f"{self.base_url}/rest/api/3/search/jql"

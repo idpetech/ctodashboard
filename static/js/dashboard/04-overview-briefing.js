@@ -1295,6 +1295,59 @@ async function loadRealMetrics(assignmentId) {
     }
 }
 
+
+function buildJiraInsightBullets(jira) {
+    if (!jira || jira.error) return [];
+    const created = jira.issues_created_last_30_days ?? jira.total_issues_last_30_days ?? 0;
+    const resolved = jira.issues_resolved_last_30_days ?? jira.resolved_issues_last_30_days ?? 0;
+    const open = jira.open_issues_count ?? 0;
+    const bullets = [];
+    if (open >= 30) {
+        bullets.push('• ⚠️ Large open backlog (' + open + ' issues) — review WIP limits and blockers');
+    }
+    if (open > 10 && resolved === 0) {
+        bullets.push('• 🔴 No issues resolved in the last 30 days with ' + open + ' open — investigate flow');
+    }
+    if (resolved >= 15 && open < 20) {
+        bullets.push('• 🟢 Healthy throughput (' + resolved + ' resolved/30d) with manageable backlog (' + open + ' open)');
+    }
+    if (created >= 40 && resolved >= Math.floor(created * 0.5)) {
+        bullets.push('• 📈 Active project: ' + created + ' created and ' + resolved + ' resolved in 30d');
+    }
+    return bullets;
+}
+
+function renderGitHubRepoCard(repo) {
+    if (repo.error) {
+        return '<div class="bg-red-100 text-red-700 p-2 rounded mb-2">Error: ' + repo.error + '</div>';
+    }
+    const issuesUrl = repo.issues_url || (repo.html_url ? repo.html_url.replace(/\/?$/, '') + '/issues' : '');
+    const hasIssues = (repo.open_issues || 0) > 0;
+    let html = '<div class="bg-white p-3 rounded border mb-2">';
+    html += '<div class="flex justify-between items-start gap-3">';
+    html += '<div><h5 class="font-medium text-gray-800">' + repo.repo_name + '</h5>';
+    html += '<div class="text-sm text-gray-600">Language: ' + (repo.language || 'Unknown') + '</div></div>';
+    html += '<div class="text-right text-sm shrink-0">';
+    html += '<div>⭐ ' + (repo.stars || 0) + ' stars</div>';
+    html += '<div>🔄 ' + (repo.commits_last_30_days || 0) + ' commits (30d)</div>';
+    html += '<div>📝 ' + (repo.total_prs || 0) + ' PRs</div>';
+    html += '<div>🚨 ' + (repo.open_issues || 0) + ' open issues</div>';
+    if (hasIssues && issuesUrl) {
+        html += '<a href="' + issuesUrl + '" target="_blank" rel="noopener" class="inline-block mt-1 text-xs text-purple-700 underline">View on GitHub →</a>';
+    }
+    html += '</div></div>';
+    if (hasIssues) {
+        html += '<details class="mt-2 text-xs text-gray-600"><summary class="cursor-pointer text-purple-700">Issue attention</summary>';
+        html += '<p class="mt-1">' + repo.open_issues + ' open issue(s). Triage in GitHub — Lens does not edit tickets.</p>';
+        if (issuesUrl) {
+            html += '<a href="' + issuesUrl + '" target="_blank" rel="noopener" class="text-purple-700 underline">Open issues list</a>';
+        }
+        html += '</details>';
+    }
+    html += '</div>';
+    return html;
+}
+
 function displayAllMetrics(metrics, container) {
     let html = '<div class="bg-gray-50 rounded-lg p-4">';
     html += '<h3 class="text-xl font-bold text-gray-800 mb-4">📊 All Metrics - ' + new Date().toLocaleString() + '</h3>';
@@ -1313,25 +1366,8 @@ function displayAllMetrics(metrics, container) {
         html += '</h4></div>';
         html += '<div id="github-section" class="hidden p-4 pt-0">';
         
-        metrics.github.forEach(repo => {
-            if (repo.error) {
-                html += '<div class="bg-red-100 text-red-700 p-2 rounded mb-2">Error: ' + repo.error + '</div>';
-            } else {
-                html += '<div class="bg-white p-3 rounded border mb-2">';
-                html += '<div class="flex justify-between items-start">';
-                html += '<div>';
-                html += '<h5 class="font-medium text-gray-800">' + repo.repo_name + '</h5>';
-                html += '<div class="text-sm text-gray-600">Language: ' + repo.language + '</div>';
-                html += '</div>';
-                html += '<div class="text-right text-sm">';
-                html += '<div>⭐ ' + repo.stars + ' stars</div>';
-                html += '<div>🔄 ' + repo.commits_last_30_days + ' commits (30d)</div>';
-                html += '<div>📝 ' + repo.total_prs + ' PRs</div>';
-                html += '<div>🚨 ' + repo.open_issues + ' issues</div>';
-                html += '</div>';
-                html += '</div>';
-                html += '</div>';
-            }
+        metrics.github.forEach(function(repo) {
+            html += renderGitHubRepoCard(repo);
         });
         
         // GitHub Recommendations
@@ -1389,48 +1425,29 @@ function displayAllMetrics(metrics, container) {
         html += '<div class="grid grid-cols-1 md:grid-cols-3 gap-4">';
         
         html += '<div class="bg-white p-3 rounded border">';
-        html += '<div class="text-sm text-gray-600">Total Issues (30d)</div>';
-        html += '<div class="text-xl font-bold text-blue-600">' + metrics.jira.total_issues_last_30_days + '</div>';
+        const jCreated = metrics.jira.issues_created_last_30_days ?? metrics.jira.total_issues_last_30_days ?? 0;
+        const jResolved = metrics.jira.issues_resolved_last_30_days ?? metrics.jira.resolved_issues_last_30_days ?? 0;
+        const jOpen = metrics.jira.open_issues_count ?? 0;
+        html += '<div class="text-sm text-gray-600">Created (30d)</div>';
+        html += '<div class="text-xl font-bold text-blue-600">' + jCreated + '</div>';
         html += '</div>';
-        
         html += '<div class="bg-white p-3 rounded border">';
-        html += '<div class="text-sm text-gray-600">Resolved Issues</div>';
-        html += '<div class="text-xl font-bold text-green-600">' + metrics.jira.resolved_issues_last_30_days + '</div>';
+        html += '<div class="text-sm text-gray-600">Resolved (30d)</div>';
+        html += '<div class="text-xl font-bold text-green-600">' + jResolved + '</div>';
         html += '</div>';
-        
         html += '<div class="bg-white p-3 rounded border">';
-        html += '<div class="text-sm text-gray-600">Resolution Rate</div>';
-        html += '<div class="text-xl font-bold text-purple-600">' + metrics.jira.resolution_rate + '%</div>';
+        html += '<div class="text-sm text-gray-600">Open backlog</div>';
+        html += '<div class="text-xl font-bold text-purple-600">' + jOpen + '</div>';
         html += '</div>';
-        
         html += '</div>';
-        
-        // Jira Recommendations
-        html += '<div class="bg-blue-100 p-3 rounded mt-3">';
-        html += '<h5 class="font-medium text-blue-800 mb-2">📋 Project Management Insights</h5>';
-        html += '<ul class="space-y-1 text-xs text-blue-700">';
-        
-        const resolutionRate = metrics.jira.resolution_rate || 0;
-        const totalIssues = metrics.jira.total_issues_last_30_days || 0;
-        
-        if (resolutionRate < 70) {
-            html += '<li>• 🔴 Low resolution rate (' + resolutionRate + '%) - review sprint planning and capacity</li>';
-        } else if (resolutionRate < 85) {
-            html += '<li>• 🟡 Moderate resolution rate (' + resolutionRate + '%) - optimize workflow efficiency</li>';
-        } else {
-            html += '<li>• 🟢 Excellent resolution rate (' + resolutionRate + '%) - maintain current velocity</li>';
+        const jiraBullets = buildJiraInsightBullets(metrics.jira);
+        if (jiraBullets.length) {
+            html += '<div class="bg-blue-100 p-3 rounded mt-3">';
+            html += '<h5 class="font-medium text-blue-800 mb-2">📋 Project Management Insights</h5>';
+            html += '<ul class="space-y-1 text-xs text-blue-700">';
+            jiraBullets.forEach(function(line) { html += '<li>' + line.replace(/^•\s*/, '') + '</li>'; });
+            html += '</ul></div>';
         }
-        
-        if (totalIssues < 10) {
-            html += '<li>• 📉 Low issue creation (' + totalIssues + '/month) - may indicate planning gaps</li>';
-        } else if (totalIssues > 50) {
-            html += '<li>• 📈 High issue volume (' + totalIssues + '/month) - consider team capacity</li>';
-        }
-        
-        html += '<li>• 🎯 Focus on reducing cycle time and improving story estimation accuracy</li>';
-        html += '<li>• 📊 Implement regular retrospectives to identify process improvements</li>';
-        html += '</ul>';
-        html += '</div>';
         
         html += '</div>';
         html += '</div>';
@@ -1834,30 +1851,14 @@ function displayAllMetrics(metrics, container) {
     
     // Jira Recommendations
     if (metrics.jira && !metrics.jira.error) {
-        html += '<div class="bg-white p-3 rounded border">';
-        html += '<h5 class="font-medium text-blue-800 mb-2">📋 Project Management Insights</h5>';
-        html += '<ul class="space-y-1 text-xs">';
-        
-        const resolutionRate = metrics.jira.resolution_rate || 0;
-        const totalIssues = metrics.jira.total_issues_last_30_days || 0;
-        
-        if (resolutionRate < 70) {
-            html += '<li>• 🔴 Low resolution rate (' + resolutionRate + '%) - review sprint planning and capacity</li>';
-        } else if (resolutionRate < 85) {
-            html += '<li>• 🟡 Moderate resolution rate (' + resolutionRate + '%) - optimize workflow efficiency</li>';
-        } else {
-            html += '<li>• 🟢 Excellent resolution rate (' + resolutionRate + '%) - maintain current velocity</li>';
+        const jiraBullets2 = buildJiraInsightBullets(metrics.jira);
+        if (jiraBullets2.length) {
+            html += '<div class="bg-white p-3 rounded border">';
+            html += '<h5 class="font-medium text-blue-800 mb-2">📋 Project Management Insights</h5>';
+            html += '<ul class="space-y-1 text-xs">';
+            jiraBullets2.forEach(function(line) { html += '<li>' + line + '</li>'; });
+            html += '</ul></div>';
         }
-        
-        if (totalIssues < 10) {
-            html += '<li>• 📉 Low issue creation (' + totalIssues + '/month) - may indicate planning gaps</li>';
-        } else if (totalIssues > 50) {
-            html += '<li>• 📈 High issue volume (' + totalIssues + '/month) - consider team capacity</li>';
-        }
-        
-        html += '<li>• 🎯 Focus on reducing cycle time and improving story estimation accuracy</li>';
-        html += '<li>• 📊 Implement regular retrospectives to identify process improvements</li>';
-        html += '</ul></div>';
     }
     
     // AWS Recommendations

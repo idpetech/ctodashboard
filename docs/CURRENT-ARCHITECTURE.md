@@ -134,6 +134,18 @@ See `services/portfolio_scope_service.py`, `routes/api/portfolios.py`.
 
 ---
 
+
+## Act 3 — Core backlog (staging, 2026-06)
+
+Pricing/portfolios frozen except bugs. Shipped on staging:
+
+1. **Jira insights fix** — throughput (resolved/30d), open backlog, signal-only insights (no resolution-rate false positives)
+2. **Scheduler Phase A** — `should_run_enriched_now()` filters cron to due workspaces only
+3. **Repo issue actions Phase 1** — GitHub issue deep links + expandable attention in metrics panel
+4. **Product analytics Phase 3** — retention/returning users in `/api/analytics/summary` (flag `ENABLE_PRODUCT_ANALYTICS`)
+
+Deferred: Act 4 connectors, mobile briefing shell, scheduler Phase B async queue.
+
 ## Related docs
 
 | Doc | Purpose |

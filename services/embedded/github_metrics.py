@@ -176,6 +176,10 @@ class EmbeddedGitHubMetrics:
                         "open_issues": repo_data.get("open_issues_count", 0),
                         "language": repo_data.get("language", "Unknown"),
                         "last_updated": repo_data.get("updated_at"),
+                        "html_url": repo_data.get("html_url"),
+                        "issues_url": repo_data.get("html_url", "").rstrip("/") + "/issues"
+                        if repo_data.get("html_url")
+                        else None,
                         "commits_last_30_days": commits_14,
                         "commits_last_7_days": commits_7,
                         "commits_last_14_days": commits_14,

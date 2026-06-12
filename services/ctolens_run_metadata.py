@@ -83,6 +83,58 @@ def get_workspace_schedule(settings: Optional[Dict[str, Any]]) -> Dict[str, Any]
     return normalize_schedule((settings or {}).get("ctolens_schedule"))
 
 
+def _parse_time_utc(value: Optional[str]) -> tuple[int, int]:
+    raw = (value or "06:00").strip()
+    parts = raw.split(":")
+    try:
+        hour = int(parts[0])
+        minute = int(parts[1]) if len(parts) > 1 else 0
+    except (TypeError, ValueError):
+        hour, minute = 6, 0
+    hour = max(0, min(23, hour))
+    minute = max(0, min(59, minute))
+    return hour, minute
+
+
+def should_run_enriched_now(
+    schedule: Optional[Dict[str, Any]],
+    last_enriched_run_at: Optional[str],
+    *,
+    now_utc: Optional[datetime] = None,
+) -> tuple[bool, str]:
+    """
+    Return whether a workspace is due for scheduled enriched refresh.
+
+    Respects frequency, time_utc, day_of_week, and idempotency within the
+    current schedule window (Act 3 — scheduler scale Phase A).
+    """
+    normalized = normalize_schedule(schedule)
+    if not normalized.get("enabled"):
+        return False, "schedule_disabled"
+    freq = normalized.get("frequency")
+    if freq == "manual_only":
+        return False, "manual_only"
+
+    now = now_utc or datetime.now(timezone.utc)
+    hour, minute = _parse_time_utc(normalized.get("time_utc"))
+    scheduled_slot = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if now < scheduled_slot:
+        return False, "before_scheduled_time"
+
+    if freq == "weekly":
+        day_name = now.strftime("%A").lower()
+        if day_name != normalized.get("day_of_week"):
+            return False, "wrong_weekday"
+
+    last = _parse_iso(last_enriched_run_at)
+    if last and last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    if last and last >= scheduled_slot:
+        return False, "already_ran_this_window"
+
+    return True, "due"
+
+
 def get_run_status(settings: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     return dict((settings or {}).get("ctolens_run_status") or {})
 

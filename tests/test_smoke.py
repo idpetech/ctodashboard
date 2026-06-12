@@ -13,18 +13,20 @@ def test_flask_app_imports():
     assert app.name == "integrated_dashboard"
 
 
-def test_starter_only_checkout_plans():
+def test_checkout_plans_include_starter_and_professional():
     from services.stripe_billing_service import CHECKOUT_PLANS, PLANS
 
-    assert CHECKOUT_PLANS == ("starter",)
-    assert "professional" in PLANS  # legacy subscribers only
+    assert CHECKOUT_PLANS == ("starter", "professional")
+    assert "starter" in PLANS
+    assert "professional" in PLANS
 
 
-def test_homepage_pricing_shows_starter_only():
+def test_homepage_pricing_shows_three_plans():
     path = Path(__file__).resolve().parents[1] / "config" / "homepage_content.json"
     payload = json.loads(path.read_text(encoding="utf-8"))
     plans = payload["pricing"]["plans"]
     names = [p["name"] for p in plans]
-    assert len(plans) == 2
+    assert len(plans) == 3
     assert "Starter" in names
+    assert "Professional" in names
     assert "Scale" not in names
