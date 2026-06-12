@@ -200,6 +200,22 @@ function applyBillingUI(state) {
     if (manageBtn) {
         manageBtn.classList.toggle('hidden', !state.can_manage_billing);
     }
+
+    const stripeModeEl = document.getElementById('profile-billing-stripe-mode');
+    if (stripeModeEl) {
+        if (state.stripe_mode === 'test') {
+            stripeModeEl.textContent = 'Test (sandbox)';
+            stripeModeEl.className = 'text-right font-medium text-emerald-700';
+        } else if (state.stripe_mode === 'live') {
+            stripeModeEl.textContent = state.stripe_key_mismatch ? 'Live — misconfigured' : 'Live';
+            stripeModeEl.className = state.stripe_key_mismatch
+                ? 'text-right font-medium text-red-700'
+                : 'text-right font-medium text-gray-800';
+        } else {
+            stripeModeEl.textContent = '—';
+            stripeModeEl.className = 'text-right font-medium text-gray-500';
+        }
+    }
 }
 
 async function startBillingCheckout(plan) {

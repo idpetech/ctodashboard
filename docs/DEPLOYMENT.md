@@ -69,8 +69,14 @@ Copy production vars to staging, then adjust:
 |----------|---------|------------|
 | `DATABASE_URL` | staging Postgres | prod Postgres |
 | `ENABLE_CTOLENS_BRIEFING` | `true` | as needed |
-| `ENABLE_STRIPE_BILLING` | test mode keys | live keys |
-| `STRIPE_*` | Stripe test keys | Stripe live keys |
+| `ENVIRONMENT` | `staging` (required — blocks live Stripe keys) | `production` |
+| `ENABLE_STRIPE_BILLING` | `true` | `true` |
+| `STRIPE_SECRET_KEY` | `sk_test_...` only | `sk_live_...` only |
+| `STRIPE_PRODUCT_STARTER` | test-mode product/price IDs | live product/price IDs |
+| `STRIPE_PRODUCT_PROFESSIONAL` | test-mode product/price IDs | live product/price IDs |
+| `STRIPE_WEBHOOK_SECRET` | test-mode webhook (`whsec_...` from Stripe test or `stripe listen`) | live webhook secret |
+
+**Important:** Do not copy production `STRIPE_*` vars to staging. The app rejects `sk_live_` keys unless `ENVIRONMENT=production`. Profile → Billing shows **Stripe: Test (sandbox)** on staging when configured correctly.
 
 Run DB init once per new Postgres:
 

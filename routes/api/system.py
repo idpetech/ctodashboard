@@ -4,7 +4,7 @@ import os
 
 from flask import jsonify, request
 
-from services.stripe_billing_service import is_billing_enabled
+from services.stripe_billing_service import is_billing_enabled, stripe_config_summary
 
 
 def register_system_routes(app):
@@ -39,6 +39,7 @@ def register_system_routes(app):
                 == "true",
                 "product_analytics": os.getenv("ENABLE_PRODUCT_ANALYTICS", "false").lower()
                 == "true",
+                **(stripe_config_summary() if is_billing_enabled() else {}),
             }
         )
 

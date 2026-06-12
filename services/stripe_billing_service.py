@@ -50,9 +50,79 @@ def is_billing_enabled() -> bool:
     )
 
 
+def deployment_tier() -> str:
+    """Return production or non-production for Stripe key safety checks."""
+    explicit = (os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or "").strip().lower()
+    if explicit in ("production", "prod"):
+        return "production"
+    if explicit in ("staging", "stage", "preview", "development", "dev", "local", "test"):
+        return "non-production"
+
+    railway = (os.getenv("RAILWAY_ENVIRONMENT") or "").strip().lower()
+    if railway in ("staging", "stage", "preview", "development"):
+        return "non-production"
+    if railway in ("production", "prod"):
+        return "production"
+    return "non-production"
+
+
+def stripe_mode() -> str:
+    """Detect Stripe mode from secret key prefix."""
+    key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+    if key.startswith("sk_test_"):
+        return "test"
+    if key.startswith("sk_live_"):
+        return "live"
+    return "unknown"
+
+
+def stripe_config_summary() -> Dict[str, Any]:
+    """Public-safe Stripe deployment info for UI and /api/feature-flags."""
+    mode = stripe_mode()
+    tier = deployment_tier()
+    mismatch = (mode == "live" and tier != "production") or (
+        mode == "test" and tier == "production"
+    )
+    return {
+        "stripe_mode": mode,
+        "stripe_sandbox": mode == "test",
+        "deployment_tier": tier,
+        "stripe_key_mismatch": mismatch,
+    }
+
+
+def assert_stripe_key_matches_deployment() -> None:
+    """Block live Stripe keys on staging/local unless explicitly overridden."""
+    if not is_billing_enabled():
+        return
+
+    key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+    if not key:
+        return
+
+    tier = deployment_tier()
+    mode = stripe_mode()
+
+    if mode == "live" and tier != "production":
+        if os.getenv("STRIPE_ALLOW_LIVE", "false").lower() != "true":
+            raise RuntimeError(
+                "STRIPE_SECRET_KEY is a live key but this deployment is not production. "
+                "On staging/local use sk_test_ keys and test-mode product IDs, "
+                "or set STRIPE_ALLOW_LIVE=true only if you intentionally accept live charges."
+            )
+
+    if mode == "test" and tier == "production":
+        if os.getenv("STRIPE_ALLOW_TEST", "false").lower() != "true":
+            raise RuntimeError(
+                "STRIPE_SECRET_KEY is a test key on a production deployment. "
+                "Use sk_live_ keys in production, or set STRIPE_ALLOW_TEST=true to override."
+            )
+
+
 def _stripe():
     import stripe
 
+    assert_stripe_key_matches_deployment()
     key = os.getenv("STRIPE_SECRET_KEY")
     if not key:
         raise RuntimeError("STRIPE_SECRET_KEY is not configured")
@@ -158,6 +228,7 @@ def billing_summary(user_data: Dict[str, Any]) -> Dict[str, Any]:
             if k in PLANS
         ],
         **plan_access_fields(user_data),
+        **stripe_config_summary(),
     }
 
 
