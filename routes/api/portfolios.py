@@ -32,7 +32,9 @@ def register_portfolios_routes(app):
             result = get_workspace_service().list_workspace_portfolios(workspace_id)
             if result.get("error"):
                 return jsonify(result), 404
-            return jsonify({"workspace_id": workspace_id, "portfolios": result.get("portfolios", [])})
+            return jsonify(
+                {"workspace_id": workspace_id, "portfolios": result.get("portfolios", [])}
+            )
 
         data = request.get_json() or {}
         name = data.get("name")
@@ -65,8 +67,10 @@ def register_portfolios_routes(app):
             portfolio = get_portfolio(settings.get("settings") or {}, portfolio_id)
             if not portfolio:
                 return jsonify({"error": f"Portfolio '{portfolio_id}' not found"}), 404
-            assignments = get_workspace_service().get_workspace_assignments(workspace_id).get(
-                "assignments", []
+            assignments = (
+                get_workspace_service()
+                .get_workspace_assignments(workspace_id)
+                .get("assignments", [])
             )
             scoped = filter_assignments_by_portfolio(assignments, portfolio_id)
             return jsonify(
@@ -74,9 +78,7 @@ def register_portfolios_routes(app):
                     "workspace_id": workspace_id,
                     "portfolio": portfolio,
                     "assignment_count": len(scoped),
-                    "assignment_ids": [
-                        a.get("id") or a.get("assignment_id") for a in scoped
-                    ],
+                    "assignment_ids": [a.get("id") or a.get("assignment_id") for a in scoped],
                 }
             )
 
@@ -158,8 +160,10 @@ def register_portfolios_routes(app):
             from services.attention_engine import build_attention_briefing
             from services.security.secure_database import secure_db
 
-            assignments = get_workspace_service().get_workspace_assignments(workspace_id).get(
-                "assignments", []
+            assignments = (
+                get_workspace_service()
+                .get_workspace_assignments(workspace_id)
+                .get("assignments", [])
             )
             scoped = filter_assignments_by_portfolio(assignments, portfolio_id)
             previous = load_scoped_briefing(
@@ -344,8 +348,10 @@ def register_portfolios_routes(app):
             from services.briefing_pipeline import refresh_workspace_ctolens_briefing
             from services.security.secure_database import secure_db
 
-            assignments = get_workspace_service().get_workspace_assignments(workspace_id).get(
-                "assignments", []
+            assignments = (
+                get_workspace_service()
+                .get_workspace_assignments(workspace_id)
+                .get("assignments", [])
             )
             scoped = filter_assignments_by_portfolio(assignments, portfolio_id)
             briefing = refresh_workspace_ctolens_briefing(

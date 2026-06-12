@@ -56,7 +56,9 @@ def list_portfolios(settings: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
     )
 
 
-def get_portfolio(settings: Optional[Dict[str, Any]], portfolio_id: str) -> Optional[Dict[str, Any]]:
+def get_portfolio(
+    settings: Optional[Dict[str, Any]], portfolio_id: str
+) -> Optional[Dict[str, Any]]:
     for portfolio in list_portfolios(settings):
         if portfolio.get("id") == portfolio_id:
             return portfolio
@@ -91,9 +93,7 @@ def normalize_assignment_portfolio_id(assignment: Dict[str, Any]) -> str:
 def filter_assignments_by_portfolio(
     assignments: List[Dict[str, Any]], portfolio_id: str
 ) -> List[Dict[str, Any]]:
-    return [
-        a for a in (assignments or []) if normalize_assignment_portfolio_id(a) == portfolio_id
-    ]
+    return [a for a in (assignments or []) if normalize_assignment_portfolio_id(a) == portfolio_id]
 
 
 def filter_assignments_by_id(
@@ -101,9 +101,7 @@ def filter_assignments_by_id(
 ) -> List[Dict[str, Any]]:
     aid = str(assignment_id)
     return [
-        a
-        for a in (assignments or [])
-        if str(a.get("id") or a.get("assignment_id") or "") == aid
+        a for a in (assignments or []) if str(a.get("id") or a.get("assignment_id") or "") == aid
     ]
 
 
@@ -225,7 +223,9 @@ def merge_imported_portfolios(
             "created_at": row.get("created_at") or datetime.utcnow().isoformat(),
         }
 
-    settings["portfolios"] = sorted(by_id.values(), key=lambda p: (p.get("sort_order", 0), p.get("name", "")))
+    settings["portfolios"] = sorted(
+        by_id.values(), key=lambda p: (p.get("sort_order", 0), p.get("name", ""))
+    )
     return settings
 
 
