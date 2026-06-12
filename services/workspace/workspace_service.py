@@ -400,3 +400,42 @@ class WorkspaceService:
         if not self.feature_enabled:
             return {"success": False, "error": "Workspace functionality is disabled"}
         return self._store.delete_assignment(workspace_id, assignment_id)
+
+    def list_workspace_portfolios(self, workspace_id: str) -> Dict[str, Any]:
+        if not self.feature_enabled:
+            return {"portfolios": [], "error": "Workspace functionality is disabled"}
+        return self._store.list_workspace_portfolios(workspace_id)
+
+    def create_workspace_portfolio(
+        self,
+        workspace_id: str,
+        name: str,
+        description: str = "",
+        sort_order: Optional[int] = None,
+        portfolio_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        if not self.feature_enabled:
+            return {"success": False, "error": "Workspace functionality is disabled"}
+        return self._store.create_workspace_portfolio(
+            workspace_id, name, description, sort_order, portfolio_id
+        )
+
+    def update_workspace_portfolio(
+        self,
+        workspace_id: str,
+        portfolio_id: str,
+        *,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        sort_order: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        if not self.feature_enabled:
+            return {"success": False, "error": "Workspace functionality is disabled"}
+        return self._store.update_workspace_portfolio(
+            workspace_id, portfolio_id, name=name, description=description, sort_order=sort_order
+        )
+
+    def delete_workspace_portfolio(self, workspace_id: str, portfolio_id: str) -> Dict[str, Any]:
+        if not self.feature_enabled:
+            return {"success": False, "error": "Workspace functionality is disabled"}
+        return self._store.delete_workspace_portfolio(workspace_id, portfolio_id)

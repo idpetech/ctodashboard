@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from config.logging_config import get_logger
 from services.import_parser import file_content_hash, parse_spreadsheet
+from services.portfolio_scope_service import DEFAULT_PORTFOLIO_ID, merge_imported_portfolios
 from services.security.secure_database import secure_db
 from services.workspace.workspace_service import WorkspaceService
 
@@ -258,6 +259,7 @@ class DataImportService:
                 "monthly_burn_rate": assignment_data.get("monthly_burn_rate"),
                 "target_monthly_burn": assignment_data.get("target_monthly_burn"),
                 "status": assignment_data.get("status", "active"),
+                "portfolio_id": assignment_data.get("portfolio_id") or DEFAULT_PORTFOLIO_ID,
                 "metrics_config": json.dumps(assignment_data.get("metrics_config", {}))
                 if assignment_data.get("metrics_config")
                 else None,
@@ -328,16 +330,34 @@ class DataImportService:
 
     def _import_workspace_info(self, workspace_id: str, workspace_info: Dict[str, Any]):
         """Import workspace metadata via canonical postgres_store."""
-        if self.secure_db.get_workspace(workspace_id):
-            return
-        settings = workspace_info.get("settings") or {}
+        incoming_settings = dict(workspace_info.get("settings") or {})
         if workspace_info.get("connector_templates"):
-            settings["connector_templates"] = workspace_info["connector_templates"]
+            incoming_settings["connector_templates"] = workspace_info["connector_templates"]
+        if workspace_info.get("portfolios"):
+            incoming_settings = merge_imported_portfolios(
+                incoming_settings, workspace_info.get("portfolios") or []
+            )
+
+        existing = self.secure_db.get_workspace(workspace_id)
+        if existing:
+            merged = dict(existing.get("settings") or {})
+            if workspace_info.get("portfolios"):
+                merged = merge_imported_portfolios(merged, workspace_info.get("portfolios") or [])
+            if incoming_settings.get("connector_templates"):
+                merged["connector_templates"] = incoming_settings["connector_templates"]
+            self.secure_db.store_workspace(
+                workspace_id,
+                existing.get("name", workspace_id),
+                existing.get("description") or "",
+                settings=merged,
+            )
+            return
+
         self.secure_db.store_workspace(
             workspace_id,
             workspace_info.get("name", workspace_id),
             workspace_info.get("description", ""),
-            settings=settings,
+            settings=incoming_settings,
         )
 
     def _log_import_action(

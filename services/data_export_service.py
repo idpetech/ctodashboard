@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from config.logging_config import get_logger
+from services.portfolio_scope_service import list_portfolios
 from services.security.secure_database import secure_db
 from services.workspace.workspace_service import WorkspaceService
 
@@ -46,7 +47,7 @@ class DataExportService:
                     "workspace_id": workspace_id,
                     "export_format": format,
                     "export_timestamp": datetime.utcnow().isoformat(),
-                    "export_version": "1.0",
+                    "export_version": "1.1",
                     "dashboard_version": self._get_dashboard_version(),
                 },
                 "workspace_info": {},
@@ -57,12 +58,13 @@ class DataExportService:
             # Get workspace info from secure database
             workspace_info = self._get_workspace_from_db(workspace_id)
             if workspace_info:
+                settings = workspace_info.get("settings") or {}
                 export_data["workspace_info"] = {
                     "workspace_id": workspace_info.get("workspace_id"),
                     "name": workspace_info.get("name"),
                     "description": workspace_info.get("description"),
                     "created_at": workspace_info.get("created_at"),
-                    # Note: settings are excluded for security (may contain sensitive data)
+                    "portfolios": list_portfolios(settings),
                 }
 
             # Get assignments if requested
@@ -130,7 +132,7 @@ class DataExportService:
                     "assignment_id": assignment_id,
                     "export_format": format,
                     "export_timestamp": datetime.utcnow().isoformat(),
-                    "export_version": "1.0",
+                    "export_version": "1.1",
                 },
                 "assignment": {
                     "assignment_id": assignment.get("assignment_id"),

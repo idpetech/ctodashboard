@@ -8,6 +8,7 @@ from routes.api.briefing import register_briefing_routes
 from routes.api.chatbot import register_chatbot_routes
 from routes.api.import_export import register_import_export_routes
 from routes.api.pages import register_pages_routes
+from routes.api.portfolios import register_portfolios_routes
 from routes.api.system import register_system_routes
 from routes.api.workspaces import register_workspaces_routes
 
@@ -20,6 +21,7 @@ def register_routes(app):
     register_chatbot_routes(app)
     register_auth_billing_routes(app)
     register_workspaces_routes(app)
+    register_portfolios_routes(app)
     register_briefing_routes(app)
     register_audit_routes(app)
     register_import_export_routes(app)

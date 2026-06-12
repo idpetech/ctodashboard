@@ -106,6 +106,11 @@ export ENABLE_WORKSPACES=true
 
 ## Portfolio Dashboard (MVP, feature-flagged)
 
+**Flag:** `ENABLE_PORTFOLIOS` (default `false`). Portfolio entity layer (Act 1): `workspace.settings.portfolios[]`,
+`assignments.portfolio_id` (Postgres column, default `default`), scoped briefing keys in settings.
+API: `/api/workspaces/<id>/portfolios` (+ scoped attention/CTOLens refresh). No dashboard UI until Act 2.
+See `services/portfolio_scope_service.py`, `routes/api/portfolios.py`.
+
 **Flag:** `ENABLE_PORTFOLIO_DASHBOARD` (default `false`). Wired in `integrated_dashboard.py`,
 `services/service_manager.py`, and surfaced via `/api/feature-flags`.
 

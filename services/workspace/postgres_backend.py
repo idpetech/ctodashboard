@@ -7,6 +7,15 @@ See docs/POSTGRES-SINGLE-SOURCE-PLAN.md
 from datetime import datetime
 from typing import Any, Dict, Optional
 
+from services.portfolio_scope_service import (
+    DEFAULT_PORTFOLIO_ID,
+    create_portfolio,
+    delete_portfolio,
+    ensure_default_portfolio,
+    get_portfolio,
+    list_portfolios,
+    update_portfolio,
+)
 from services.security.secure_database import secure_db
 
 
@@ -24,7 +33,7 @@ class PostgresWorkspaceBackend:
                 "success": False,
                 "error": f"Workspace '{workspace_id}' already exists",
             }
-        settings = {"connector_templates": {}, "status": "active"}
+        settings = ensure_default_portfolio({"connector_templates": {}, "status": "active"})
         if not self.db.store_workspace(workspace_id, name, description, settings=settings):
             return {"success": False, "error": "Failed to create workspace in database"}
         workspace = self.db.get_workspace_api_dict(workspace_id)
@@ -38,7 +47,28 @@ class PostgresWorkspaceBackend:
         workspace = self.db.get_workspace_api_dict(workspace_id)
         if not workspace:
             return {"error": f"Workspace '{workspace_id}' not found"}
+        self._ensure_workspace_portfolios(workspace_id, workspace)
         return workspace
+
+    def _ensure_workspace_portfolios(
+        self, workspace_id: str, workspace: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Persist implicit default portfolio in settings when missing."""
+        ws_row = self.db.get_workspace(workspace_id)
+        if not ws_row:
+            return {}
+        settings = ensure_default_portfolio(ws_row.get("settings") or {})
+        if settings != (ws_row.get("settings") or {}):
+            self.db.store_workspace(
+                workspace_id,
+                ws_row.get("name", workspace_id),
+                ws_row.get("description") or "",
+                settings=settings,
+            )
+        if workspace is not None:
+            workspace["settings"] = settings
+            workspace["portfolios"] = list_portfolios(settings)
+        return settings
 
     def list_workspaces(self) -> Dict[str, Any]:
         return {"workspaces": self.db.list_workspaces()}
@@ -71,6 +101,15 @@ class PostgresWorkspaceBackend:
             "created_at": datetime.now().isoformat(),
             **assignment_config,
         }
+        assignment_data.setdefault("portfolio_id", DEFAULT_PORTFOLIO_ID)
+        settings = self._ensure_workspace_portfolios(workspace_id)
+        pid = assignment_data.get("portfolio_id") or DEFAULT_PORTFOLIO_ID
+        if not get_portfolio(settings, pid):
+            return {
+                "success": False,
+                "error": f"Portfolio '{pid}' not found in workspace",
+            }
+        assignment_data["portfolio_id"] = pid
         if not self.db.store_assignment(assignment_data):
             return {"success": False, "error": "Failed to store assignment"}
         return {
@@ -129,6 +168,15 @@ class PostgresWorkspaceBackend:
                 "success": False,
                 "error": f"Assignment '{assignment_id}' not found in workspace '{workspace_id}'",
             }
+        if "portfolio_id" in assignment_data:
+            settings = self._ensure_workspace_portfolios(workspace_id)
+            portfolio_id = assignment_data.get("portfolio_id") or DEFAULT_PORTFOLIO_ID
+            if not get_portfolio(settings, portfolio_id):
+                return {
+                    "success": False,
+                    "error": f"Portfolio '{portfolio_id}' not found in workspace",
+                }
+            assignment_data = {**assignment_data, "portfolio_id": portfolio_id}
         updated = {**existing, **assignment_data}
         updated["workspace_id"] = workspace_id
         updated["assignment_id"] = assignment_id
@@ -187,6 +235,90 @@ class PostgresWorkspaceBackend:
             "success": True,
             "workspace": api_ws,
             "message": "Workspace settings updated successfully",
+        }
+
+    def list_workspace_portfolios(self, workspace_id: str) -> Dict[str, Any]:
+        if not self.db.get_workspace(workspace_id):
+            return {"error": f"Workspace '{workspace_id}' not found"}
+        settings = self._ensure_workspace_portfolios(workspace_id)
+        return {"portfolios": list_portfolios(settings)}
+
+    def create_workspace_portfolio(
+        self,
+        workspace_id: str,
+        name: str,
+        description: str = "",
+        sort_order: Optional[int] = None,
+        portfolio_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        ws = self.db.get_workspace(workspace_id)
+        if not ws:
+            return {"success": False, "error": f"Workspace '{workspace_id}' not found"}
+        settings, entry, err = create_portfolio(
+            ws.get("settings") or {},
+            name,
+            description=description,
+            sort_order=sort_order,
+            portfolio_id=portfolio_id,
+        )
+        if err:
+            return {"success": False, "error": err}
+        if not self._save_settings(workspace_id, settings, ws.get("name"), ws.get("description")):
+            return {"success": False, "error": "Failed to save portfolio"}
+        return {"success": True, "portfolio": entry}
+
+    def update_workspace_portfolio(
+        self,
+        workspace_id: str,
+        portfolio_id: str,
+        *,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        sort_order: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        ws = self.db.get_workspace(workspace_id)
+        if not ws:
+            return {"success": False, "error": f"Workspace '{workspace_id}' not found"}
+        settings, entry, err = update_portfolio(
+            ws.get("settings") or {},
+            portfolio_id,
+            name=name,
+            description=description,
+            sort_order=sort_order,
+        )
+        if err:
+            return {"success": False, "error": err}
+        if not self._save_settings(workspace_id, settings, ws.get("name"), ws.get("description")):
+            return {"success": False, "error": "Failed to save portfolio"}
+        return {"success": True, "portfolio": entry}
+
+    def delete_workspace_portfolio(self, workspace_id: str, portfolio_id: str) -> Dict[str, Any]:
+        ws = self.db.get_workspace(workspace_id)
+        if not ws:
+            return {"success": False, "error": f"Workspace '{workspace_id}' not found"}
+        settings, err = delete_portfolio(ws.get("settings") or {}, portfolio_id)
+        if err:
+            return {"success": False, "error": err}
+
+        reassigned = 0
+        for assignment in self.db.get_workspace_assignments(workspace_id):
+            if (assignment.get("portfolio_id") or DEFAULT_PORTFOLIO_ID) == portfolio_id:
+                self.db.store_assignment(
+                    {
+                        **assignment,
+                        "portfolio_id": DEFAULT_PORTFOLIO_ID,
+                        "workspace_id": workspace_id,
+                        "assignment_id": assignment.get("assignment_id") or assignment.get("id"),
+                    }
+                )
+                reassigned += 1
+
+        if not self._save_settings(workspace_id, settings, ws.get("name"), ws.get("description")):
+            return {"success": False, "error": "Failed to save workspace after portfolio delete"}
+        return {
+            "success": True,
+            "message": f"Portfolio '{portfolio_id}' deleted",
+            "assignments_reassigned": reassigned,
         }
 
     def _load_settings(self, workspace_id: str) -> Dict[str, Any]:

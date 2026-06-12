@@ -73,6 +73,7 @@ DDL_STATEMENTS: List[str] = [
         monthly_burn_rate INTEGER,
         target_monthly_burn INTEGER,
         status TEXT DEFAULT 'active',
+        portfolio_id TEXT DEFAULT 'default',
         metrics_config TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

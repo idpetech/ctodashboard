@@ -120,6 +120,15 @@ class SecureDatabaseManager:
             )
         except Exception as e:
             logger.warning("target_monthly_burn migration skipped: %s", e)
+        try:
+            self.adapter.execute_update(
+                "ALTER TABLE assignments ADD COLUMN IF NOT EXISTS portfolio_id TEXT DEFAULT 'default'"
+            )
+            self.adapter.execute_update(
+                "UPDATE assignments SET portfolio_id = 'default' WHERE portfolio_id IS NULL"
+            )
+        except Exception as e:
+            logger.warning("portfolio_id migration skipped: %s", e)
         # Product analytics tables (idempotent; gated at runtime by ENABLE_PRODUCT_ANALYTICS).
         try:
             from services.security.canonical_schema import TABLES
@@ -317,8 +326,8 @@ class SecureDatabaseManager:
             query = """
                 INSERT INTO assignments
                 (assignment_id, workspace_id, name, description, team_size, monthly_burn_rate,
-                 target_monthly_burn, status, metrics_config, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                 target_monthly_burn, status, portfolio_id, metrics_config, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
                 ON CONFLICT (assignment_id, workspace_id) DO UPDATE SET
                     name = EXCLUDED.name,
                     description = EXCLUDED.description,
@@ -326,6 +335,7 @@ class SecureDatabaseManager:
                     monthly_burn_rate = EXCLUDED.monthly_burn_rate,
                     target_monthly_burn = EXCLUDED.target_monthly_burn,
                     status = EXCLUDED.status,
+                    portfolio_id = EXCLUDED.portfolio_id,
                     metrics_config = EXCLUDED.metrics_config,
                     updated_at = NOW()
             """
@@ -338,6 +348,7 @@ class SecureDatabaseManager:
                 assignment_data.get("monthly_burn_rate"),
                 assignment_data.get("target_monthly_burn"),
                 assignment_data.get("status", "active"),
+                assignment_data.get("portfolio_id") or "default",
                 metrics_json,
             )
             self.adapter.execute_update(query, params)
@@ -350,7 +361,7 @@ class SecureDatabaseManager:
         try:
             rows = self.adapter.execute_query(
                 """SELECT assignment_id, workspace_id, name, description, team_size,
-                          monthly_burn_rate, target_monthly_burn, status, metrics_config,
+                          monthly_burn_rate, target_monthly_burn, status, portfolio_id, metrics_config,
                           created_at, updated_at
                    FROM assignments WHERE workspace_id = %s AND assignment_id = %s""",
                 (workspace_id, assignment_id),
@@ -371,6 +382,7 @@ class SecureDatabaseManager:
                 "monthly_burn_rate": row["monthly_burn_rate"],
                 "target_monthly_burn": row["target_monthly_burn"],
                 "status": row["status"],
+                "portfolio_id": row.get("portfolio_id") or "default",
                 "metrics_config": metrics or {},
                 "created_at": row["created_at"],
                 "updated_at": row["updated_at"],
@@ -431,6 +443,7 @@ class SecureDatabaseManager:
                     "monthly_burn_rate": row["monthly_burn_rate"],
                     "target_monthly_burn": row.get("target_monthly_burn"),
                     "status": row["status"],
+                    "portfolio_id": row.get("portfolio_id") or "default",
                     "metrics_config": metrics or {},
                     "created_at": row["created_at"],
                 }
