@@ -114,7 +114,7 @@ def homepage():
             },
             "pricing": {
                 "title": "Simple Pricing",
-                "subtitle": "Start with a 7-day free trial or subscribe to Starter — cancel anytime.",
+                "subtitle": "Start with a 7-day free trial, or subscribe to Starter or Professional — cancel anytime.",
                 "plans": [
                     {
                         "name": "7-Day Free Trial",
@@ -137,10 +137,10 @@ def homepage():
                         "name": "Starter",
                         "price": "$49",
                         "period": "/mo",
-                        "description": "Full dashboard and team features, billed monthly via Stripe.",
+                        "description": "One company · daily CTO briefing for founders and solo CTOs.",
                         "features": [
                             "Unlimited services & assignments",
-                            "Daily briefings & alert management",
+                            "Daily workspace briefing & alerts",
                             "Team insights & full history",
                             "Billed monthly — cancel anytime",
                         ],
@@ -149,6 +149,23 @@ def homepage():
                         "cta": {
                             "text": "Subscribe — $49/mo",
                             "link": "/dashboard?signup=1&plan=starter",
+                            "style": "primary",
+                        },
+                    },
+                    {
+                        "name": "Professional",
+                        "price": "$149",
+                        "period": "/mo",
+                        "description": "Multiple clients · briefing per portfolio for fractional CTOs.",
+                        "features": [
+                            "Everything in Starter",
+                            "Multiple client portfolios",
+                            "Portfolio-scoped daily briefings",
+                            "Built for fractional & multi-client work",
+                        ],
+                        "cta": {
+                            "text": "Subscribe — $149/mo",
+                            "link": "/dashboard?signup=1&plan=professional",
                             "style": "primary",
                         },
                     },

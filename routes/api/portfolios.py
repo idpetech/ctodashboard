@@ -4,8 +4,19 @@ import os
 
 from flask import jsonify, request
 
-from routes.api.deps import get_require_workspace_access, get_workspace_service, logger
+from routes.api.deps import (
+    get_current_user,
+    get_require_workspace_access,
+    get_user_service,
+    get_workspace_service,
+    logger,
+)
+from services.plan_access import (
+    can_use_multi_portfolio,
+    multi_portfolio_denied_response,
+)
 from services.portfolio_scope_service import (
+    DEFAULT_PORTFOLIO_ID,
     filter_assignments_by_id,
     filter_assignments_by_portfolio,
     get_portfolio,
@@ -17,6 +28,21 @@ from services.portfolio_scope_service import (
 
 def _portfolios_disabled_response():
     return jsonify({"error": "Portfolios are disabled"}), 403
+
+
+def _current_user_data():
+    user = get_current_user() or {}
+    email = user.get("email")
+    if not email:
+        return None
+    return get_user_service().get_user_by_email(email)
+
+
+def _require_multi_portfolio():
+    user_data = _current_user_data()
+    if not can_use_multi_portfolio(user_data):
+        return multi_portfolio_denied_response()
+    return None
 
 
 def register_portfolios_routes(app):
@@ -40,6 +66,10 @@ def register_portfolios_routes(app):
         name = data.get("name")
         if not name:
             return jsonify({"error": "Portfolio name is required"}), 400
+
+        denied = _require_multi_portfolio()
+        if denied:
+            return denied
 
         result = get_workspace_service().create_workspace_portfolio(
             workspace_id,
@@ -83,6 +113,10 @@ def register_portfolios_routes(app):
             )
 
         if request.method == "PUT":
+            if portfolio_id != DEFAULT_PORTFOLIO_ID:
+                denied = _require_multi_portfolio()
+                if denied:
+                    return denied
             data = request.get_json() or {}
             result = get_workspace_service().update_workspace_portfolio(
                 workspace_id,
@@ -94,6 +128,10 @@ def register_portfolios_routes(app):
             if result.get("success"):
                 return jsonify(result)
             return jsonify(result), 400
+
+        denied = _require_multi_portfolio()
+        if denied:
+            return denied
 
         result = get_workspace_service().delete_workspace_portfolio(workspace_id, portfolio_id)
         if result.get("success"):
@@ -116,6 +154,10 @@ def register_portfolios_routes(app):
             return jsonify(ws), 404
         if not get_portfolio(ws.get("settings") or {}, portfolio_id):
             return jsonify({"error": f"Portfolio '{portfolio_id}' not found"}), 404
+
+        denied = _require_multi_portfolio()
+        if denied:
+            return denied
 
         try:
             from services.security.secure_database import secure_db
@@ -155,6 +197,10 @@ def register_portfolios_routes(app):
             return jsonify(ws), 404
         if not get_portfolio(ws.get("settings") or {}, portfolio_id):
             return jsonify({"error": f"Portfolio '{portfolio_id}' not found"}), 404
+
+        denied = _require_multi_portfolio()
+        if denied:
+            return denied
 
         try:
             from services.attention_engine import build_attention_briefing
@@ -215,6 +261,10 @@ def register_portfolios_routes(app):
         if not get_workspace_service().get_assignment(workspace_id, assignment_id):
             return jsonify({"error": f"Assignment '{assignment_id}' not found"}), 404
 
+        denied = _require_multi_portfolio()
+        if denied:
+            return denied
+
         try:
             from services.security.secure_database import secure_db
 
@@ -251,6 +301,10 @@ def register_portfolios_routes(app):
         assignment = get_workspace_service().get_assignment(workspace_id, assignment_id)
         if not assignment:
             return jsonify({"error": f"Assignment '{assignment_id}' not found"}), 404
+
+        denied = _require_multi_portfolio()
+        if denied:
+            return denied
 
         try:
             from services.attention_engine import build_attention_briefing
@@ -310,6 +364,10 @@ def register_portfolios_routes(app):
         if not get_portfolio(ws.get("settings") or {}, portfolio_id):
             return jsonify({"error": f"Portfolio '{portfolio_id}' not found"}), 404
 
+        denied = _require_multi_portfolio()
+        if denied:
+            return denied
+
         from services.security.secure_database import secure_db
 
         briefing = load_scoped_briefing(
@@ -343,6 +401,10 @@ def register_portfolios_routes(app):
             return jsonify(ws), 404
         if not get_portfolio(ws.get("settings") or {}, portfolio_id):
             return jsonify({"error": f"Portfolio '{portfolio_id}' not found"}), 404
+
+        denied = _require_multi_portfolio()
+        if denied:
+            return denied
 
         try:
             from services.briefing_pipeline import refresh_workspace_ctolens_briefing

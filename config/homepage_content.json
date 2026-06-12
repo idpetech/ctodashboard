@@ -6,17 +6,17 @@
     "cta_link": "/dashboard?signup=1",
     "preview_items": [
       {
-        "icon": "🚨",
+        "icon": "\ud83d\udea8",
         "type": "urgent",
         "text": "URGENT: API error rate spiked 300%"
       },
       {
-        "icon": "⚠️",
-        "type": "warning", 
+        "icon": "\u26a0\ufe0f",
+        "type": "warning",
         "text": "WARNING: Sprint velocity down 20%"
       },
       {
-        "icon": "✅",
+        "icon": "\u2705",
         "type": "good",
         "text": "GOOD: All deployments successful"
       }
@@ -33,7 +33,7 @@
       },
       {
         "icon": "view",
-        "title": "No single view", 
+        "title": "No single view",
         "description": "Jumping between dashboards, missing connections"
       },
       {
@@ -53,7 +53,7 @@
         "icon_type": "tools"
       },
       {
-        "name": "AI Engine", 
+        "name": "AI Engine",
         "description": "Analyzes patterns and priorities",
         "icon_type": "engine"
       },
@@ -72,25 +72,41 @@
         "icon": "github",
         "title": "GitHub Insights",
         "description": "Code velocity, team activity, repository health",
-        "details": ["Commit frequency", "Pull request metrics", "Team productivity"]
+        "details": [
+          "Commit frequency",
+          "Pull request metrics",
+          "Team productivity"
+        ]
       },
       {
         "icon": "jira",
-        "title": "Jira Insights", 
+        "title": "Jira Insights",
         "description": "Sprint health, issue trends, team capacity",
-        "details": ["Sprint velocity", "Issue resolution time", "Backlog health"]
+        "details": [
+          "Sprint velocity",
+          "Issue resolution time",
+          "Backlog health"
+        ]
       },
       {
         "icon": "aws",
         "title": "AWS Insights",
-        "description": "Cloud costs, error rates, uptime", 
-        "details": ["Deploy success rate", "Error monitoring", "Performance metrics"]
+        "description": "Cloud costs, error rates, uptime",
+        "details": [
+          "Deploy success rate",
+          "Error monitoring",
+          "Performance metrics"
+        ]
       },
       {
         "icon": "strategic",
         "title": "Strategic Tracking",
         "description": "Business KPIs, cost optimization",
-        "details": ["Cost monitoring", "Resource utilization", "ROI tracking"]
+        "details": [
+          "Cost monitoring",
+          "Resource utilization",
+          "ROI tracking"
+        ]
       }
     ]
   },
@@ -100,25 +116,25 @@
     "date": "",
     "brief_items": [
       {
-        "icon": "🚨",
+        "icon": "\ud83d\udea8",
         "level": "urgent",
         "title": "URGENT: API error rate spiked 300%",
         "description": "2 issues detected in payment service. Deploy rollback recommended."
       },
       {
-        "icon": "⚠️",
+        "icon": "\u26a0\ufe0f",
         "level": "warning",
-        "title": "WARNING: Sprint velocity down 20%", 
+        "title": "WARNING: Sprint velocity down 20%",
         "description": "Team capacity issues. 3 blockers identified in current sprint."
       },
       {
-        "icon": "✅",
+        "icon": "\u2705",
         "level": "good",
         "title": "GOOD: All deployments successful",
         "description": "5 successful deploys this week, 99.8% uptime maintained."
       },
       {
-        "icon": "📊",
+        "icon": "\ud83d\udcca",
         "level": "info",
         "title": "INFO: Team shipped 15 features this week",
         "description": "Above average productivity, customer satisfaction up 12%."
@@ -131,7 +147,7 @@
   },
   "pricing": {
     "title": "Simple Pricing",
-    "subtitle": "Start with a 7-day free trial or subscribe to Starter — cancel anytime.",
+    "subtitle": "Start with a 7-day free trial, or subscribe to Starter or Professional \u2014 cancel anytime.",
     "plans": [
       {
         "name": "7-Day Free Trial",
@@ -154,18 +170,35 @@
         "name": "Starter",
         "price": "$49",
         "period": "/mo",
-        "description": "Full dashboard and team features, billed monthly via Stripe.",
+        "description": "One company \u00b7 daily CTO briefing for founders and solo CTOs.",
         "features": [
           "Unlimited services & assignments",
-          "Daily briefings & alert management",
+          "Daily workspace briefing & alerts",
           "Team insights & full history",
-          "Billed monthly — cancel anytime"
+          "Billed monthly \u2014 cancel anytime"
         ],
         "popular": true,
-        "note": "Prefer to try first? Start the 7-day free trial — no credit card required.",
+        "note": "Prefer to try first? Start the 7-day free trial \u2014 no credit card required.",
         "cta": {
-          "text": "Subscribe — $49/mo",
+          "text": "Subscribe \u2014 $49/mo",
           "link": "/dashboard?signup=1&plan=starter",
+          "style": "primary"
+        }
+      },
+      {
+        "name": "Professional",
+        "price": "$149",
+        "period": "/mo",
+        "description": "Multiple clients \u00b7 briefing per portfolio for fractional CTOs.",
+        "features": [
+          "Everything in Starter",
+          "Multiple client portfolios",
+          "Portfolio-scoped daily briefings",
+          "Built for fractional & multi-client work"
+        ],
+        "cta": {
+          "text": "Subscribe \u2014 $149/mo",
+          "link": "/dashboard?signup=1&plan=professional",
           "style": "primary"
         }
       }
@@ -182,26 +215,44 @@
       {
         "title": "Product",
         "links": [
-          {"text": "CTO Lens", "url": "/"},
-          {"text": "Start 7-Day Free Trial", "url": "/dashboard?signup=1"},
-          {"text": "Login", "url": "/dashboard"}
+          {
+            "text": "CTO Lens",
+            "url": "/"
+          },
+          {
+            "text": "Start 7-Day Free Trial",
+            "url": "/dashboard?signup=1"
+          },
+          {
+            "text": "Login",
+            "url": "/dashboard"
+          }
         ]
       },
       {
         "title": "Company",
         "links": [
-          {"text": "IdepTech", "url": "http://idpetech.com"},
-          {"text": "Contact", "url": "http://idpetech.com"}
+          {
+            "text": "IdepTech",
+            "url": "http://idpetech.com"
+          },
+          {
+            "text": "Contact",
+            "url": "http://idpetech.com"
+          }
         ]
       },
       {
         "title": "Legal",
         "links": [
-          {"text": "Privacy", "url": "http://idpetech.com"}
+          {
+            "text": "Privacy",
+            "url": "http://idpetech.com"
+          }
         ]
       }
     ],
     "social_links": [],
-    "copyright": "© 2026 idpetech.com All rights reserved."
+    "copyright": "\u00a9 2026 idpetech.com All rights reserved."
   }
 }

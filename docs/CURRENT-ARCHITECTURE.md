@@ -106,9 +106,12 @@ export ENABLE_WORKSPACES=true
 
 ## Portfolio Dashboard (MVP, feature-flagged)
 
-**Flag:** `ENABLE_PORTFOLIOS` (default `false`). Portfolio entity layer (Act 1): `workspace.settings.portfolios[]`,
+**Flag:** `ENABLE_PORTFOLIOS` (default `false`). Portfolio entity layer: `workspace.settings.portfolios[]`,
 `assignments.portfolio_id` (Postgres column, default `default`), scoped briefing keys in settings.
-API: `/api/workspaces/<id>/portfolios` (+ scoped attention/CTOLens refresh). No dashboard UI until Act 2.
+API: `/api/workspaces/<id>/portfolios` (+ scoped attention/CTOLens refresh).
+**Plan gate (Chapter 2):** `services/plan_access.py` — multi-portfolio create/move/briefings require
+**Professional** (`$149/mo`, Stripe plan `professional`). Trial and Starter stay on `default` portfolio only.
+Landing pricing shows Starter + Professional; workspace settings UI lists portfolios when flag on.
 See `services/portfolio_scope_service.py`, `routes/api/portfolios.py`.
 
 **Flag:** `ENABLE_PORTFOLIO_DASHBOARD` (default `false`). Wired in `integrated_dashboard.py`,

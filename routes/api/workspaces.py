@@ -189,6 +189,22 @@ def register_workspaces_routes(app):
             if not data:
                 return jsonify({"error": "No assignment data provided"}), 400
 
+            if "portfolio_id" in data:
+                from routes.api.deps import get_current_user, get_user_service
+                from services.plan_access import (
+                    multi_portfolio_denied_response,
+                    portfolio_move_requires_upgrade,
+                )
+
+                user = get_current_user() or {}
+                full = (
+                    get_user_service().get_user_by_email(user.get("email"))
+                    if user.get("email")
+                    else None
+                )
+                if portfolio_move_requires_upgrade(full, data.get("portfolio_id")):
+                    return multi_portfolio_denied_response()
+
             result = get_workspace_service().update_assignment(workspace_id, assignment_id, data)
             if not result.get("success"):
                 return jsonify({"error": result.get("error", "Update failed")}), 400

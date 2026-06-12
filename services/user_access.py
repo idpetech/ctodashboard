@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from services.plan_access import plan_access_fields
 from services.stripe_billing_service import billing_grants_write, billing_summary, get_billing_prefs
 from services.trial_service import DEFAULT_TRIAL_DAYS, EXPIRING_DAYS, _iso_date, _parse_dt
 
@@ -21,6 +22,7 @@ def resolve_account_state(user_data: Dict[str, Any]) -> Dict[str, Any]:
     if role == "admin":
         return {
             **b_summary,
+            **plan_access_fields(user_data),
             "trial_start_date": prefs.get("trial_start_date"),
             "trial_end_date": prefs.get("trial_end_date"),
             "trial_status": "paid",
@@ -32,6 +34,7 @@ def resolve_account_state(user_data: Dict[str, Any]) -> Dict[str, Any]:
     if billing_status == "active":
         return {
             **b_summary,
+            **plan_access_fields(user_data),
             "trial_status": "paid",
             "days_remaining": None,
             "can_write": True,
@@ -107,6 +110,7 @@ def resolve_account_state(user_data: Dict[str, Any]) -> Dict[str, Any]:
 
     return {
         **b_summary,
+        **plan_access_fields(user_data),
         "trial_start_date": _iso_date(start) if start else None,
         "trial_end_date": _iso_date(end) if end else None,
         "trial_status": trial_status,

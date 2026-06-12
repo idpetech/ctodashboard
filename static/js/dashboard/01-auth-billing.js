@@ -5,7 +5,8 @@ function getSignupPlanFromUrl() {
     try {
         const params = new URLSearchParams(window.location.search);
         const plan = (params.get('plan') || '').trim().toLowerCase();
-        return plan === 'starter' ? 'starter' : null;
+        if (plan === 'starter' || plan === 'professional') return plan;
+        return null;
     } catch (e) {
         return null;
     }
@@ -37,6 +38,13 @@ function applyRegisterFormCopy(plan) {
         note.className = 'text-sm text-indigo-800 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 mt-3';
         button.textContent = 'Continue to Checkout';
         button.className = 'w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition-colors';
+    } else if (plan === 'professional') {
+        title.textContent = 'Subscribe to Professional';
+        subtitle.textContent = 'Create your account, then continue to secure checkout';
+        note.textContent = 'Professional is $149/month via Stripe — multiple client portfolios and portfolio briefings. Cancel anytime.';
+        note.className = 'text-sm text-indigo-800 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 mt-3';
+        button.textContent = 'Continue to Checkout';
+        button.className = 'w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition-colors';
     } else {
         title.textContent = 'Start Your Free Trial';
         subtitle.textContent = 'Create your CTO Lens account';
@@ -48,12 +56,12 @@ function applyRegisterFormCopy(plan) {
 }
 
 function registerButtonDefaultText() {
-    return signupPlanIntent === 'starter' ? 'Continue to Checkout' : 'Start 7-Day Free Trial';
+    return (signupPlanIntent === 'starter' || signupPlanIntent === 'professional') ? 'Continue to Checkout' : 'Start 7-Day Free Trial';
 }
 
 async function continueSignupCheckoutIfNeeded() {
     const plan = signupPlanIntent || getSignupPlanFromUrl();
-    if (plan !== 'starter') {
+    if (plan !== 'starter' && plan !== 'professional') {
         showDashboard();
         return;
     }
@@ -80,7 +88,7 @@ async function continueSignupCheckoutIfNeeded() {
         console.warn('Could not load billing status before checkout:', e);
     }
 
-    await startBillingCheckout('starter');
+    await startBillingCheckout(plan);
 }
 
 function formatTrialDate(iso) {
@@ -164,7 +172,7 @@ function applyBillingUI(state) {
     document.getElementById('profile-billing-renewal').textContent =
         state.renewal_date ? formatTrialDate(state.renewal_date) : '—';
 
-    const showUpgrade = state.billing_status !== 'active';
+    const showUpgrade = state.billing_status !== 'active' || state.plan === 'starter';
     const upgradeBlock = document.getElementById('profile-billing-upgrade');
     if (upgradeBlock) {
         upgradeBlock.classList.toggle('hidden', !showUpgrade);
@@ -175,6 +183,9 @@ function applyBillingUI(state) {
         upgradeButtons.innerHTML = '';
         if (showUpgrade && Array.isArray(state.available_plans)) {
             state.available_plans.forEach(function(planOption) {
+                if (state.billing_status === 'active' && state.plan === 'starter' && planOption.id !== 'professional') {
+                    return;
+                }
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'px-3 py-1.5 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700';
@@ -466,8 +477,8 @@ function hideAuthOverlay() {
 async function showDashboard() {
     hideAuthOverlay();
     const plan = getSignupPlanFromUrl();
-    if (plan === 'starter') {
-        signupPlanIntent = 'starter';
+    if (plan === 'starter' || plan === 'professional') {
+        signupPlanIntent = plan;
         await continueSignupCheckoutIfNeeded();
         return;
     }

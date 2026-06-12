@@ -29,8 +29,8 @@ PLANS: Dict[str, Dict[str, Any]] = {
     },
 }
 
-# Checkout / upgrade offers — professional deferred; kept in PLANS for legacy subscribers.
-CHECKOUT_PLANS: tuple[str, ...] = ("starter",)
+# Checkout / upgrade offers — trial users may choose Starter or Professional.
+CHECKOUT_PLANS: tuple[str, ...] = ("starter", "professional")
 
 _STRIPE_STATUS_MAP = {
     "active": "active",
@@ -136,6 +136,8 @@ def get_billing_prefs(preferences: Optional[Dict[str, Any]]) -> Dict[str, Any]:
 
 def billing_summary(user_data: Dict[str, Any]) -> Dict[str, Any]:
     """Public billing info for dashboard."""
+    from services.plan_access import plan_access_fields
+
     prefs = user_data.get("preferences") or {}
     billing = get_billing_prefs(prefs)
     plan_key = billing.get("plan")
@@ -155,6 +157,7 @@ def billing_summary(user_data: Dict[str, Any]) -> Dict[str, Any]:
             for k in CHECKOUT_PLANS
             if k in PLANS
         ],
+        **plan_access_fields(user_data),
     }
 
 
@@ -172,7 +175,7 @@ def create_checkout_session(
 ) -> Dict[str, str]:
     plan_key = (plan or "").strip().lower()
     if plan_key not in CHECKOUT_PLANS:
-        raise ValueError("Invalid plan. Only Starter is available at this time.")
+        raise ValueError(f"Invalid plan. Choose one of: {', '.join(CHECKOUT_PLANS)}.")
 
     stripe = _stripe()
     price_id = _price_id(plan_key)

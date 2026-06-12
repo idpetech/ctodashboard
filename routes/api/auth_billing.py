@@ -232,8 +232,12 @@ def register_auth_billing_routes(app):
         current_user = get_current_user()
         data = request.get_json() or {}
         plan = (data.get("plan") or "").strip().lower()
-        if plan != "starter":
-            return jsonify({"error": "Invalid plan. Only Starter is available at this time."}), 400
+        from services.stripe_billing_service import CHECKOUT_PLANS
+
+        if plan not in CHECKOUT_PLANS:
+            return jsonify(
+                {"error": f"Invalid plan. Choose one of: {', '.join(CHECKOUT_PLANS)}."}
+            ), 400
 
         full = get_user_service().get_user_by_email(current_user.get("email"))
         if not full:
