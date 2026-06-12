@@ -211,7 +211,7 @@
             </div>
 
             <!-- Client Portfolios (Professional) -->
-            <div id="portfoliosCard" class="bg-white rounded-lg shadow-lg p-6 mb-8 hidden">
+            <div id="portfoliosCard" class="bg-white rounded-lg shadow-lg p-6 mb-8">
                 <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4">
                     <div>
                         <h2 class="text-xl font-semibold text-gray-800">Client Portfolios</h2>
@@ -220,6 +220,9 @@
                     <button id="createPortfolioBtn" type="button" onclick="showCreatePortfolioForm()" class="hidden bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">
                         + New Portfolio
                     </button>
+                </div>
+                <div id="portfoliosDisabled" class="hidden bg-gray-50 border border-gray-200 text-gray-700 px-4 py-3 rounded mb-4 text-sm">
+                    Client portfolios are not enabled on this server (<code class="text-xs">ENABLE_PORTFOLIOS</code> must be <code class="text-xs">true</code>).
                 </div>
                 <div id="portfoliosUpgrade" class="hidden bg-indigo-50 border border-indigo-200 text-indigo-900 px-4 py-3 rounded mb-4 text-sm">
                     Multi-portfolio features require <strong>Professional ($149/mo)</strong>.
@@ -648,11 +651,15 @@
             try {
                 const flagsResp = await fetch('/api/feature-flags');
                 const flags = flagsResp.ok ? await flagsResp.json() : {};
-                if (!flags.portfolios) {
-                    card.classList.add('hidden');
+                const enabled = !!flags.portfolios;
+                document.getElementById('portfoliosDisabled').classList.toggle('hidden', enabled);
+                document.getElementById('portfoliosUpgrade').classList.toggle('hidden', !enabled || !!(accountAccessState && accountAccessState.can_use_multi_portfolio));
+                document.getElementById('createPortfolioBtn').classList.toggle('hidden', !enabled || !(accountAccessState && accountAccessState.can_use_multi_portfolio));
+                document.getElementById('createPortfolioForm').classList.add('hidden');
+                if (!enabled) {
+                    document.getElementById('portfoliosList').innerHTML = '';
                     return;
                 }
-                card.classList.remove('hidden');
                 const resp = await fetch(`/api/workspaces/${currentWorkspace}/portfolios`, { credentials: 'same-origin' });
                 const data = resp.ok ? await resp.json() : { portfolios: [] };
                 workspacePortfolios = data.portfolios || [];
