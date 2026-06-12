@@ -50,7 +50,7 @@
         <!-- Page Header -->
         <div class="mb-8">
             <h1 class="text-3xl font-bold text-gray-800 mb-2">Workspace Settings</h1>
-            <p class="text-gray-600">Configure connectors and manage credentials for your workspace</p>
+            <p class="text-gray-600">Configure connectors, client portfolios, and assignments for your workspace</p>
         </div>
 
         <!-- Loading State -->
@@ -82,6 +82,35 @@
                 <div id="workspaceInfo" class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <!-- Workspace details will be populated here -->
                 </div>
+            </div>
+
+            <!-- Client Portfolios (Professional) -->
+            <div id="portfoliosCard" class="bg-white rounded-lg shadow-lg p-6 mb-8">
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4">
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-800">Client Portfolios</h2>
+                        <p class="text-gray-600 text-sm mt-1">Group assignments by client or company. Professional includes portfolio-scoped briefings.</p>
+                    </div>
+                    <button id="createPortfolioBtn" type="button" onclick="showCreatePortfolioForm()" class="hidden bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">
+                        + New Portfolio
+                    </button>
+                </div>
+                <div id="portfoliosDisabled" class="hidden bg-gray-50 border border-gray-200 text-gray-700 px-4 py-3 rounded mb-4 text-sm">
+                    Client portfolios are not enabled on this server (<code class="text-xs">ENABLE_PORTFOLIOS</code> must be <code class="text-xs">true</code>).
+                </div>
+                <div id="portfoliosUpgrade" class="hidden bg-indigo-50 border border-indigo-200 text-indigo-900 px-4 py-3 rounded mb-4 text-sm">
+                    Multi-portfolio features require <strong>Professional ($149/mo)</strong>.
+                    <button type="button" onclick="startPortfolioUpgrade()" class="ml-2 underline font-medium">Upgrade</button>
+                </div>
+                <div id="createPortfolioForm" class="hidden mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <label class="block text-sm text-gray-600 mb-1">Portfolio name</label>
+                    <input id="newPortfolioName" type="text" class="w-full border rounded px-3 py-2 mb-3" placeholder="Acme Corp">
+                    <div class="flex gap-2">
+                        <button type="button" onclick="submitCreatePortfolio()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Create</button>
+                        <button type="button" onclick="hideCreatePortfolioForm()" class="px-4 py-2 rounded text-sm border border-gray-300">Cancel</button>
+                    </div>
+                </div>
+                <div id="portfoliosList" class="space-y-3"></div>
             </div>
 
             <!-- CTOLens scheduled enrichment -->
@@ -208,35 +237,6 @@
                         </button>
                     </div>
                 </div>
-            </div>
-
-            <!-- Client Portfolios (Professional) -->
-            <div id="portfoliosCard" class="bg-white rounded-lg shadow-lg p-6 mb-8">
-                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4">
-                    <div>
-                        <h2 class="text-xl font-semibold text-gray-800">Client Portfolios</h2>
-                        <p class="text-gray-600 text-sm mt-1">Group assignments by client or company. Professional includes portfolio-scoped briefings.</p>
-                    </div>
-                    <button id="createPortfolioBtn" type="button" onclick="showCreatePortfolioForm()" class="hidden bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">
-                        + New Portfolio
-                    </button>
-                </div>
-                <div id="portfoliosDisabled" class="hidden bg-gray-50 border border-gray-200 text-gray-700 px-4 py-3 rounded mb-4 text-sm">
-                    Client portfolios are not enabled on this server (<code class="text-xs">ENABLE_PORTFOLIOS</code> must be <code class="text-xs">true</code>).
-                </div>
-                <div id="portfoliosUpgrade" class="hidden bg-indigo-50 border border-indigo-200 text-indigo-900 px-4 py-3 rounded mb-4 text-sm">
-                    Multi-portfolio features require <strong>Professional ($149/mo)</strong>.
-                    <button type="button" onclick="startPortfolioUpgrade()" class="ml-2 underline font-medium">Upgrade</button>
-                </div>
-                <div id="createPortfolioForm" class="hidden mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <label class="block text-sm text-gray-600 mb-1">Portfolio name</label>
-                    <input id="newPortfolioName" type="text" class="w-full border rounded px-3 py-2 mb-3" placeholder="Acme Corp">
-                    <div class="flex gap-2">
-                        <button type="button" onclick="submitCreatePortfolio()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Create</button>
-                        <button type="button" onclick="hideCreatePortfolioForm()" class="px-4 py-2 rounded text-sm border border-gray-300">Cancel</button>
-                    </div>
-                </div>
-                <div id="portfoliosList" class="space-y-3"></div>
             </div>
 
             <!-- Assignments -->
@@ -622,6 +622,15 @@
         let currentUser = null;
         let authToken = null;
 
+        function wsAuthHeaders(extra) {
+            const headers = Object.assign({ 'Content-Type': 'application/json' }, extra || {});
+            authToken = authToken || localStorage.getItem('auth_token');
+            if (authToken) {
+                headers['Authorization'] = 'Bearer ' + authToken;
+            }
+            return headers;
+        }
+
         // Initialize page - multiple approaches for Railway compatibility
         document.addEventListener('DOMContentLoaded', initializePage);
         
@@ -636,7 +645,7 @@
 
         async function loadAccountAccessState() {
             try {
-                const resp = await fetch('/api/auth/trial', { credentials: 'same-origin' });
+                const resp = await fetch('/api/auth/trial', { credentials: 'same-origin', headers: wsAuthHeaders() });
                 if (resp.ok) {
                     accountAccessState = await resp.json();
                 }
@@ -649,7 +658,7 @@
             const card = document.getElementById('portfoliosCard');
             if (!card) return;
             try {
-                const flagsResp = await fetch('/api/feature-flags');
+                const flagsResp = await fetch('/api/feature-flags', { credentials: 'same-origin', headers: wsAuthHeaders() });
                 const flags = flagsResp.ok ? await flagsResp.json() : {};
                 const enabled = !!flags.portfolios;
                 document.getElementById('portfoliosDisabled').classList.toggle('hidden', enabled);
@@ -660,7 +669,7 @@
                     document.getElementById('portfoliosList').innerHTML = '';
                     return;
                 }
-                const resp = await fetch(`/api/workspaces/${currentWorkspace}/portfolios`, { credentials: 'same-origin' });
+                const resp = await fetch(`/api/workspaces/${currentWorkspace}/portfolios`, { credentials: 'same-origin', headers: wsAuthHeaders() });
                 const data = resp.ok ? await resp.json() : { portfolios: [] };
                 workspacePortfolios = data.portfolios || [];
                 renderPortfoliosUi();
@@ -755,9 +764,7 @@
                 alert(data.message || data.error || 'Could not update portfolio');
                 return;
             }
-            loadAccountAccessState().then(function() {
-                loadWorkspaceSettings();
-            });
+            loadWorkspaceSettings();
         }
 
         function initializePage() {
@@ -792,7 +799,9 @@
             
             console.log(`[DEBUG] Workspace extracted from URL: ${currentWorkspace}`);
 
-            loadWorkspaceSettings();
+            loadAccountAccessState().then(function() {
+                loadWorkspaceSettings();
+            });
         }
 
         async function loadWorkspaceSettings() {
@@ -801,9 +810,8 @@
                 console.log(`[DEBUG] Request URL: /api/workspaces/${currentWorkspace}/settings`);
                 
                 const response = await fetch(`/api/workspaces/${currentWorkspace}/settings`, {
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
+                    credentials: 'same-origin',
+                    headers: wsAuthHeaders()
                 });
 
                 console.log(`[DEBUG] Response status: ${response.status}`);
