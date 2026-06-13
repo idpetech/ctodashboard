@@ -26,6 +26,19 @@
         .credential-form.active {
             display: block;
         }
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .button-loading {
+            opacity: 0.7;
+            cursor: wait;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -612,6 +625,8 @@
             </div>
         </div>
     </div>
+
+    {% include 'dashboard/_assignment_edit_modal.html' %}
 
     <script>
         // Global variables
@@ -1324,10 +1339,180 @@
         }
 
         function editAssignment(assignmentId) {
-            alert(
-                'Portfolio: use the Portfolio dropdown on this assignment row.\n\n' +
-                'Name, budget, and connectors: edit from the main Dashboard (Overview → assignment → Edit).'
-            );
+            openAssignmentEditModal(assignmentId);
+        }
+
+        async function openAssignmentEditModal(assignmentId) {
+            try {
+                const response = await fetch(`/api/workspaces/${currentWorkspace}/assignments`, {
+                    credentials: 'same-origin',
+                    headers: wsAuthHeaders(),
+                });
+                if (!response.ok) {
+                    throw new Error('Failed to load assignment data');
+                }
+                const data = await response.json();
+                const assignments = data.assignments || data || [];
+                const assignment = assignments.find(function(a) { return a.id === assignmentId; });
+                if (!assignment) {
+                    showAssignmentEditMessage('Assignment not found', 'error');
+                    return;
+                }
+
+                document.getElementById('assignment-id').value = assignment.id;
+                document.getElementById('assignment-name').value = assignment.name || assignment.id;
+                document.getElementById('assignment-description').value = assignment.description || '';
+                document.getElementById('assignment-status').value = assignment.status || 'active';
+                document.getElementById('assignment-team-size').value = assignment.team_size || '';
+                document.getElementById('assignment-burn-rate').value = assignment.monthly_burn_rate || '';
+                document.getElementById('assignment-target-burn').value = assignment.target_monthly_burn || '';
+                document.getElementById('assignment-start-date').value = assignment.start_date || '';
+
+                switchAssignmentTab('basic');
+                displayAssignmentModalConnectors(assignment);
+                document.getElementById('assignment-edit-message').classList.add('hidden');
+                document.getElementById('assignment-edit-modal').classList.remove('hidden');
+            } catch (error) {
+                console.error('Error loading assignment:', error);
+                showAssignmentEditMessage('Failed to load assignment: ' + error.message, 'error');
+                document.getElementById('assignment-edit-modal').classList.remove('hidden');
+            }
+        }
+
+        function hideAssignmentEditModal() {
+            document.getElementById('assignment-edit-modal').classList.add('hidden');
+            document.getElementById('assignment-edit-message').classList.add('hidden');
+            document.getElementById('assignment-edit-form').reset();
+        }
+
+        async function saveAssignmentChanges(event) {
+            event.preventDefault();
+            const submitBtn = event.target.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Saving...';
+
+            const assignmentId = document.getElementById('assignment-id').value;
+            const formData = {
+                name: document.getElementById('assignment-name').value,
+                description: document.getElementById('assignment-description').value,
+                status: document.getElementById('assignment-status').value,
+                team_size: parseInt(document.getElementById('assignment-team-size').value, 10) || null,
+                monthly_burn_rate: parseInt(document.getElementById('assignment-burn-rate').value, 10) || null,
+                target_monthly_burn: parseInt(document.getElementById('assignment-target-burn').value, 10) || null,
+                start_date: document.getElementById('assignment-start-date').value || null,
+            };
+
+            try {
+                const response = await fetch(
+                    `/api/workspaces/${currentWorkspace}/assignments/${encodeURIComponent(assignmentId)}`,
+                    {
+                        method: 'PUT',
+                        credentials: 'same-origin',
+                        headers: wsAuthHeaders(),
+                        body: JSON.stringify(formData),
+                    }
+                );
+                const data = await response.json().catch(function() { return {}; });
+                if (response.ok) {
+                    showAssignmentEditMessage('Assignment updated successfully!', 'success');
+                    setTimeout(function() {
+                        hideAssignmentEditModal();
+                        loadWorkspaceSettings();
+                    }, 600);
+                } else {
+                    showAssignmentEditMessage(data.error || ('Failed to update (HTTP ' + response.status + ')'), 'error');
+                }
+            } catch (error) {
+                showAssignmentEditMessage('Connection error — please try again.', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
+            }
+        }
+
+        function showAssignmentEditMessage(message, type) {
+            const messageDiv = document.getElementById('assignment-edit-message');
+            messageDiv.textContent = message;
+            messageDiv.className = 'mb-4 p-3 rounded ' + (type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700');
+            messageDiv.classList.remove('hidden');
+        }
+
+        function switchAssignmentTab(tabName) {
+            document.querySelectorAll('.assignment-tab-content').forEach(function(tab) {
+                tab.classList.add('hidden');
+            });
+            document.querySelectorAll('.assignment-tab-btn').forEach(function(btn) {
+                btn.classList.remove('border-blue-500', 'text-blue-600');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            });
+            const content = document.getElementById(tabName + '-tab-content');
+            if (content) content.classList.remove('hidden');
+            const activeBtn = document.getElementById(tabName + '-tab');
+            if (activeBtn) {
+                activeBtn.classList.remove('border-transparent', 'text-gray-500');
+                activeBtn.classList.add('border-blue-500', 'text-blue-600');
+            }
+            if (tabName === 'connectors') {
+                const assignmentId = document.getElementById('assignment-id').value;
+                const assignment = (workspaceSettings && workspaceSettings.assignments || []).find(function(a) {
+                    return a.id === assignmentId;
+                });
+                if (assignment) displayAssignmentModalConnectors(assignment);
+            }
+        }
+
+        function displayAssignmentModalConnectors(assignment) {
+            const container = document.getElementById('assignmentModalConnectorsList');
+            const noConnectorsMsg = document.getElementById('assignmentModalNoConnectors');
+            if (!container || !noConnectorsMsg) return;
+
+            const metricsConfig = assignment.metrics_config || {};
+            const enabled = ['github', 'jira', 'aws', 'openai'].filter(function(type) {
+                return metricsConfig[type] && metricsConfig[type].enabled;
+            });
+
+            if (!enabled.length) {
+                container.innerHTML = '';
+                noConnectorsMsg.classList.remove('hidden');
+                return;
+            }
+
+            noConnectorsMsg.classList.add('hidden');
+            container.innerHTML = enabled.map(function(type) {
+                const label = type.charAt(0).toUpperCase() + type.slice(1);
+                return '<div class="border rounded-lg p-4 text-sm text-gray-700">'
+                    + '<span class="font-medium">' + label + '</span> enabled — configure credentials in '
+                    + '<strong>Connector Credentials</strong> above (select this assignment).</div>';
+            }).join('');
+        }
+
+        function addConnectorToAssignment() {
+            alert('To enable connectors, use Create Assignment or edit from the main Dashboard. Credentials are managed in Connector Credentials above.');
+        }
+
+        function configureAssignmentConnector(connectorType) {
+            hideAssignmentEditModal();
+            configureConnector(connectorType);
+            const selector = document.getElementById(connectorType + '_assignment');
+            const assignmentId = document.getElementById('assignment-id').value;
+            if (selector && assignmentId) selector.value = assignmentId;
+        }
+
+        function removeAssignmentConnector() {
+            alert('Remove connectors from the main Dashboard assignment editor.');
+        }
+
+        function showAssignmentHistory() {
+            alert('Assignment history is available from the main Dashboard.');
+        }
+
+        function loadAssignmentModalConnectors() {
+            const assignmentId = document.getElementById('assignment-id').value;
+            const assignment = (workspaceSettings && workspaceSettings.assignments || []).find(function(a) {
+                return a.id === assignmentId;
+            });
+            if (assignment) displayAssignmentModalConnectors(assignment);
         }
 
         async function deleteAssignment(assignmentId) {
