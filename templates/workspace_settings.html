@@ -824,8 +824,8 @@
 
                 workspaceSettings = await response.json();
                 console.log(`[DEBUG] Workspace settings loaded:`, workspaceSettings);
+                await loadPortfoliosUi();
                 displayWorkspaceSettings();
-                loadPortfoliosUi();
                 loadCredentialStatus();
                 loadCtolenSchedule();
 
@@ -1324,8 +1324,10 @@
         }
 
         function editAssignment(assignmentId) {
-            // TODO: Implement assignment editing
-            alert(`Edit assignment: ${assignmentId}\nThis will be implemented in the next phase`);
+            alert(
+                'Portfolio: use the Portfolio dropdown on this assignment row.\n\n' +
+                'Name, budget, and connectors: edit from the main Dashboard (Overview → assignment → Edit).'
+            );
         }
 
         async function deleteAssignment(assignmentId) {
