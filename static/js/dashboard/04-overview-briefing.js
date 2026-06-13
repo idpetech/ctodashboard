@@ -937,7 +937,7 @@ function renderOverviewAssignmentsTable(assignments) {
             if (assignment.metrics_config.aws && assignment.metrics_config.aws.enabled) services.push('AWS');
             if (assignment.metrics_config.railway && assignment.metrics_config.railway.enabled) services.push('Railway');
             services.forEach(function(service) {
-                const color = service === 'GitHub' ? 'purple' : (service === 'Jira' ? 'blue' : (service === 'AWS' ? 'orange' : 'green'));
+                const color = service === 'GitHub' ? 'purple' : (service === 'Jira' ? 'blue' : (service === 'AWS' ? 'orange' : (service === 'Railway' ? 'purple' : (service === 'Vercel' ? 'gray' : (service === 'Azure' ? 'sky' : 'green')))));
                 html += '<span class="inline-block px-2 py-1 bg-' + color + '-100 text-' + color + '-800 text-xs rounded mr-1 mb-1">' + service + '</span>';
             });
         }
@@ -1268,9 +1268,117 @@ function generateAssignmentContent(assignment) {
     return html;
 }
 
+
+function renderAct4ConnectorSection(title, emoji, colorClass, borderClass, sectionId, bodyHtml) {
+    let html = '<div class="' + borderClass + ' rounded mb-4">';
+    html += '<div class="cursor-pointer p-4 hover:opacity-90" onclick="toggleSection('' + sectionId + '')">';
+    html += '<h4 class="text-lg font-semibold ' + colorClass + ' flex items-center">';
+    html += '<span id="' + sectionId + '-icon" class="mr-2">▶️</span>';
+    html += emoji + ' ' + title;
+    html += '</h4></div>';
+    html += '<div id="' + sectionId + '" class="hidden p-4 pt-0">' + bodyHtml + '</div></div>';
+    return html;
+}
+
+function renderRailwayMetricsBlock(railway) {
+    if (!railway) return '';
+    if (railway.error) {
+        return '<div class="bg-red-100 border border-red-300 text-red-700 p-3 rounded mb-4">🚄 Railway Error: ' + railway.error + '</div>';
+    }
+    if (railway.status === 'api_unavailable') {
+        const msg = railway.message || railway.error || 'Railway API unavailable';
+        let html = '<div class="bg-yellow-100 border border-yellow-300 text-yellow-800 p-3 rounded mb-4">';
+        html += '🚄 Railway: ' + msg;
+        if (railway.fallback_data) {
+            html += '<div class="text-sm mt-2">Project: ' + (railway.fallback_data.project_id || 'N/A') + '</div>';
+        }
+        html += '</div>';
+        return html;
+    }
+    const body = '<div class="grid grid-cols-2 md:grid-cols-4 gap-4">'
+        + metricCard('Services tracked', railway.total_deployments ?? 0)
+        + metricCard('Successful', railway.successful_deployments ?? 0, 'text-green-600')
+        + metricCard('Failed', railway.failed_deployments ?? 0, 'text-red-600')
+        + metricCard('Success rate', (railway.success_rate ?? 0) + '%', 'text-purple-700')
+        + '</div>'
+        + '<div class="text-sm text-gray-600 mt-3">Project: <strong>' + (railway.project_name || railway.project_id || 'N/A') + '</strong>'
+        + (railway.last_deployment ? ' · Last deployment: ' + railway.last_deployment : '')
+        + (railway.average_deployment_time && railway.average_deployment_time !== 'N/A' ? ' · Avg time: ' + railway.average_deployment_time : '')
+        + '</div>';
+    return renderAct4ConnectorSection(
+        'Railway Deployments',
+        '🚄',
+        'text-purple-800',
+        'bg-purple-50 border border-purple-200',
+        'railway-section',
+        body
+    );
+}
+
+function renderVercelMetricsBlock(vercel) {
+    if (!vercel) return '';
+    if (vercel.error) {
+        return '<div class="bg-red-100 border border-red-300 text-red-700 p-3 rounded mb-4">▲ Vercel Error: ' + vercel.error + '</div>';
+    }
+    const body = '<div class="grid grid-cols-2 md:grid-cols-4 gap-4">'
+        + metricCard('Recent deploys', vercel.total_deployments ?? 0)
+        + metricCard('Ready', vercel.ready_deployments ?? 0, 'text-green-600')
+        + metricCard('Failed', vercel.failed_deployments ?? 0, 'text-red-600')
+        + metricCard('Success rate', vercel.success_rate != null ? vercel.success_rate + '%' : 'N/A', 'text-gray-800')
+        + '</div>'
+        + '<div class="text-sm text-gray-600 mt-3">Project: <strong>' + (vercel.project_id || 'N/A') + '</strong>'
+        + (vercel.last_deployment_state ? ' · Last state: ' + vercel.last_deployment_state : '')
+        + (vercel.last_deployment_url ? ' · <a class="text-blue-600 underline" target="_blank" rel="noopener" href="https://' + vercel.last_deployment_url + '">Latest deploy</a>' : '')
+        + '</div>';
+    return renderAct4ConnectorSection(
+        'Vercel Deployments',
+        '▲',
+        'text-gray-900',
+        'bg-gray-50 border border-gray-300',
+        'vercel-section',
+        body
+    );
+}
+
+function renderAzureMetricsBlock(azure) {
+    if (!azure) return '';
+    if (azure.error) {
+        return '<div class="bg-red-100 border border-red-300 text-red-700 p-3 rounded mb-4">☁️ Azure Error: ' + azure.error + '</div>';
+    }
+    let body = '';
+    if (azure.resource_group) {
+        body += '<div class="grid grid-cols-2 md:grid-cols-3 gap-4">'
+            + metricCard('Resources', azure.resource_count ?? 0)
+            + metricCard('Resource group', azure.resource_group, 'text-sky-700')
+            + metricCard('Subscription', azure.subscription_id || 'N/A', 'text-gray-700')
+            + '</div>';
+    } else {
+        body += '<div class="grid grid-cols-2 md:grid-cols-4 gap-4">'
+            + metricCard('Resource groups', azure.resource_group_count ?? 0)
+            + metricCard('Web apps', azure.web_app_count ?? 0)
+            + metricCard('Running apps', azure.web_apps_running ?? 0, 'text-green-600')
+            + metricCard('Availability', azure.web_app_availability_rate != null ? azure.web_app_availability_rate + '%' : 'N/A', 'text-sky-700')
+            + '</div>';
+    }
+    return renderAct4ConnectorSection(
+        'Azure Infrastructure',
+        '☁️',
+        'text-sky-800',
+        'bg-sky-50 border border-sky-200',
+        'azure-section',
+        body
+    );
+}
+
+function metricCard(label, value, valueClass) {
+    return '<div class="bg-white p-3 rounded border"><div class="text-sm text-gray-600">' + label + '</div>'
+        + '<div class="text-xl font-bold ' + (valueClass || 'text-gray-800') + '">' + value + '</div></div>';
+}
+
 function connectorMetricsOk(payload) {
     if (!payload) return false;
     if (payload.error) return false;
+    if (payload.status === 'api_unavailable') return false;
     if (payload.cost_analysis && payload.cost_analysis.error) return false;
     if (Array.isArray(payload)) {
         return payload.length > 0 && payload.every(item => !item.error);
@@ -1280,7 +1388,7 @@ function connectorMetricsOk(payload) {
 
 function summarizeMetricsPayload(data) {
     const parts = [];
-    for (const key of ['github', 'jira', 'aws', 'openai', 'railway']) {
+    for (const key of ['github', 'jira', 'aws', 'openai', 'railway', 'vercel', 'azure']) {
         if (!data[key]) continue;
         const p = data[key];
         if (p.error) {
@@ -1330,6 +1438,8 @@ async function loadBasicMetrics(assignmentId) {
         if (connectorMetricsOk(data.aws)) metricsCount++;
         if (connectorMetricsOk(data.openai)) metricsCount++;
         if (connectorMetricsOk(data.railway)) metricsCount++;
+        if (connectorMetricsOk(data.vercel)) metricsCount++;
+        if (connectorMetricsOk(data.azure)) metricsCount++;
         
         if (metricsCount > 0) {
             statusColor = 'text-green-600';
@@ -1899,8 +2009,10 @@ function displayAllMetrics(metrics, container) {
         html += '</div>';
     }
     
-    // Railway would go here when implemented
-    
+    html += renderRailwayMetricsBlock(metrics.railway);
+    html += renderVercelMetricsBlock(metrics.vercel);
+    html += renderAzureMetricsBlock(metrics.azure);
+
     // CTO Recommendations Section - Comprehensive for all services
     html += '<div class="bg-yellow-50 border border-yellow-200 p-4 rounded">';
     html += '<h4 class="text-lg font-semibold text-yellow-800 mb-3">💡 CTO Strategic Recommendations</h4>';
@@ -2080,7 +2192,10 @@ function countEnabledServices(metricsConfig) {
     if (metricsConfig.github && metricsConfig.github.enabled) count++;
     if (metricsConfig.jira && metricsConfig.jira.enabled) count++;
     if (metricsConfig.aws && metricsConfig.aws.enabled) count++;
+    if (metricsConfig.openai && metricsConfig.openai.enabled) count++;
     if (metricsConfig.railway && metricsConfig.railway.enabled) count++;
+    if (metricsConfig.vercel && metricsConfig.vercel.enabled) count++;
+    if (metricsConfig.azure && metricsConfig.azure.enabled) count++;
     return count;
 }
 

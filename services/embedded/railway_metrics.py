@@ -223,21 +223,27 @@ class RailwayMetrics:
         }
 
     async def _get_metrics_graphql(self, project_id: str, project_name: str) -> Dict:
-        """Try Railway's GraphQL API"""
+        """Try Railway's GraphQL API (current schema: project → services → latestDeployment)."""
         query = """
-        query GetProjectDeployments($projectId: String!) {
-            project(id: $projectId) {
+        query GetProjectMetrics($id: String!) {
+            project(id: $id) {
                 id
                 name
-                deployments {
+                services {
                     edges {
                         node {
-                            id
-                            status
-                            createdAt
-                            finishedAt
-                            environment {
-                                name
+                            name
+                            serviceInstances {
+                                edges {
+                                    node {
+                                        latestDeployment {
+                                            id
+                                            status
+                                            createdAt
+                                            finishedAt
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -246,20 +252,19 @@ class RailwayMetrics:
         }
         """
 
-        payload = {"query": query, "variables": {"projectId": project_id}}
+        payload = {"query": query, "variables": {"id": project_id}}
 
         auth_modes = [
             {"Authorization": f"Bearer {self.api_token}", "Content-Type": "application/json"},
             {"Project-Access-Token": self.api_token, "Content-Type": "application/json"},
         ]
 
-        # Create SSL context that's more permissive for testing
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
 
         connector = aiohttp.TCPConnector(ssl=ssl_context)
-        timeout = aiohttp.ClientTimeout(total=10)
+        timeout = aiohttp.ClientTimeout(total=15)
 
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
             for headers in auth_modes:
@@ -279,9 +284,16 @@ class RailwayMetrics:
                     if not project:
                         continue
 
-                    deployments = project.get("deployments", {}).get("edges", [])
+                    deployments = []
+                    for service_edge in project.get("services", {}).get("edges", []):
+                        service = service_edge.get("node") or {}
+                        for inst_edge in service.get("serviceInstances", {}).get("edges", []):
+                            deployment = (inst_edge.get("node") or {}).get("latestDeployment")
+                            if deployment:
+                                deployments.append(deployment)
+
                     return self._process_deployment_data(
-                        deployments, project_id, project.get("name")
+                        deployments, project_id, project.get("name") or project_name
                     )
 
         return {
