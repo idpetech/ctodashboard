@@ -196,20 +196,22 @@ class RailwayMetrics:
             ("Legacy REST API", self._get_metrics_rest_legacy),
         ]
 
+        last_error = None
         for method_name, method in methods:
             try:
                 result = await method(project_id, project_name)
                 if result.get("status") == "success":
                     return result
-                # If method returns api_unavailable, try next method
-            except Exception:
-                # Continue to next method
-                pass
+                last_error = result.get("error") or result.get("message") or last_error
+            except Exception as exc:
+                last_error = last_error or str(exc)
+                continue
 
         # All methods failed - return graceful fallback
         return {
             "status": "api_unavailable",
-            "message": "Railway API currently unavailable",
+            "message": last_error or "Railway API currently unavailable",
+            "error": last_error,
             "fallback_data": {
                 "project_id": project_id or "unknown",
                 "project_name": project_name or "unknown",
@@ -222,8 +224,96 @@ class RailwayMetrics:
             },
         }
 
+    def _graphql_session(self):
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+        return aiohttp.ClientSession(connector=connector, timeout=aiohttp.ClientTimeout(total=15))
+
+    async def _post_graphql(
+        self, session, query: str, variables: Optional[dict] = None, project_token: bool = False
+    ) -> tuple[int, dict]:
+        headers = {"Content-Type": "application/json"}
+        if project_token:
+            headers["Project-Access-Token"] = self.api_token
+        else:
+            headers["Authorization"] = f"Bearer {self.api_token}"
+        payload: Dict[str, Any] = {"query": query}
+        if variables:
+            payload["variables"] = variables
+        async with session.post(self.base_url, json=payload, headers=headers) as response:
+            status = response.status
+            try:
+                data = await response.json()
+            except Exception:
+                data = {"errors": [{"message": await response.text()}]}
+            return status, data
+
+    async def _get_project_token_context(self, session) -> Optional[Dict[str, str]]:
+        status, data = await self._post_graphql(
+            session, "query { projectToken { projectId environmentId } }", project_token=True
+        )
+        if status != 200 or data.get("errors"):
+            return None
+        token_data = (data.get("data") or {}).get("projectToken") or {}
+        project_id = token_data.get("projectId")
+        environment_id = token_data.get("environmentId")
+        if not project_id or not environment_id:
+            return None
+        return {"project_id": project_id, "environment_id": environment_id}
+
+    async def _get_metrics_graphql_environment(
+        self, session, environment_id: str, project_id: str, project_name: str
+    ) -> Dict:
+        query = """
+        query GetEnvironmentMetrics($id: String!) {
+            environment(id: $id) {
+                id
+                serviceInstances {
+                    edges {
+                        node {
+                            latestDeployment {
+                                id
+                                status
+                                createdAt
+                                updatedAt
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        """
+        status, data = await self._post_graphql(
+            session, query, {"id": environment_id}, project_token=True
+        )
+        if status != 200:
+            return {
+                "status": "api_unavailable",
+                "method": "graphql_environment",
+                "error": f"HTTP {status}",
+            }
+        if data.get("errors"):
+            message = (data["errors"][0] or {}).get("message", "GraphQL error")
+            return {"status": "api_unavailable", "method": "graphql_environment", "error": message}
+        environment = (data.get("data") or {}).get("environment")
+        if not environment:
+            return {
+                "status": "api_unavailable",
+                "method": "graphql_environment",
+                "error": "Environment not accessible with project token",
+            }
+        deployments = []
+        for inst_edge in environment.get("serviceInstances", {}).get("edges", []):
+            deployment = (inst_edge.get("node") or {}).get("latestDeployment")
+            if deployment:
+                deployments.append(deployment)
+        return self._process_deployment_data(deployments, project_id, project_name)
+
     async def _get_metrics_graphql(self, project_id: str, project_name: str) -> Dict:
-        """Try Railway's GraphQL API (current schema: project → services → latestDeployment)."""
+        """Try Railway GraphQL (account/workspace token or project token)."""
+        last_error = "GraphQL endpoint not found or project not accessible"
         query = """
         query GetProjectMetrics($id: String!) {
             project(id: $id) {
@@ -240,7 +330,7 @@ class RailwayMetrics:
                                             id
                                             status
                                             createdAt
-                                            finishedAt
+                                            updatedAt
                                         }
                                     }
                                 }
@@ -252,55 +342,66 @@ class RailwayMetrics:
         }
         """
 
-        payload = {"query": query, "variables": {"id": project_id}}
+        async with self._graphql_session() as session:
+            token_ctx = await self._get_project_token_context(session)
+            if token_ctx:
+                resolved_project_id = project_id or token_ctx["project_id"]
+                status, data = await self._post_graphql(
+                    session,
+                    query,
+                    {"id": resolved_project_id},
+                    project_token=True,
+                )
+                if status == 200 and not data.get("errors"):
+                    project = (data.get("data") or {}).get("project")
+                    if project:
+                        deployments = []
+                        for service_edge in project.get("services", {}).get("edges", []):
+                            service = service_edge.get("node") or {}
+                            for inst_edge in service.get("serviceInstances", {}).get("edges", []):
+                                deployment = (inst_edge.get("node") or {}).get("latestDeployment")
+                                if deployment:
+                                    deployments.append(deployment)
+                        return self._process_deployment_data(
+                            deployments,
+                            resolved_project_id,
+                            project.get("name") or project_name,
+                        )
+                return await self._get_metrics_graphql_environment(
+                    session,
+                    token_ctx["environment_id"],
+                    resolved_project_id,
+                    project_name,
+                )
 
-        auth_modes = [
-            {"Authorization": f"Bearer {self.api_token}", "Content-Type": "application/json"},
-            {"Project-Access-Token": self.api_token, "Content-Type": "application/json"},
-        ]
+            status, data = await self._post_graphql(session, query, {"id": project_id})
+            if status == 404:
+                return {"status": "api_unavailable", "method": "graphql", "error": last_error}
+            if status != 200:
+                return {
+                    "status": "api_unavailable",
+                    "method": "graphql",
+                    "error": f"HTTP {status}",
+                }
+            if data.get("errors"):
+                last_error = (data["errors"][0] or {}).get("message", last_error)
+                return {"status": "api_unavailable", "method": "graphql", "error": last_error}
 
-        ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
+            project = (data.get("data") or {}).get("project")
+            if not project:
+                return {"status": "api_unavailable", "method": "graphql", "error": last_error}
 
-        connector = aiohttp.TCPConnector(ssl=ssl_context)
-        timeout = aiohttp.ClientTimeout(total=15)
+            deployments = []
+            for service_edge in project.get("services", {}).get("edges", []):
+                service = service_edge.get("node") or {}
+                for inst_edge in service.get("serviceInstances", {}).get("edges", []):
+                    deployment = (inst_edge.get("node") or {}).get("latestDeployment")
+                    if deployment:
+                        deployments.append(deployment)
 
-        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-            for headers in auth_modes:
-                async with session.post(self.base_url, json=payload, headers=headers) as response:
-                    if response.status == 404:
-                        continue
-
-                    if response.status != 200:
-                        continue
-
-                    data = await response.json()
-
-                    if data.get("errors"):
-                        continue
-
-                    project = data.get("data", {}).get("project")
-                    if not project:
-                        continue
-
-                    deployments = []
-                    for service_edge in project.get("services", {}).get("edges", []):
-                        service = service_edge.get("node") or {}
-                        for inst_edge in service.get("serviceInstances", {}).get("edges", []):
-                            deployment = (inst_edge.get("node") or {}).get("latestDeployment")
-                            if deployment:
-                                deployments.append(deployment)
-
-                    return self._process_deployment_data(
-                        deployments, project_id, project.get("name") or project_name
-                    )
-
-        return {
-            "status": "api_unavailable",
-            "method": "graphql",
-            "error": "GraphQL endpoint not found or project not accessible",
-        }
+            return self._process_deployment_data(
+                deployments, project_id, project.get("name") or project_name
+            )
 
     async def _get_metrics_rest_v2(self, project_id: str, project_name: str) -> Dict:
         """Try Railway's REST API v2"""
@@ -414,7 +515,12 @@ class RailwayMetrics:
 
                 # Track deployment time if available
                 created_at = deployment.get("createdAt") or deployment.get("created_at")
-                finished_at = deployment.get("finishedAt") or deployment.get("finished_at")
+                finished_at = (
+                    deployment.get("updatedAt")
+                    or deployment.get("statusUpdatedAt")
+                    or deployment.get("finishedAt")
+                    or deployment.get("finished_at")
+                )
 
                 if created_at and finished_at:
                     try:
