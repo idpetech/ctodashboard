@@ -95,6 +95,19 @@ def register_assignments_routes(app):
         except Exception as e:
             return jsonify({"error": f"Failed to load assignments: {str(e)}"}), 500
 
+        portfolio_id = (request.args.get("portfolio_id") or "").strip()
+        if portfolio_id:
+            from services.portfolio_scope_service import (
+                filter_assignments_by_portfolio,
+                is_portfolios_enabled,
+            )
+
+            if not is_portfolios_enabled():
+                return jsonify({"error": "Portfolios are disabled"}), 403
+            if len(scope_ids) != 1:
+                return jsonify({"error": "portfolio_id requires a single workspace_id"}), 400
+            all_assignments = filter_assignments_by_portfolio(all_assignments, portfolio_id)
+
         try:
             overview = build_portfolio_overview(all_assignments)
             if len(scope_ids) == 1:

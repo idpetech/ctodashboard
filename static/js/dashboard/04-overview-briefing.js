@@ -1,4 +1,50 @@
 /* CTO Lens dashboard module: 04-overview-briefing.js */
+window.overviewPortfolioScope = 'all';
+window.overviewPortfoliosCache = [];
+
+function getOverviewPortfolioScope() {
+    return window.overviewPortfolioScope || 'all';
+}
+
+function getOverviewPortfolioLabel(scopeId) {
+    if (!scopeId || scopeId === 'all') return 'All (Consolidated)';
+    const list = window.overviewPortfoliosCache || [];
+    const match = list.find(function(p) { return p.id === scopeId; });
+    return (match && (match.name || match.id)) || scopeId;
+}
+
+function renderOverviewPortfolioSubtabs(portfolios, activeScope) {
+    const wrap = document.getElementById('overview-portfolio-subtabs');
+    if (!wrap) return;
+    if (!portfolios || !portfolios.length) {
+        wrap.classList.add('hidden');
+        wrap.innerHTML = '';
+        return;
+    }
+    wrap.classList.remove('hidden');
+    let html = '<div class="flex flex-wrap gap-2 items-center">';
+    html += '<span class="text-xs font-semibold text-gray-500 uppercase mr-1">Portfolio</span>';
+    const scopes = [{ id: 'all', name: 'All (Consolidated)' }].concat(portfolios);
+    scopes.forEach(function(pf) {
+        const active = (pf.id === activeScope) || (pf.id === 'all' && activeScope === 'all');
+        const cls = active
+            ? 'bg-blue-600 text-white border-blue-600'
+            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50';
+        html += '<button type="button" id="overview-scope-' + pf.id + '" ';
+        html += 'onclick="switchOverviewPortfolioScope(\'' + String(pf.id).replace(/'/g, "\\'") + '\')" ';
+        html += 'class="overview-portfolio-subtab text-xs sm:text-sm px-3 py-1.5 rounded-lg border ' + cls + '">';
+        html += _pfEscapeHtml(pf.name || pf.id) + '</button>';
+    });
+    html += '</div>';
+    wrap.innerHTML = html;
+}
+
+function switchOverviewPortfolioScope(scopeId) {
+    window.overviewPortfolioScope = scopeId || 'all';
+    renderOverviewPortfolioSubtabs(window.overviewPortfoliosCache, getOverviewPortfolioScope());
+    loadOverviewPanels();
+}
+
 // ===== Overview executive panels (Attention → Health → Briefing → Details) =====
 function renderOverviewCollapsible(key, title, subtitle, bodyHtml, expanded, headerActionsHtml) {
     const bodyId = 'overview-' + key + '-body';
@@ -915,7 +961,7 @@ function renderOverviewAdminSection(assignments) {
     return html;
 }
 
-function renderOverviewPanelsLayout(portfolioData, briefingData, portfolioOn, attentionOn, ctolensOn) {
+function renderOverviewPanelsLayout(portfolioData, briefingData, portfolioOn, attentionOn, ctolensOn, scopeLabel) {
     let html = '';
     const briefingStaleness = briefingData && briefingData.staleness;
     const briefing = briefingData && briefingData.briefing;
@@ -944,7 +990,9 @@ function renderOverviewPanelsLayout(portfolioData, briefingData, portfolioOn, at
     }
 
     const briefingSubtitle = formatCtolenRunHeader(briefingData, briefing, ctolensOn, briefingStaleness);
-    const briefingTitle = ctolensOn ? '🎯 CTOLens Daily Briefing' : '🎯 Daily CTO Briefing';
+    const scopePrefix = scopeLabel && scopeLabel !== 'All (Consolidated)' ? scopeLabel + ' · ' : '';
+    const briefingTitle = (ctolensOn ? '🎯 CTOLens Daily Briefing' : '🎯 Daily CTO Briefing')
+        + (scopePrefix ? ' — ' + _pfEscapeHtml(scopeLabel) : '');
     const briefingBody = renderBriefingPanelBody(
         briefing,
         briefingData && briefingData.message,
@@ -960,8 +1008,8 @@ function renderOverviewPanelsLayout(portfolioData, briefingData, portfolioOn, at
         html += renderOverviewPanelCard(briefingTitle, briefingSubtitle, briefingBody, null, briefingCardOpts);
         html += '</div><div class="lg:col-span-2">';
         html += renderOverviewPanelCard(
-            '🧭 Portfolio Health',
-            'Components, budget, and connectors',
+            '🧭 Portfolio Health' + (scopePrefix ? ' — ' + _pfEscapeHtml(scopeLabel) : ''),
+            (scopeLabel && scopeLabel !== 'All (Consolidated)' ? 'Scoped to this client portfolio' : 'Components, budget, and connectors'),
             renderPortfolioHealthCompact(portfolioData, briefing)
         );
         html += '</div></div>';
@@ -977,8 +1025,8 @@ function renderOverviewPanelsLayout(portfolioData, briefingData, portfolioOn, at
 
     if (hasPortfolio) {
         html += renderOverviewPanelCard(
-            '📊 Assignment Health',
-            'Ranked by attention need — click a row to open',
+            '🧭 Assignment Health' + (scopePrefix ? ' — ' + _pfEscapeHtml(scopeLabel) : ''),
+            (scopeLabel && scopeLabel !== 'All (Consolidated)' ? 'Assignments in this portfolio only' : 'Ranked by attention need — click a row to open'),
             renderAssignmentHealthMatrix(portfolioData)
         );
     }
@@ -993,6 +1041,7 @@ async function loadOverviewPanels() {
         const flagsResp = await fetch('/api/feature-flags');
         const flags = await flagsResp.json();
         const portfolioOn = flags && flags.portfolio_dashboard;
+        const portfoliosFeatureOn = flags && flags.portfolios;
         const ctolensOn = flags && flags.ctolens_briefing;
         const attentionOn = flags && flags.attention_engine;
         const briefingOn = ctolensOn || attentionOn;
@@ -1005,15 +1054,37 @@ async function loadOverviewPanels() {
             return;
         }
 
+        const scope = getOverviewPortfolioScope();
         root.innerHTML = '<div class="text-sm text-gray-500 p-4">Loading overview...</div>';
 
+        if (portfoliosFeatureOn) {
+            try {
+                const pfResp = await authFetch('/api/workspaces/' + encodeURIComponent(currentWorkspace) + '/portfolios');
+                if (pfResp.ok) {
+                    const pfData = await pfResp.json();
+                    window.overviewPortfoliosCache = pfData.portfolios || [];
+                    renderOverviewPortfolioSubtabs(window.overviewPortfoliosCache, scope);
+                    if (scope !== 'all' && !window.overviewPortfoliosCache.some(function(p) { return p.id === scope; })) {
+                        window.overviewPortfolioScope = 'all';
+                        renderOverviewPortfolioSubtabs(window.overviewPortfoliosCache, 'all');
+                    }
+                }
+            } catch (pfErr) {
+                console.warn('Could not load portfolios for overview subtabs', pfErr);
+            }
+        }
+
+        const activeScope = getOverviewPortfolioScope();
+        const scopeLabel = getOverviewPortfolioLabel(activeScope);
         let portfolioData = null;
         let briefingData = null;
         const tasks = [];
+        const summaryUrl = '/api/portfolio/summary?workspace_id=' + encodeURIComponent(currentWorkspace)
+            + (activeScope !== 'all' ? '&portfolio_id=' + encodeURIComponent(activeScope) : '');
 
         if (portfolioOn) {
             tasks.push(
-                fetch('/api/portfolio/summary?workspace_id=' + encodeURIComponent(currentWorkspace), { headers: getAuthHeaders() })
+                fetch(summaryUrl, { headers: getAuthHeaders() })
                     .then(function(resp) {
                         if (resp.status === 403) return null;
                         return resp.json();
@@ -1021,20 +1092,40 @@ async function loadOverviewPanels() {
                     .then(function(d) { portfolioData = d; })
             );
         }
-        if (ctolensOn) {
+        if (activeScope === 'all') {
+            if (ctolensOn) {
+                tasks.push(
+                    authFetch('/api/workspaces/' + encodeURIComponent(currentWorkspace) + '/ctolens/briefing')
+                        .then(function(resp) {
+                            if (resp.status === 403) return null;
+                            return resp.json();
+                        })
+                        .then(function(d) { briefingData = d; })
+                );
+            } else if (attentionOn) {
+                tasks.push(
+                    authFetch('/api/workspaces/' + encodeURIComponent(currentWorkspace) + '/attention/briefing')
+                        .then(function(resp) {
+                            if (resp.status === 403) return null;
+                            return resp.json();
+                        })
+                        .then(function(d) { briefingData = d; })
+                );
+            }
+        } else if (ctolensOn) {
             tasks.push(
-                authFetch('/api/workspaces/' + encodeURIComponent(currentWorkspace) + '/ctolens/briefing')
+                authFetch('/api/workspaces/' + encodeURIComponent(currentWorkspace) + '/portfolios/' + encodeURIComponent(activeScope) + '/ctolens/briefing')
                     .then(function(resp) {
-                        if (resp.status === 403) return null;
+                        if (resp.status === 403) return { message: 'Professional plan required for client portfolio briefings.' };
                         return resp.json();
                     })
                     .then(function(d) { briefingData = d; })
             );
         } else if (attentionOn) {
             tasks.push(
-                authFetch('/api/workspaces/' + encodeURIComponent(currentWorkspace) + '/attention/briefing')
+                authFetch('/api/workspaces/' + encodeURIComponent(currentWorkspace) + '/portfolios/' + encodeURIComponent(activeScope) + '/attention/briefing')
                     .then(function(resp) {
-                        if (resp.status === 403) return null;
+                        if (resp.status === 403) return { message: 'Professional plan required for client portfolio briefings.' };
                         return resp.json();
                     })
                     .then(function(d) { briefingData = d; })
@@ -1042,7 +1133,14 @@ async function loadOverviewPanels() {
         }
         await Promise.all(tasks);
 
-        root.innerHTML = renderOverviewPanelsLayout(portfolioData, briefingData, portfolioOn, attentionOn, ctolensOn);
+        root.innerHTML = renderOverviewPanelsLayout(
+            portfolioData,
+            briefingData,
+            portfolioOn,
+            attentionOn,
+            ctolensOn,
+            scopeLabel
+        );
         if (briefingData && briefingData.briefing) {
             trackInsightViewed('briefing');
         }
@@ -1061,7 +1159,8 @@ function _pfBandColor(band) { return band === 'healthy' ? 'green' : (band === 'a
 function _pfSeverityColor(sev) { return sev === 'critical' ? 'red' : (sev === 'warning' ? 'yellow' : 'blue'); }
 
 function generateOverviewContent(assignments) {
-    let html = '<div id="overview-panels-root" class="mb-6"></div>';
+    let html = '<div id="overview-portfolio-subtabs" class="hidden bg-white rounded-lg shadow-sm border border-gray-200 mb-3 px-3 py-2"></div>';
+    html += '<div id="overview-panels-root" class="mb-6"></div>';
     html += renderOverviewAdminSection(assignments);
     return html;
 }

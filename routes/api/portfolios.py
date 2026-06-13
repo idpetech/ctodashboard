@@ -45,6 +45,13 @@ def _require_multi_portfolio():
     return None
 
 
+def _require_multi_portfolio_unless_default(portfolio_id: str):
+    """Starter plans may use the default portfolio bucket; extra portfolios need Pro."""
+    if portfolio_id == DEFAULT_PORTFOLIO_ID:
+        return None
+    return _require_multi_portfolio()
+
+
 def register_portfolios_routes(app):
     """Register portfolio CRUD and scoped briefing routes."""
 
@@ -364,26 +371,62 @@ def register_portfolios_routes(app):
         if not get_portfolio(ws.get("settings") or {}, portfolio_id):
             return jsonify({"error": f"Portfolio '{portfolio_id}' not found"}), 404
 
-        denied = _require_multi_portfolio()
+        denied = _require_multi_portfolio_unless_default(portfolio_id)
         if denied:
             return denied
 
-        from services.security.secure_database import secure_db
+        try:
+            from services.security.secure_database import secure_db
 
-        briefing = load_scoped_briefing(
-            secure_db,
-            workspace_id,
-            scope="portfolio",
-            scope_id=portfolio_id,
-            engine="ctolens",
-        )
-        return jsonify(
-            {
-                "workspace_id": workspace_id,
-                "portfolio_id": portfolio_id,
-                "briefing": briefing,
-            }
-        )
+            assignments = (
+                get_workspace_service()
+                .get_workspace_assignments(workspace_id)
+                .get("assignments", [])
+            )
+            scoped = filter_assignments_by_portfolio(assignments, portfolio_id)
+
+            briefing = load_scoped_briefing(
+                secure_db,
+                workspace_id,
+                scope="portfolio",
+                scope_id=portfolio_id,
+                engine="ctolens",
+            )
+            if (
+                not briefing
+                and scoped
+                and os.getenv("ENABLE_CTOLENS_BRIEFING", "false").lower() == "true"
+            ):
+                from services.briefing_pipeline import refresh_workspace_ctolens_briefing
+
+                briefing = refresh_workspace_ctolens_briefing(
+                    workspace_id,
+                    scoped,
+                    secure_db,
+                    fetch_metrics=False,
+                    run_source="portfolio_auto",
+                )
+                briefing["scope"] = "portfolio"
+                briefing["portfolio_id"] = portfolio_id
+                persist_scoped_briefing(
+                    secure_db,
+                    workspace_id,
+                    scope="portfolio",
+                    scope_id=portfolio_id,
+                    briefing=briefing,
+                    engine="ctolens",
+                )
+            return jsonify(
+                {
+                    "workspace_id": workspace_id,
+                    "portfolio_id": portfolio_id,
+                    "briefing": briefing,
+                    "message": None if briefing else "No assignments in this portfolio yet.",
+                }
+            )
+        except Exception as exc:
+            logger.exception("Failed to load portfolio CTOLens briefing")
+            return jsonify({"error": f"Failed to load briefing: {exc}"}), 500
 
     @app.route(
         "/api/workspaces/<workspace_id>/portfolios/<portfolio_id>/ctolens/refresh",
@@ -402,7 +445,7 @@ def register_portfolios_routes(app):
         if not get_portfolio(ws.get("settings") or {}, portfolio_id):
             return jsonify({"error": f"Portfolio '{portfolio_id}' not found"}), 404
 
-        denied = _require_multi_portfolio()
+        denied = _require_multi_portfolio_unless_default(portfolio_id)
         if denied:
             return denied
 

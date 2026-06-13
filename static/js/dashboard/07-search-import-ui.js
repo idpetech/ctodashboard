@@ -483,13 +483,21 @@ async function refreshAttentionBriefing(fetchMetrics) {
                 '</div>';
         }
 
+        const scope = (typeof getOverviewPortfolioScope === 'function') ? getOverviewPortfolioScope() : 'all';
         let resp;
-        if (ctolensOn) {
+        if (scope !== 'all' && ctolensOn) {
+            const refreshUrl = '/api/workspaces/' + encodeURIComponent(currentWorkspace)
+                + '/portfolios/' + encodeURIComponent(scope)
+                + '/ctolens/refresh?fetch_metrics=' + (fetchMetrics ? 'true' : 'false');
+            resp = await authFetch(refreshUrl, { method: 'POST' });
+        } else if (ctolensOn) {
             resp = await authFetch('/api/workspaces/' + encodeURIComponent(currentWorkspace) + '/ctolens/briefing/generate', {
                 method: 'POST',
                 headers: Object.assign({ 'Content-Type': 'application/json' }, getAuthHeaders()),
                 body: JSON.stringify({ fetch_metrics: !!fetchMetrics })
             });
+        } else if (scope !== 'all') {
+            resp = await authFetch('/api/workspaces/' + encodeURIComponent(currentWorkspace) + '/portfolios/' + encodeURIComponent(scope) + '/attention/refresh', { method: 'POST' });
         } else {
             resp = await authFetch('/api/workspaces/' + encodeURIComponent(currentWorkspace) + '/attention/refresh', { method: 'POST' });
         }
