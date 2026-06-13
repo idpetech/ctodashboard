@@ -1150,6 +1150,34 @@ async function deleteSetupAssignment(assignmentId) {
     }
 }
 
+function captureDashboardView() {
+    if (document.getElementById('setupAssignmentsList')) {
+        return { mode: 'setup' };
+    }
+    const activeTabEl = document.querySelector('#dashboard-content .tab-button.active-tab');
+    if (activeTabEl && activeTabEl.id && activeTabEl.id.startsWith('tab-')) {
+        return { mode: 'tab', tabId: activeTabEl.id.slice(4) };
+    }
+    return { mode: 'tab', tabId: 'overview' };
+}
+
+function restoreDashboardView(restoreView) {
+    if (!restoreView) {
+        showTab('overview');
+        return;
+    }
+    if (restoreView.mode === 'setup') {
+        showSetupPanel();
+        return;
+    }
+    const tabId = restoreView.tabId || 'overview';
+    if (document.getElementById('tab-' + tabId)) {
+        showTab(tabId);
+    } else {
+        showTab('overview');
+    }
+}
+
 async function loadDashboard(forceRefresh) {
     try {
         await loadTrialStatus();
@@ -1200,7 +1228,8 @@ async function loadDashboard(forceRefresh) {
         // Store assignments globally for management functions
         assignments = scoped;
         
-        displayAssignments(scoped);
+        const restoreView = captureDashboardView();
+        displayAssignments(scoped, restoreView);
         
     } catch (error) {
         document.getElementById('dashboard-content').innerHTML = 
@@ -1208,7 +1237,7 @@ async function loadDashboard(forceRefresh) {
     }
 }
 
-function displayAssignments(assignments) {
+function displayAssignments(assignments, restoreView) {
     if (assignments.length === 0) {
         // Show welcome message with "+" tab for creating first assignment
         let html = '<div class="bg-white rounded-lg shadow-lg mb-6">';
@@ -1284,6 +1313,7 @@ function displayAssignments(assignments) {
 
     loadOverviewPanels();
     updateChatbotPrompts();
+    restoreDashboardView(restoreView);
 }
 
 // Modern UI: Handle "+" tab click for creating new assignments
