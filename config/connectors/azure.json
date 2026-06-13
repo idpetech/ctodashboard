@@ -1,0 +1,14 @@
+{
+  "id": "azure",
+  "name": "Azure",
+  "description": "Resource and App Service metrics from Azure subscriptions",
+  "credential_fields": [
+    {"name": "azure_tenant_id", "label": "Tenant ID", "secret": false, "required": true},
+    {"name": "azure_client_id", "label": "Client ID (App ID)", "secret": false, "required": true},
+    {"name": "azure_client_secret", "label": "Client Secret", "secret": true, "required": true},
+    {"name": "azure_subscription_id", "label": "Subscription ID", "secret": false, "required": true},
+    {"name": "azure_resource_group", "label": "Resource Group (optional scope)", "secret": false, "required": false}
+  ],
+  "metrics_config_fields": ["subscription_id", "resource_group"],
+  "env_flag": "ENABLE_AZURE_CONNECTOR"
+}

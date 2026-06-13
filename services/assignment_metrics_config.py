@@ -37,6 +37,13 @@ def connector_credentials_ready(workspace_id: str, assignment_id: str, connector
         token = stored.get("vercel_token") or stored.get("token")
         project_id = stored.get("vercel_project_id") or stored.get("project_id")
         return bool(token and project_id)
+    if connector_type == "azure":
+        return bool(
+            (stored.get("azure_tenant_id") or stored.get("tenant_id"))
+            and (stored.get("azure_client_id") or stored.get("client_id"))
+            and (stored.get("azure_client_secret") or stored.get("client_secret"))
+            and (stored.get("azure_subscription_id") or stored.get("subscription_id"))
+        )
     return bool(stored)
 
 
@@ -48,6 +55,7 @@ def missing_connector_message(connector_type: str) -> str:
         "openai": "OpenAI",
         "railway": "Railway",
         "vercel": "Vercel",
+        "azure": "Azure",
     }
     name = labels.get(connector_type, connector_type)
     return (
@@ -90,4 +98,16 @@ def vercel_metrics_config(workspace_id: str, assignment_id: str, vercel_config: 
     return {
         "project_id": stored.get("vercel_project_id") or vercel_config.get("project_id") or "",
         "team_id": stored.get("vercel_team_id") or vercel_config.get("team_id") or "",
+    }
+
+
+def azure_metrics_config(workspace_id: str, assignment_id: str, azure_config: dict) -> dict:
+    stored = stored_connector_credentials(workspace_id, assignment_id, "azure")
+    return {
+        "subscription_id": stored.get("azure_subscription_id")
+        or azure_config.get("subscription_id")
+        or "",
+        "resource_group": stored.get("azure_resource_group")
+        or azure_config.get("resource_group")
+        or "",
     }

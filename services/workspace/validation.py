@@ -366,6 +366,7 @@ class SystemValidator:
             "aws": [],  # Uses environment variables
             "railway": ["project_id"],
             "vercel": ["project_id"],
+            "azure": ["subscription_id"],
             "openai": [],  # Uses environment variables
         }
 

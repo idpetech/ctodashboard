@@ -14,6 +14,9 @@ from flask import jsonify
 from config.logging_config import get_logger
 from connectors.registry import ConnectorRegistry
 from services.assignment_metrics_config import (
+    azure_metrics_config as build_azure_metrics_config,
+)
+from services.assignment_metrics_config import (
     connector_credentials_ready,
     missing_connector_message,
 )
@@ -34,6 +37,7 @@ from services.auth.secure_user_service import SecureUserService
 from services.data_export_service import DataExportService
 from services.data_import_service import DataImportService
 from services.embedded.aws_metrics import EmbeddedAWSMetrics
+from services.embedded.azure_metrics import EmbeddedAzureMetrics
 from services.embedded.github_metrics import EmbeddedGitHubMetrics
 from services.embedded.jira_metrics import (
     EmbeddedJiraMetrics,
@@ -286,6 +290,18 @@ def collect_assignment_metrics(workspace_id: str, assignment_id: str, assignment
             jobs["vercel"] = lambda v=vm, c=cfg: v.get_metrics(c)
         else:
             metrics["vercel"] = {"error": missing_connector_message("vercel")}
+
+    azure_config = metrics_config.get("azure", {})
+    if (
+        azure_config.get("enabled", False)
+        and os.getenv("ENABLE_AZURE_CONNECTOR", "false").lower() == "true"
+    ):
+        if connector_credentials_ready(workspace_id, assignment_id, "azure"):
+            cfg = build_azure_metrics_config(workspace_id, assignment_id, azure_config)
+            am = EmbeddedAzureMetrics(workspace_id=workspace_id, assignment_id=assignment_id)
+            jobs["azure"] = lambda a=am, c=cfg: a.get_metrics(c)
+        else:
+            metrics["azure"] = {"error": missing_connector_message("azure")}
 
     if not jobs:
         return metrics

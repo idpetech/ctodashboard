@@ -145,7 +145,7 @@ Pricing/portfolios frozen except bugs. Shipped on staging:
 3. **Repo issue actions Phase 1** — GitHub issue deep links + expandable attention in metrics panel
 4. **Product analytics Phase 3** — retention/returning users in `/api/analytics/summary` (flag `ENABLE_PRODUCT_ANALYTICS`)
 
-Act 4 (in progress): Railway + Vercel connectors behind `ENABLE_RAILWAY_CONNECTOR` / `ENABLE_VERCEL_CONNECTOR` (default false). Deferred: Azure/Supabase, mobile briefing shell, scheduler Phase B async queue.
+Act 4 (complete): Railway, Vercel, and Azure connectors behind `ENABLE_*_CONNECTOR` flags (default false). Deferred: Supabase, mobile briefing shell, scheduler Phase B async queue.
 
 ## Related docs
 

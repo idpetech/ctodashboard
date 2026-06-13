@@ -114,3 +114,18 @@ def test_vercel_ready_with_token_and_project(mock_stored):
 def test_missing_connector_message_railway_and_vercel():
     assert "Railway" in missing_connector_message("railway")
     assert "Vercel" in missing_connector_message("vercel")
+
+
+@patch("services.assignment_metrics_config.stored_connector_credentials")
+def test_azure_ready_with_service_principal(mock_stored):
+    mock_stored.return_value = {
+        "azure_tenant_id": "tenant-1",
+        "azure_client_id": "client-1",
+        "azure_client_secret": "secret-1",
+        "azure_subscription_id": "sub-1",
+    }
+    assert connector_credentials_ready("ws1", "a1", "azure") is True
+
+
+def test_missing_connector_message_azure():
+    assert "Azure" in missing_connector_message("azure")

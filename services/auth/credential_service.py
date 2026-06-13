@@ -150,3 +150,36 @@ class CredentialService:
             "project_id": project_id,
             "team_id": team_id,
         }
+
+    def get_azure_credentials(
+        self, workspace_id: str, assignment_id: str
+    ) -> Dict[str, Optional[str]]:
+        """Get Azure service principal credentials from workspace store."""
+        credentials = self.get_workspace_credentials(workspace_id, assignment_id, "azure")
+        tenant_id = credentials.get("azure_tenant_id") or credentials.get("tenant_id")
+        client_id = credentials.get("azure_client_id") or credentials.get("client_id")
+        subscription_id = credentials.get("azure_subscription_id") or credentials.get(
+            "subscription_id"
+        )
+        resource_group = credentials.get("azure_resource_group") or credentials.get(
+            "resource_group"
+        )
+        client_secret = self.get_credential_with_fallback(
+            workspace_id,
+            assignment_id,
+            "azure",
+            "azure_client_secret",
+            "AZURE_CLIENT_SECRET",
+        )
+        if allow_connector_env_fallback():
+            tenant_id = tenant_id or os.getenv("AZURE_TENANT_ID")
+            client_id = client_id or os.getenv("AZURE_CLIENT_ID")
+            subscription_id = subscription_id or os.getenv("AZURE_SUBSCRIPTION_ID")
+            resource_group = resource_group or os.getenv("AZURE_RESOURCE_GROUP")
+        return {
+            "tenant_id": tenant_id,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "subscription_id": subscription_id,
+            "resource_group": resource_group,
+        }

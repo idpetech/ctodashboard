@@ -22,6 +22,7 @@ def get_workspace_credential_status(workspace_id):
                 "openai": {"configured": False, "assignments": []},
                 "railway": {"configured": False, "assignments": []},
                 "vercel": {"configured": False, "assignments": []},
+                "azure": {"configured": False, "assignments": []},
             },
         }
 
@@ -30,7 +31,7 @@ def get_workspace_credential_status(workspace_id):
         for assignment in assignments.get("assignments", []):
             assignment_id = assignment.get("id")
             configured = secure_db.list_assignment_credentials(workspace_id, assignment_id)
-            for connector_type in ["github", "jira", "aws", "openai", "railway", "vercel"]:
+            for connector_type in ["github", "jira", "aws", "openai", "railway", "vercel", "azure"]:
                 if configured.get(connector_type):
                     status["connectors"][connector_type]["configured"] = True
                     status["connectors"][connector_type]["assignments"].append(
@@ -82,6 +83,17 @@ def basic_validate_credentials(connector_type, credentials):
         missing = [field for field in required_fields if not credentials.get(field)]
         if missing:
             return {"valid": False, "error": f"Missing required fields: {', '.join(missing)}"}
+
+    elif connector_type == "azure":
+        required_fields = [
+            "azure_tenant_id",
+            "azure_client_id",
+            "azure_client_secret",
+            "azure_subscription_id",
+        ]
+        missing = [field for field in required_fields if not credentials.get(field)]
+        if missing:
+            return {"valid": False, "error": f"Missing required fields: {', '.join(missing)}"}
     else:
         return {"valid": False, "error": f"Unknown connector type: {connector_type}"}
 
@@ -103,6 +115,8 @@ def validate_connector_credentials(connector_type, credentials):
             return _validate_railway_credentials(credentials)
         elif connector_type == "vercel":
             return _validate_vercel_credentials(credentials)
+        elif connector_type == "azure":
+            return _validate_azure_credentials(credentials)
         else:
             return {"valid": False, "error": f"Unknown connector type: {connector_type}"}
     except Exception as e:
@@ -275,3 +289,47 @@ def _validate_vercel_credentials(credentials):
         return {"valid": False, "error": "Vercel API request timed out"}
     except Exception as e:
         return {"valid": False, "error": f"Vercel connection failed: {str(e)}"}
+
+
+def _validate_azure_credentials(credentials):
+    """Test Azure service principal credentials."""
+    from services.embedded.azure_metrics import AZURE_MGMT_BASE, fetch_azure_access_token
+
+    tenant_id = credentials.get("azure_tenant_id")
+    client_id = credentials.get("azure_client_id")
+    client_secret = credentials.get("azure_client_secret")
+    subscription_id = credentials.get("azure_subscription_id")
+
+    token, auth_error = fetch_azure_access_token(tenant_id, client_id, client_secret)
+    if auth_error:
+        return {"valid": False, "error": auth_error}
+
+    try:
+        import requests
+
+        headers = {"Authorization": f"Bearer {token}"}
+        response = requests.get(
+            f"{AZURE_MGMT_BASE}/subscriptions/{subscription_id}?api-version=2020-01-01",
+            headers=headers,
+            timeout=15,
+        )
+        if response.status_code == 404:
+            return {"valid": False, "error": "Azure subscription not found"}
+        if response.status_code == 403:
+            return {
+                "valid": False,
+                "error": "Azure credentials valid but subscription access denied",
+            }
+        if response.status_code != 200:
+            return {"valid": False, "error": f"Azure API error: {response.status_code}"}
+        sub = response.json()
+        return {
+            "valid": True,
+            "subscription_id": sub.get("subscriptionId"),
+            "display_name": sub.get("displayName"),
+            "state": sub.get("state"),
+        }
+    except requests.exceptions.Timeout:
+        return {"valid": False, "error": "Azure API request timed out"}
+    except Exception as e:
+        return {"valid": False, "error": f"Azure connection failed: {str(e)}"}
