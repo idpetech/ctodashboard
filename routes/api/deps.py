@@ -23,6 +23,12 @@ from services.assignment_metrics_config import (
 from services.assignment_metrics_config import (
     jira_metrics_config as build_jira_metrics_config,
 )
+from services.assignment_metrics_config import (
+    railway_metrics_config as build_railway_metrics_config,
+)
+from services.assignment_metrics_config import (
+    vercel_metrics_config as build_vercel_metrics_config,
+)
 from services.auth.auth_middleware import create_auth_decorators, get_current_user
 from services.auth.secure_user_service import SecureUserService
 from services.data_export_service import DataExportService
@@ -33,6 +39,7 @@ from services.embedded.jira_metrics import (
     EmbeddedJiraMetrics,
 )
 from services.embedded.railway_metrics import RailwayMetrics
+from services.embedded.vercel_metrics import EmbeddedVercelMetrics
 from services.service_manager import ServiceManager
 from services.workspace.workspace_service import WorkspaceService
 
@@ -239,15 +246,46 @@ def collect_assignment_metrics(workspace_id: str, assignment_id: str, assignment
 
     railway_config = metrics_config.get("railway", {})
     if railway_config.get("enabled", False):
-        import asyncio
+        railway_flag = os.getenv("ENABLE_RAILWAY_CONNECTOR", "false").lower() == "true"
+        if railway_flag:
+            if connector_credentials_ready(workspace_id, assignment_id, "railway"):
+                import asyncio
 
-        pid = railway_config.get("project_id")
-        pname = railway_config.get("project_name")
+                cfg = build_railway_metrics_config(workspace_id, assignment_id, railway_config)
+                rm = RailwayMetrics(workspace_id=workspace_id, assignment_id=assignment_id)
 
-        def _railway():
-            return asyncio.run(railway_metrics.get_metrics(project_id=pid, project_name=pname))
+                def _railway():
+                    return asyncio.run(
+                        rm.get_metrics(
+                            project_id=cfg["project_id"], project_name=cfg["project_name"]
+                        )
+                    )
 
-        jobs["railway"] = _railway
+                jobs["railway"] = _railway
+            else:
+                metrics["railway"] = {"error": missing_connector_message("railway")}
+        else:
+            import asyncio
+
+            pid = railway_config.get("project_id")
+            pname = railway_config.get("project_name")
+
+            def _railway_legacy():
+                return asyncio.run(railway_metrics.get_metrics(project_id=pid, project_name=pname))
+
+            jobs["railway"] = _railway_legacy
+
+    vercel_config = metrics_config.get("vercel", {})
+    if (
+        vercel_config.get("enabled", False)
+        and os.getenv("ENABLE_VERCEL_CONNECTOR", "false").lower() == "true"
+    ):
+        if connector_credentials_ready(workspace_id, assignment_id, "vercel"):
+            cfg = build_vercel_metrics_config(workspace_id, assignment_id, vercel_config)
+            vm = EmbeddedVercelMetrics(workspace_id=workspace_id, assignment_id=assignment_id)
+            jobs["vercel"] = lambda v=vm, c=cfg: v.get_metrics(c)
+        else:
+            metrics["vercel"] = {"error": missing_connector_message("vercel")}
 
     if not jobs:
         return metrics

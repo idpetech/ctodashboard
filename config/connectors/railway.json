@@ -1,0 +1,12 @@
+{
+  "id": "railway",
+  "name": "Railway",
+  "description": "Deployment and project metrics from Railway",
+  "credential_fields": [
+    {"name": "railway_token", "label": "Railway API Token", "secret": true, "required": true},
+    {"name": "railway_project_id", "label": "Project ID", "secret": false, "required": true},
+    {"name": "railway_project_name", "label": "Project name (optional fallback)", "secret": false, "required": false}
+  ],
+  "metrics_config_fields": ["project_id", "project_name"],
+  "env_flag": "ENABLE_RAILWAY_CONNECTOR"
+}

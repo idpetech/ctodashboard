@@ -27,7 +27,7 @@ from typing import Any, Dict, List, Optional
 # Connectors we know how to reason about. "enabled" is read from each
 # assignment's metrics_config; "configured" is read from the per-assignment
 # credentials map that the store already returns.
-CONNECTORS = ["github", "jira", "aws", "openai", "railway"]
+CONNECTORS = ["github", "jira", "aws", "openai", "railway", "vercel"]
 
 # Variance thresholds (percent over target) used for severity classification.
 VARIANCE_WARN_PCT = 10.0

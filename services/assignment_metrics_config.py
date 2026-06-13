@@ -29,6 +29,14 @@ def connector_credentials_ready(workspace_id: str, assignment_id: str, connector
         return bool(stored.get("aws_access_key") and stored.get("aws_secret_key"))
     if connector_type == "openai":
         return bool(stored.get("openai_api_key") or stored.get("api_key"))
+    if connector_type == "railway":
+        token = stored.get("railway_token") or stored.get("token")
+        project_id = stored.get("railway_project_id") or stored.get("project_id")
+        return bool(token and project_id)
+    if connector_type == "vercel":
+        token = stored.get("vercel_token") or stored.get("token")
+        project_id = stored.get("vercel_project_id") or stored.get("project_id")
+        return bool(token and project_id)
     return bool(stored)
 
 
@@ -39,6 +47,7 @@ def missing_connector_message(connector_type: str) -> str:
         "aws": "AWS",
         "openai": "OpenAI",
         "railway": "Railway",
+        "vercel": "Vercel",
     }
     name = labels.get(connector_type, connector_type)
     return (
@@ -64,3 +73,21 @@ def jira_metrics_config(workspace_id: str, assignment_id: str, jira_config: dict
         if projects:
             merged["project_key"] = str(projects).split(",")[0].strip()
     return merged
+
+
+def railway_metrics_config(workspace_id: str, assignment_id: str, railway_config: dict) -> dict:
+    stored = stored_connector_credentials(workspace_id, assignment_id, "railway")
+    return {
+        "project_id": stored.get("railway_project_id") or railway_config.get("project_id") or "",
+        "project_name": stored.get("railway_project_name")
+        or railway_config.get("project_name")
+        or "",
+    }
+
+
+def vercel_metrics_config(workspace_id: str, assignment_id: str, vercel_config: dict) -> dict:
+    stored = stored_connector_credentials(workspace_id, assignment_id, "vercel")
+    return {
+        "project_id": stored.get("vercel_project_id") or vercel_config.get("project_id") or "",
+        "team_id": stored.get("vercel_team_id") or vercel_config.get("team_id") or "",
+    }

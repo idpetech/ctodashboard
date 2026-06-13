@@ -365,6 +365,7 @@ class SystemValidator:
             "jira": ["project_key"],
             "aws": [],  # Uses environment variables
             "railway": ["project_id"],
+            "vercel": ["project_id"],
             "openai": [],  # Uses environment variables
         }
 

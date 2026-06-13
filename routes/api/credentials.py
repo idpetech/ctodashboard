@@ -20,6 +20,8 @@ def get_workspace_credential_status(workspace_id):
                 "jira": {"configured": False, "assignments": []},
                 "aws": {"configured": False, "assignments": []},
                 "openai": {"configured": False, "assignments": []},
+                "railway": {"configured": False, "assignments": []},
+                "vercel": {"configured": False, "assignments": []},
             },
         }
 
@@ -28,7 +30,7 @@ def get_workspace_credential_status(workspace_id):
         for assignment in assignments.get("assignments", []):
             assignment_id = assignment.get("id")
             configured = secure_db.list_assignment_credentials(workspace_id, assignment_id)
-            for connector_type in ["github", "jira", "aws", "openai"]:
+            for connector_type in ["github", "jira", "aws", "openai", "railway", "vercel"]:
                 if configured.get(connector_type):
                     status["connectors"][connector_type]["configured"] = True
                     status["connectors"][connector_type]["assignments"].append(
@@ -68,6 +70,18 @@ def basic_validate_credentials(connector_type, credentials):
         missing = [field for field in required_fields if not credentials.get(field)]
         if missing:
             return {"valid": False, "error": f"Missing required fields: {', '.join(missing)}"}
+
+    elif connector_type == "railway":
+        required_fields = ["railway_token", "railway_project_id"]
+        missing = [field for field in required_fields if not credentials.get(field)]
+        if missing:
+            return {"valid": False, "error": f"Missing required fields: {', '.join(missing)}"}
+
+    elif connector_type == "vercel":
+        required_fields = ["vercel_token", "vercel_project_id"]
+        missing = [field for field in required_fields if not credentials.get(field)]
+        if missing:
+            return {"valid": False, "error": f"Missing required fields: {', '.join(missing)}"}
     else:
         return {"valid": False, "error": f"Unknown connector type: {connector_type}"}
 
@@ -85,6 +99,10 @@ def validate_connector_credentials(connector_type, credentials):
             return _validate_aws_credentials(credentials)
         elif connector_type == "openai":
             return _validate_openai_credentials(credentials)
+        elif connector_type == "railway":
+            return _validate_railway_credentials(credentials)
+        elif connector_type == "vercel":
+            return _validate_vercel_credentials(credentials)
         else:
             return {"valid": False, "error": f"Unknown connector type: {connector_type}"}
     except Exception as e:
@@ -192,3 +210,68 @@ def _validate_openai_credentials(credentials):
         return ConnectorRegistry.validate_credentials("openai", credentials)
     except Exception as e:
         return {"valid": False, "error": f"OpenAI validation failed: {str(e)}"}
+
+
+def _validate_railway_credentials(credentials):
+    """Test Railway API token via GraphQL me query."""
+    token = credentials.get("railway_token")
+    if not token:
+        return {"valid": False, "error": "Railway token is required"}
+
+    try:
+        import requests
+
+        response = requests.post(
+            "https://backboard.railway.app/graphql",
+            json={"query": "query { me { id email } }"},
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            timeout=10,
+        )
+        if response.status_code == 401:
+            return {"valid": False, "error": "Invalid Railway token"}
+        if response.status_code != 200:
+            return {"valid": False, "error": f"Railway API error: {response.status_code}"}
+        data = response.json()
+        if data.get("errors"):
+            return {"valid": False, "error": "Railway token validation failed"}
+        me = (data.get("data") or {}).get("me") or {}
+        if not me.get("id"):
+            return {"valid": False, "error": "Railway token could not be verified"}
+        return {"valid": True, "user_id": me.get("id"), "email": me.get("email")}
+    except requests.exceptions.Timeout:
+        return {"valid": False, "error": "Railway API request timed out"}
+    except Exception as e:
+        return {"valid": False, "error": f"Railway connection failed: {str(e)}"}
+
+
+def _validate_vercel_credentials(credentials):
+    """Test Vercel API token."""
+    token = credentials.get("vercel_token")
+    if not token:
+        return {"valid": False, "error": "Vercel token is required"}
+
+    try:
+        import requests
+
+        headers = {"Authorization": f"Bearer {token}"}
+        team_id = credentials.get("vercel_team_id")
+        url = "https://api.vercel.com/v2/user"
+        if team_id:
+            url = f"https://api.vercel.com/v2/teams/{team_id}"
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 401:
+            return {"valid": False, "error": "Invalid Vercel token"}
+        if response.status_code == 404 and team_id:
+            return {"valid": False, "error": "Vercel team not found"}
+        if response.status_code != 200:
+            return {"valid": False, "error": f"Vercel API error: {response.status_code}"}
+        payload = response.json()
+        if team_id:
+            team = payload
+            return {"valid": True, "team_id": team.get("id"), "team_name": team.get("name")}
+        user = payload.get("user") or payload
+        return {"valid": True, "username": user.get("username"), "email": user.get("email")}
+    except requests.exceptions.Timeout:
+        return {"valid": False, "error": "Vercel API request timed out"}
+    except Exception as e:
+        return {"valid": False, "error": f"Vercel connection failed: {str(e)}"}

@@ -249,6 +249,44 @@
                             Configure
                         </button>
                     </div>
+
+                    <!-- Railway Card (Act 4) -->
+                    <div id="railway-card" class="border rounded-lg p-4 hidden">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center">
+                                <div class="w-8 h-8 bg-purple-700 rounded text-white flex items-center justify-center text-sm font-bold mr-3">
+                                    RW
+                                </div>
+                                <h3 class="font-medium text-gray-800">Railway</h3>
+                            </div>
+                            <span id="railway-status" class="px-2 py-1 text-xs rounded font-medium bg-gray-100 text-gray-600">
+                                Not Configured
+                            </span>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-3">Deployment metrics from Railway projects</p>
+                        <button onclick="configureConnector('railway')" class="w-full bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">
+                            Configure
+                        </button>
+                    </div>
+
+                    <!-- Vercel Card (Act 4) -->
+                    <div id="vercel-card" class="border rounded-lg p-4 hidden">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center">
+                                <div class="w-8 h-8 bg-black rounded text-white flex items-center justify-center text-sm font-bold mr-3">
+                                    VC
+                                </div>
+                                <h3 class="font-medium text-gray-800">Vercel</h3>
+                            </div>
+                            <span id="vercel-status" class="px-2 py-1 text-xs rounded font-medium bg-gray-100 text-gray-600">
+                                Not Configured
+                            </span>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-3">Deployment metrics from Vercel projects</p>
+                        <button onclick="configureConnector('vercel')" class="w-full bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">
+                            Configure
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -489,6 +527,78 @@
                         </div>
                     </form>
                 </div>
+
+                <!-- Railway Form (Act 4) -->
+                <div id="railway-form" class="credential-form">
+                    <div class="mb-6">
+                        <h4 class="font-medium text-gray-800 mb-2">Railway Configuration</h4>
+                        <p class="text-sm text-gray-600">Connect to Railway for deployment metrics</p>
+                    </div>
+                    <form onsubmit="saveCredentials(event, 'railway')">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">API Token</label>
+                            <input type="password" id="railway_token" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Railway account token">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Project ID</label>
+                            <input type="text" id="railway_project_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Project Name (optional)</label>
+                            <input type="text" id="railway_project_name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="my-service">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Assignment</label>
+                            <select id="railway_assignment" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Select assignment...</option>
+                            </select>
+                        </div>
+                        <div class="flex space-x-3">
+                            <button type="button" onclick="testCredentials('railway')" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+                                Test Connection
+                            </button>
+                            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                Save Credentials
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Vercel Form (Act 4) -->
+                <div id="vercel-form" class="credential-form">
+                    <div class="mb-6">
+                        <h4 class="font-medium text-gray-800 mb-2">Vercel Configuration</h4>
+                        <p class="text-sm text-gray-600">Connect to Vercel for deployment metrics</p>
+                    </div>
+                    <form onsubmit="saveCredentials(event, 'vercel')">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">API Token</label>
+                            <input type="password" id="vercel_token" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Vercel account token">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Project ID</label>
+                            <input type="text" id="vercel_project_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="prj_xxxxxxxxxxxxxxxxxxxx">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Team ID (optional)</label>
+                            <input type="text" id="vercel_team_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="team_xxxxxxxxxxxxxxxxxxxx">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Assignment</label>
+                            <select id="vercel_assignment" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Select assignment...</option>
+                            </select>
+                        </div>
+                        <div class="flex space-x-3">
+                            <button type="button" onclick="testCredentials('vercel')" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+                                Test Connection
+                            </button>
+                            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                Save Credentials
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -605,6 +715,28 @@
                                     <div>
                                         <div class="font-medium text-gray-800">OpenAI</div>
                                         <div class="text-sm text-gray-600">AI-powered insights and analysis</div>
+                                    </div>
+                                </div>
+                            </label>
+
+                            <label id="enable_railway_row" class="flex items-center hidden">
+                                <input type="checkbox" id="enable_railway" class="rounded border-gray-300 mr-3">
+                                <div class="flex items-center">
+                                    <div class="w-6 h-6 bg-purple-700 rounded text-white flex items-center justify-center text-xs font-bold mr-3">RW</div>
+                                    <div>
+                                        <div class="font-medium text-gray-800">Railway</div>
+                                        <div class="text-sm text-gray-600">Deployment metrics from Railway</div>
+                                    </div>
+                                </div>
+                            </label>
+
+                            <label id="enable_vercel_row" class="flex items-center hidden">
+                                <input type="checkbox" id="enable_vercel" class="rounded border-gray-300 mr-3">
+                                <div class="flex items-center">
+                                    <div class="w-6 h-6 bg-black rounded text-white flex items-center justify-center text-xs font-bold mr-3">VC</div>
+                                    <div>
+                                        <div class="font-medium text-gray-800">Vercel</div>
+                                        <div class="text-sm text-gray-600">Deployment metrics from Vercel</div>
                                     </div>
                                 </div>
                             </label>
@@ -819,6 +951,22 @@
             });
         }
 
+        async function loadAct4Connectors() {
+            try {
+                const response = await fetch('/api/feature-flags', { credentials: 'same-origin' });
+                if (!response.ok) return;
+                const flags = await response.json();
+                const showRailway = !!flags.railway_connector;
+                const showVercel = !!flags.vercel_connector;
+                document.getElementById('railway-card')?.classList.toggle('hidden', !showRailway);
+                document.getElementById('vercel-card')?.classList.toggle('hidden', !showVercel);
+                document.getElementById('enable_railway_row')?.classList.toggle('hidden', !showRailway);
+                document.getElementById('enable_vercel_row')?.classList.toggle('hidden', !showVercel);
+            } catch (error) {
+                console.warn('Act 4 connector flags unavailable:', error);
+            }
+        }
+
         async function loadWorkspaceSettings() {
             try {
                 console.log(`[DEBUG] Loading workspace settings for: ${currentWorkspace}`);
@@ -841,6 +989,7 @@
                 console.log(`[DEBUG] Workspace settings loaded:`, workspaceSettings);
                 await loadPortfoliosUi();
                 displayWorkspaceSettings();
+                await loadAct4Connectors();
                 loadCredentialStatus();
                 loadCtolenSchedule();
 
@@ -914,7 +1063,7 @@
         }
 
         function populateAssignmentSelectors(assignments) {
-            const selectors = ['github_assignment', 'jira_assignment', 'aws_assignment'];
+            const selectors = ['github_assignment', 'jira_assignment', 'aws_assignment', 'openai_assignment', 'railway_assignment', 'vercel_assignment'];
             
             selectors.forEach(selectorId => {
                 const selector = document.getElementById(selectorId);
@@ -1173,6 +1322,18 @@
                         openai_org_id: document.getElementById('openai_org_id').value,
                         openai_model: document.getElementById('openai_model').value
                     };
+                case 'railway':
+                    return {
+                        railway_token: document.getElementById('railway_token').value,
+                        railway_project_id: document.getElementById('railway_project_id').value,
+                        railway_project_name: document.getElementById('railway_project_name').value
+                    };
+                case 'vercel':
+                    return {
+                        vercel_token: document.getElementById('vercel_token').value,
+                        vercel_project_id: document.getElementById('vercel_project_id').value,
+                        vercel_team_id: document.getElementById('vercel_team_id').value
+                    };
                 default:
                     return null;
             }
@@ -1244,7 +1405,9 @@
             document.getElementById('enable_jira').checked = false;
             document.getElementById('enable_aws').checked = false;
             document.getElementById('enable_openai').checked = false;
-            
+            document.getElementById('enable_railway').checked = false;
+            document.getElementById('enable_vercel').checked = false;
+
             clearAssignmentMessages();
             document.getElementById('createAssignmentModal').classList.remove('hidden');
         }
@@ -1305,6 +1468,12 @@
                     track_costs: true,
                     cost_alert_threshold: 50
                 };
+            }
+            if (document.getElementById('enable_railway')?.checked) {
+                connectors.railway = { enabled: true };
+            }
+            if (document.getElementById('enable_vercel')?.checked) {
+                connectors.vercel = { enabled: true };
             }
 
             if (Object.keys(connectors).length > 0) {

@@ -55,6 +55,7 @@ Feature-flagged via `ENABLE_ATTENTION_ENGINE` (+ `ENABLE_PORTFOLIO_DASHBOARD` fo
 **Still on disk (schemas only):**
 
 - `config/connectors/*.json` — connector field definitions for forms, not user/workspace records
+- Act 4 flags: `ENABLE_RAILWAY_CONNECTOR`, `ENABLE_VERCEL_CONNECTOR` (per-assignment creds in Postgres)
 
 ---
 
@@ -144,7 +145,7 @@ Pricing/portfolios frozen except bugs. Shipped on staging:
 3. **Repo issue actions Phase 1** — GitHub issue deep links + expandable attention in metrics panel
 4. **Product analytics Phase 3** — retention/returning users in `/api/analytics/summary` (flag `ENABLE_PRODUCT_ANALYTICS`)
 
-Deferred: Act 4 connectors, mobile briefing shell, scheduler Phase B async queue.
+Act 4 (in progress): Railway + Vercel connectors behind `ENABLE_RAILWAY_CONNECTOR` / `ENABLE_VERCEL_CONNECTOR` (default false). Deferred: Azure/Supabase, mobile briefing shell, scheduler Phase B async queue.
 
 ## Related docs
 

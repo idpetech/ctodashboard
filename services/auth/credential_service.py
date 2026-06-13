@@ -110,3 +110,43 @@ class CredentialService:
                 workspace_id, assignment_id, "openai", "openai_api_key", "OPENAI_API_KEY"
             )
         }
+
+    def get_railway_credentials(
+        self, workspace_id: str, assignment_id: str
+    ) -> Dict[str, Optional[str]]:
+        """Get Railway credentials from workspace store with optional env fallback."""
+        credentials = self.get_workspace_credentials(workspace_id, assignment_id, "railway")
+        token = self.get_credential_with_fallback(
+            workspace_id, assignment_id, "railway", "railway_token", "RAILWAY_TOKEN"
+        )
+        project_id = credentials.get("railway_project_id") or credentials.get("project_id")
+        project_name = credentials.get("railway_project_name") or credentials.get("project_name")
+        if not project_id and allow_connector_env_fallback():
+            project_id = os.getenv("RAILWAY_PROJECT_ID")
+        if not project_name and allow_connector_env_fallback():
+            project_name = os.getenv("RAILWAY_PROJECT_NAME")
+        return {
+            "token": token,
+            "project_id": project_id,
+            "project_name": project_name,
+        }
+
+    def get_vercel_credentials(
+        self, workspace_id: str, assignment_id: str
+    ) -> Dict[str, Optional[str]]:
+        """Get Vercel credentials from workspace store with optional env fallback."""
+        credentials = self.get_workspace_credentials(workspace_id, assignment_id, "vercel")
+        token = self.get_credential_with_fallback(
+            workspace_id, assignment_id, "vercel", "vercel_token", "VERCEL_TOKEN"
+        )
+        project_id = credentials.get("vercel_project_id") or credentials.get("project_id")
+        team_id = credentials.get("vercel_team_id") or credentials.get("team_id")
+        if not project_id and allow_connector_env_fallback():
+            project_id = os.getenv("VERCEL_PROJECT_ID")
+        if not team_id and allow_connector_env_fallback():
+            team_id = os.getenv("VERCEL_TEAM_ID")
+        return {
+            "token": token,
+            "project_id": project_id,
+            "team_id": team_id,
+        }

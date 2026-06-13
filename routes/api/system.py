@@ -39,6 +39,9 @@ def register_system_routes(app):
                 == "true",
                 "product_analytics": os.getenv("ENABLE_PRODUCT_ANALYTICS", "false").lower()
                 == "true",
+                "railway_connector": os.getenv("ENABLE_RAILWAY_CONNECTOR", "false").lower()
+                == "true",
+                "vercel_connector": os.getenv("ENABLE_VERCEL_CONNECTOR", "false").lower() == "true",
                 **(stripe_config_summary() if is_billing_enabled() else {}),
             }
         )

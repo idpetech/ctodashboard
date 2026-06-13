@@ -23,7 +23,7 @@ from .database_adapter import create_database_adapter, parse_database_url
 
 logger = get_logger(__name__)
 
-CONNECTOR_TYPES = ("github", "jira", "aws", "openai", "railway")
+CONNECTOR_TYPES = ("github", "jira", "aws", "openai", "railway", "vercel")
 
 
 def _row_val(row, key: str, index: int = 0):

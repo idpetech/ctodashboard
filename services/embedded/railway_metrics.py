@@ -29,10 +29,33 @@ class RailwayMetrics:
     - {"status": "api_unavailable", ...} when Railway API returns 404/errors
     """
 
-    def __init__(self):
-        self.api_token = os.getenv("RAILWAY_TOKEN")
+    def __init__(self, workspace_id: str = None, assignment_id: str = None):
+        self.workspace_id = workspace_id
+        self.assignment_id = assignment_id
         self.base_url = os.getenv("RAILWAY_API_URL", "https://backboard.railway.app/graphql")
         self.rest_api_url = os.getenv("RAILWAY_REST_API", "https://api.railway.app/v2")
+        self._init_credentials()
+
+    def _init_credentials(self) -> None:
+        from services.auth.credential_service import allow_connector_env_fallback
+
+        self.api_token = None
+        if self.workspace_id and self.assignment_id:
+            try:
+                from services.auth.credential_service import CredentialService
+
+                creds = CredentialService().get_railway_credentials(
+                    self.workspace_id, self.assignment_id
+                )
+                self.api_token = creds.get("token")
+                if self.api_token:
+                    return
+            except Exception as exc:
+                logger.warning("Could not load Railway credentials: %s", exc)
+            if allow_connector_env_fallback():
+                self.api_token = os.getenv("RAILWAY_TOKEN")
+        else:
+            self.api_token = os.getenv("RAILWAY_TOKEN")
 
     async def get_metrics(self, project_id: str = None, project_name: str = None) -> Dict:
         """Get Railway deployment metrics

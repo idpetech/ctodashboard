@@ -91,3 +91,26 @@ def test_missing_connector_message_is_actionable():
     msg = missing_connector_message("aws")
     assert "AWS" in msg
     assert "Setup" in msg
+
+
+@patch("services.assignment_metrics_config.stored_connector_credentials")
+def test_railway_ready_with_token_and_project(mock_stored):
+    mock_stored.return_value = {
+        "railway_token": "rw_token",
+        "railway_project_id": "proj-123",
+    }
+    assert connector_credentials_ready("ws1", "a1", "railway") is True
+
+
+@patch("services.assignment_metrics_config.stored_connector_credentials")
+def test_vercel_ready_with_token_and_project(mock_stored):
+    mock_stored.return_value = {
+        "vercel_token": "vc_token",
+        "vercel_project_id": "prj_abc",
+    }
+    assert connector_credentials_ready("ws1", "a1", "vercel") is True
+
+
+def test_missing_connector_message_railway_and_vercel():
+    assert "Railway" in missing_connector_message("railway")
+    assert "Vercel" in missing_connector_message("vercel")

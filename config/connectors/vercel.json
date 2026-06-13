@@ -1,0 +1,12 @@
+{
+  "id": "vercel",
+  "name": "Vercel",
+  "description": "Deployment metrics from Vercel projects",
+  "credential_fields": [
+    {"name": "vercel_token", "label": "Vercel API Token", "secret": true, "required": true},
+    {"name": "vercel_project_id", "label": "Project ID", "secret": false, "required": true},
+    {"name": "vercel_team_id", "label": "Team ID (optional)", "secret": false, "required": false}
+  ],
+  "metrics_config_fields": ["project_id", "team_id"],
+  "env_flag": "ENABLE_VERCEL_CONNECTOR"
+}
