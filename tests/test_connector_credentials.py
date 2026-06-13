@@ -129,3 +129,40 @@ def test_azure_ready_with_service_principal(mock_stored):
 
 def test_missing_connector_message_azure():
     assert "Azure" in missing_connector_message("azure")
+
+
+@patch("requests.post")
+def test_railway_validation_uses_graphql_v2_endpoint(mock_post):
+    from services.embedded.railway_metrics import RAILWAY_GRAPHQL_V2, validate_railway_connection
+
+    mock_resp = mock_post.return_value
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"data": {"me": {"id": "u1", "email": "a@b.com", "name": "A"}}}
+
+    result = validate_railway_connection("rw-token-123")
+    assert result["valid"] is True
+    assert mock_post.call_args[0][0] == RAILWAY_GRAPHQL_V2
+    assert "Bearer rw-token-123" in mock_post.call_args[1]["headers"]["Authorization"]
+
+
+@patch("requests.post")
+def test_railway_project_token_validation(mock_post):
+    from services.embedded.railway_metrics import validate_railway_connection
+
+    account_resp = mock_post.return_value
+    account_resp.status_code = 200
+    account_resp.json.return_value = {
+        "errors": [{"message": "Not Authorized"}],
+        "data": {"me": None},
+    }
+
+    project_resp = type("R", (), {})()
+    project_resp.status_code = 200
+    project_resp.json = lambda: {
+        "data": {"projectToken": {"projectId": "proj-1", "environmentId": "env-1"}}
+    }
+    mock_post.side_effect = [account_resp, project_resp]
+
+    result = validate_railway_connection("project-token", project_id="proj-1")
+    assert result["valid"] is True
+    assert result["token_type"] == "project"

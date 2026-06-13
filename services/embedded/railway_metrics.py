@@ -3,13 +3,121 @@
 import asyncio
 import os
 import ssl
-from typing import Dict
+from typing import Any, Dict, Optional
 
 import aiohttp
 
 from config.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+RAILWAY_GRAPHQL_V2 = os.getenv("RAILWAY_API_URL", "https://backboard.railway.com/graphql/v2")
+
+
+def validate_railway_connection(token: str, project_id: Optional[str] = None) -> Dict[str, Any]:
+    """Validate Railway account, workspace, or project token against the public GraphQL API."""
+    import requests
+
+    token = (token or "").strip()
+    project_id = (project_id or "").strip() or None
+    if not token:
+        return {"valid": False, "error": "Railway token is required"}
+
+    def _post(query: str, variables: Optional[dict] = None, project_token: bool = False):
+        headers = {"Content-Type": "application/json"}
+        if project_token:
+            headers["Project-Access-Token"] = token
+        else:
+            headers["Authorization"] = f"Bearer {token}"
+        payload: Dict[str, Any] = {"query": query}
+        if variables:
+            payload["variables"] = variables
+        return requests.post(RAILWAY_GRAPHQL_V2, json=payload, headers=headers, timeout=15)
+
+    last_status = None
+
+    # Account / personal token
+    try:
+        response = _post("query { me { id email name } }")
+        last_status = response.status_code
+        if response.status_code == 200:
+            data = response.json()
+            me = (data.get("data") or {}).get("me") or {}
+            if me.get("id") and not data.get("errors"):
+                return {
+                    "valid": True,
+                    "user_id": me.get("id"),
+                    "email": me.get("email"),
+                    "name": me.get("name"),
+                    "token_type": "account",
+                }
+    except requests.RequestException as exc:
+        return {"valid": False, "error": f"Railway connection failed: {exc}"}
+
+    # Project access token (uses Project-Access-Token header, not Bearer)
+    try:
+        response = _post("query { projectToken { projectId environmentId } }", project_token=True)
+        last_status = response.status_code
+        if response.status_code == 200:
+            data = response.json()
+            project_token_data = (data.get("data") or {}).get("projectToken") or {}
+            token_project_id = project_token_data.get("projectId")
+            if token_project_id and not data.get("errors"):
+                if project_id and token_project_id != project_id:
+                    return {
+                        "valid": False,
+                        "error": "Project token does not match the project ID you entered",
+                    }
+                return {
+                    "valid": True,
+                    "project_id": token_project_id,
+                    "environment_id": project_token_data.get("environmentId"),
+                    "token_type": "project",
+                }
+    except requests.RequestException as exc:
+        return {"valid": False, "error": f"Railway connection failed: {exc}"}
+
+    # Workspace/account token scoped to a specific project
+    if project_id:
+        try:
+            response = _post(
+                "query($id: String!) { project(id: $id) { id name } }",
+                variables={"id": project_id},
+            )
+            last_status = response.status_code
+            if response.status_code == 200:
+                data = response.json()
+                project = (data.get("data") or {}).get("project")
+                if project and project.get("id"):
+                    return {
+                        "valid": True,
+                        "project_id": project.get("id"),
+                        "project_name": project.get("name"),
+                        "token_type": "workspace",
+                    }
+                errors = data.get("errors") or []
+                if errors:
+                    return {
+                        "valid": False,
+                        "error": errors[0].get("message", "Railway project not accessible"),
+                    }
+        except requests.RequestException as exc:
+            return {"valid": False, "error": f"Railway connection failed: {exc}"}
+
+    if last_status == 401:
+        return {"valid": False, "error": "Invalid Railway token"}
+    if last_status == 404:
+        return {
+            "valid": False,
+            "error": "Railway API endpoint not found — verify Railway API status or token type",
+        }
+    return {
+        "valid": False,
+        "error": (
+            "Railway token could not be verified. Use a personal account token, "
+            "or a project token scoped to this project."
+        ),
+    }
 
 
 class RailwayMetrics:
@@ -32,7 +140,7 @@ class RailwayMetrics:
     def __init__(self, workspace_id: str = None, assignment_id: str = None):
         self.workspace_id = workspace_id
         self.assignment_id = assignment_id
-        self.base_url = os.getenv("RAILWAY_API_URL", "https://backboard.railway.app/graphql")
+        self.base_url = os.getenv("RAILWAY_API_URL", RAILWAY_GRAPHQL_V2)
         self.rest_api_url = os.getenv("RAILWAY_REST_API", "https://api.railway.app/v2")
         self._init_credentials()
 
@@ -138,9 +246,12 @@ class RailwayMetrics:
         }
         """
 
-        headers = {"Authorization": f"Bearer {self.api_token}", "Content-Type": "application/json"}
-
         payload = {"query": query, "variables": {"projectId": project_id}}
+
+        auth_modes = [
+            {"Authorization": f"Bearer {self.api_token}", "Content-Type": "application/json"},
+            {"Project-Access-Token": self.api_token, "Content-Type": "application/json"},
+        ]
 
         # Create SSL context that's more permissive for testing
         ssl_context = ssl.create_default_context()
@@ -151,40 +262,33 @@ class RailwayMetrics:
         timeout = aiohttp.ClientTimeout(total=10)
 
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-            async with session.post(self.base_url, json=payload, headers=headers) as response:
-                if response.status == 404:
-                    return {
-                        "status": "api_unavailable",
-                        "method": "graphql",
-                        "error": "GraphQL endpoint not found",
-                    }
+            for headers in auth_modes:
+                async with session.post(self.base_url, json=payload, headers=headers) as response:
+                    if response.status == 404:
+                        continue
 
-                if response.status != 200:
-                    return {
-                        "status": "api_unavailable",
-                        "method": "graphql",
-                        "error": f"HTTP {response.status}",
-                    }
+                    if response.status != 200:
+                        continue
 
-                data = await response.json()
+                    data = await response.json()
 
-                if "errors" in data:
-                    return {
-                        "status": "api_unavailable",
-                        "method": "graphql",
-                        "error": "GraphQL errors",
-                    }
+                    if data.get("errors"):
+                        continue
 
-                project = data.get("data", {}).get("project")
-                if not project:
-                    return {
-                        "status": "api_unavailable",
-                        "method": "graphql",
-                        "error": "No project data",
-                    }
+                    project = data.get("data", {}).get("project")
+                    if not project:
+                        continue
 
-                deployments = project.get("deployments", {}).get("edges", [])
-                return self._process_deployment_data(deployments, project_id, project.get("name"))
+                    deployments = project.get("deployments", {}).get("edges", [])
+                    return self._process_deployment_data(
+                        deployments, project_id, project.get("name")
+                    )
+
+        return {
+            "status": "api_unavailable",
+            "method": "graphql",
+            "error": "GraphQL endpoint not found or project not accessible",
+        }
 
     async def _get_metrics_rest_v2(self, project_id: str, project_name: str) -> Dict:
         """Try Railway's REST API v2"""

@@ -227,35 +227,13 @@ def _validate_openai_credentials(credentials):
 
 
 def _validate_railway_credentials(credentials):
-    """Test Railway API token via GraphQL me query."""
-    token = credentials.get("railway_token")
-    if not token:
-        return {"valid": False, "error": "Railway token is required"}
+    """Test Railway API token against the public GraphQL v2 API."""
+    from services.embedded.railway_metrics import validate_railway_connection
 
-    try:
-        import requests
-
-        response = requests.post(
-            "https://backboard.railway.app/graphql",
-            json={"query": "query { me { id email } }"},
-            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-            timeout=10,
-        )
-        if response.status_code == 401:
-            return {"valid": False, "error": "Invalid Railway token"}
-        if response.status_code != 200:
-            return {"valid": False, "error": f"Railway API error: {response.status_code}"}
-        data = response.json()
-        if data.get("errors"):
-            return {"valid": False, "error": "Railway token validation failed"}
-        me = (data.get("data") or {}).get("me") or {}
-        if not me.get("id"):
-            return {"valid": False, "error": "Railway token could not be verified"}
-        return {"valid": True, "user_id": me.get("id"), "email": me.get("email")}
-    except requests.exceptions.Timeout:
-        return {"valid": False, "error": "Railway API request timed out"}
-    except Exception as e:
-        return {"valid": False, "error": f"Railway connection failed: {str(e)}"}
+    return validate_railway_connection(
+        credentials.get("railway_token"),
+        credentials.get("railway_project_id"),
+    )
 
 
 def _validate_vercel_credentials(credentials):
