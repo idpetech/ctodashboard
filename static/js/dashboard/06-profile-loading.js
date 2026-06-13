@@ -202,7 +202,7 @@ function displayAssignmentModalConnectors(assignment) {
     
     // Get all configured connectors
     const configuredConnectors = [];
-    const connectorTypes = ['github', 'jira', 'aws', 'openai'];
+    const connectorTypes = getConnectorsForAssignmentDisplay(metrics_config);
     
     connectorTypes.forEach(type => {
         const config = metrics_config[type];
@@ -364,6 +364,20 @@ function loadAssignmentMetricsConfig() {
             <span class="text-xs text-gray-600">Project: ${config.railway.project_id || 'N/A'}</span>
         </div>`;
     }
+
+    if (config.vercel?.enabled) {
+        summary += `<div class="flex items-center space-x-2">
+            <span class="px-2 py-1 bg-gray-900 text-white text-xs rounded">▲ Vercel</span>
+            <span class="text-xs text-gray-600">Project: ${config.vercel.project_id || 'N/A'}</span>
+        </div>`;
+    }
+
+    if (config.azure?.enabled) {
+        summary += `<div class="flex items-center space-x-2">
+            <span class="px-2 py-1 bg-sky-100 text-sky-800 text-xs rounded">☁️ Azure</span>
+            <span class="text-xs text-gray-600">Subscription: ${config.azure.subscription_id || 'N/A'}</span>
+        </div>`;
+    }
     
     if (config.openai?.enabled) {
         summary += `<div class="flex items-center space-x-2">
@@ -374,7 +388,7 @@ function loadAssignmentMetricsConfig() {
     
     summary += '</div>';
     
-    if (!config.github?.enabled && !config.jira?.enabled && !config.aws?.enabled && !config.railway?.enabled && !config.openai?.enabled) {
+    if (getConnectorsForAssignmentDisplay(config).length === 0) {
         summary = '<div class="text-gray-500">No service connectors enabled for this assignment.</div>';
     }
     

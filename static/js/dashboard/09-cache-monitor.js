@@ -560,6 +560,26 @@ function getCredentialsFromForm(connectorType) {
                 openai_org_id: document.getElementById('openai_org_id').value,
                 openai_model: document.getElementById('openai_model').value
             };
+        case 'railway':
+            return {
+                railway_token: document.getElementById('railway_token').value,
+                railway_project_id: document.getElementById('railway_project_id').value,
+                railway_project_name: document.getElementById('railway_project_name').value
+            };
+        case 'vercel':
+            return {
+                vercel_token: document.getElementById('vercel_token').value,
+                vercel_project_id: document.getElementById('vercel_project_id').value,
+                vercel_team_id: document.getElementById('vercel_team_id').value
+            };
+        case 'azure':
+            return {
+                azure_tenant_id: document.getElementById('azure_tenant_id').value,
+                azure_client_id: document.getElementById('azure_client_id').value,
+                azure_client_secret: document.getElementById('azure_client_secret').value,
+                azure_subscription_id: document.getElementById('azure_subscription_id').value,
+                azure_resource_group: document.getElementById('azure_resource_group').value
+            };
         default:
             return null;
     }
@@ -623,6 +643,13 @@ function showCreateAssignmentModal() {
     document.getElementById('enable_jira').checked = false;
     document.getElementById('enable_aws').checked = false;
     document.getElementById('enable_openai').checked = false;
+    const er = document.getElementById('dashboard_enable_railway');
+    const ev = document.getElementById('dashboard_enable_vercel');
+    const ea = document.getElementById('dashboard_enable_azure');
+    if (er) er.checked = false;
+    if (ev) ev.checked = false;
+    if (ea) ea.checked = false;
+    loadAct4ConnectorFlags();
     
     clearAssignmentMessages();
     document.getElementById('createAssignmentModal').classList.remove('hidden');
@@ -685,6 +712,15 @@ async function createAssignment(event) {
             track_costs: true,
             cost_alert_threshold: 50
         };
+    }
+    if (document.getElementById('dashboard_enable_railway')?.checked) {
+        connectors.railway = { enabled: true };
+    }
+    if (document.getElementById('dashboard_enable_vercel')?.checked) {
+        connectors.vercel = { enabled: true };
+    }
+    if (document.getElementById('dashboard_enable_azure')?.checked) {
+        connectors.azure = { enabled: true };
     }
 
     if (Object.keys(connectors).length > 0) {

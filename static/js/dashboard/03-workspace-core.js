@@ -511,15 +511,35 @@ function getSelectedAssignmentDisplayName() {
     return selectedAssignmentId || 'this assignment';
 }
 
-function showCreateConnectorModal() {
+async function showCreateConnectorModal() {
     if (!selectedAssignmentId) {
         alert('Please select an assignment first');
         return;
     }
 
+    await loadAct4ConnectorFlags();
     const assignmentName = getSelectedAssignmentDisplayName();
-    
-    // Show connector type selection modal
+    const pickerEntries = getConnectorsForPicker();
+    if (pickerEntries.length === 0) {
+        alert('No connectors are available on this deployment.');
+        return;
+    }
+
+    const pickerButtons = pickerEntries.map(function(entry) {
+        return `
+                        <button onclick="createNewConnector('${entry.id}')" class="border-2 border-gray-200 hover:border-blue-500 rounded-lg p-4 text-left transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-12 h-12 ${entry.bg} rounded text-white flex items-center justify-center font-bold">
+                                    ${entry.icon}
+                                </div>
+                                <div>
+                                    <h4 class="font-medium">${entry.label}</h4>
+                                    <p class="text-sm text-gray-600">${entry.desc}</p>
+                                </div>
+                            </div>
+                        </button>`;
+    }).join('');
+
     const modalHtml = `
         <div id="connectorTypeModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4">
@@ -536,56 +556,13 @@ function showCreateConnectorModal() {
                 <div class="p-6">
                     <p class="text-gray-600 mb-6">Choose a connector type for <strong>${assignmentName}</strong></p>
                     <div class="grid grid-cols-2 gap-4">
-                        <button onclick="createNewConnector('github')" class="border-2 border-gray-200 hover:border-blue-500 rounded-lg p-4 text-left transition-colors">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-12 h-12 bg-gray-800 rounded text-white flex items-center justify-center font-bold">
-                                    GH
-                                </div>
-                                <div>
-                                    <h4 class="font-medium">GitHub</h4>
-                                    <p class="text-sm text-gray-600">Repository metrics</p>
-                                </div>
-                            </div>
-                        </button>
-                        <button onclick="createNewConnector('jira')" class="border-2 border-gray-200 hover:border-blue-500 rounded-lg p-4 text-left transition-colors">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-12 h-12 bg-blue-600 rounded text-white flex items-center justify-center font-bold">
-                                    JI
-                                </div>
-                                <div>
-                                    <h4 class="font-medium">Jira</h4>
-                                    <p class="text-sm text-gray-600">Issue tracking</p>
-                                </div>
-                            </div>
-                        </button>
-                        <button onclick="createNewConnector('aws')" class="border-2 border-gray-200 hover:border-blue-500 rounded-lg p-4 text-left transition-colors">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-12 h-12 bg-orange-500 rounded text-white flex items-center justify-center font-bold">
-                                    AWS
-                                </div>
-                                <div>
-                                    <h4 class="font-medium">AWS</h4>
-                                    <p class="text-sm text-gray-600">Cloud costs</p>
-                                </div>
-                            </div>
-                        </button>
-                        <button onclick="createNewConnector('openai')" class="border-2 border-gray-200 hover:border-blue-500 rounded-lg p-4 text-left transition-colors">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-12 h-12 bg-green-600 rounded text-white flex items-center justify-center font-bold">
-                                    AI
-                                </div>
-                                <div>
-                                    <h4 class="font-medium">OpenAI</h4>
-                                    <p class="text-sm text-gray-600">AI insights</p>
-                                </div>
-                            </div>
-                        </button>
+                        ${pickerButtons}
                     </div>
                 </div>
             </div>
         </div>
     `;
-    
+
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
@@ -627,20 +604,24 @@ async function enableConnectorForAssignment(assignmentId, connectorType) {
         }
         
         if (!assignment.metrics_config[connectorType]) {
-            assignment.metrics_config[connectorType] = {
-                enabled: true,
-                track_deployments: connectorType === 'github',
-                track_issues: connectorType === 'github' || connectorType === 'jira',
-                track_pull_requests: connectorType === 'github',
-                track_sprints: connectorType === 'jira',
-                track_bugs: connectorType === 'jira',
-                track_story_points: connectorType === 'jira',
-                track_costs: connectorType === 'aws' || connectorType === 'openai',
-                track_resources: connectorType === 'aws',
-                track_usage: connectorType === 'openai',
-                cost_alert_threshold: connectorType === 'aws' ? 100 : 50,
-                default_branch: 'main'
-            };
+            if (['railway', 'vercel', 'azure'].includes(connectorType)) {
+                assignment.metrics_config[connectorType] = { enabled: true };
+            } else {
+                assignment.metrics_config[connectorType] = {
+                    enabled: true,
+                    track_deployments: connectorType === 'github',
+                    track_issues: connectorType === 'github' || connectorType === 'jira',
+                    track_pull_requests: connectorType === 'github',
+                    track_sprints: connectorType === 'jira',
+                    track_bugs: connectorType === 'jira',
+                    track_story_points: connectorType === 'jira',
+                    track_costs: connectorType === 'aws' || connectorType === 'openai',
+                    track_resources: connectorType === 'aws',
+                    track_usage: connectorType === 'openai',
+                    cost_alert_threshold: connectorType === 'aws' ? 100 : 50,
+                    default_branch: 'main'
+                };
+            }
         }
         
         // Update assignment
@@ -733,6 +714,7 @@ function refreshAssignmentsUI() {
 }
 
 async function loadSetupData() {
+    await loadAct4ConnectorFlags();
     const container = document.getElementById('setupAssignmentsList');
     if (!container) {
         return;
@@ -954,7 +936,7 @@ function displayConnectorsForAssignment(assignment) {
     
     // Get all configured connectors
     const configuredConnectors = [];
-    const connectorTypes = ['github', 'jira', 'aws', 'openai'];
+    const connectorTypes = getConnectorsForAssignmentDisplay(metrics_config);
     
     connectorTypes.forEach(type => {
         const config = metrics_config[type];
@@ -1018,9 +1000,12 @@ function displayConnectorsForAssignment(assignment) {
 function getConnectorColor(type) {
     const colors = {
         github: 'bg-gray-800',
-        jira: 'bg-blue-600', 
+        jira: 'bg-blue-600',
         aws: 'bg-orange-500',
-        openai: 'bg-green-600'
+        openai: 'bg-green-600',
+        railway: 'bg-purple-700',
+        vercel: 'bg-black',
+        azure: 'bg-sky-600',
     };
     return colors[type] || 'bg-gray-500';
 }
@@ -1030,7 +1015,10 @@ function getConnectorIcon(type) {
         github: 'GH',
         jira: 'JI',
         aws: 'AWS',
-        openai: 'AI'
+        openai: 'AI',
+        railway: 'RW',
+        vercel: 'VC',
+        azure: 'AZ',
     };
     return icons[type] || '?';
 }
@@ -1046,6 +1034,12 @@ function getConnectorSummary(connector) {
         summary = `<div class="mt-2 text-sm text-gray-600">🌐 ${creds.jira_url}</div>`;
     } else if (connector.type === 'aws' && creds.aws_region) {
         summary = `<div class="mt-2 text-sm text-gray-600">🌍 Region: ${creds.aws_region}</div>`;
+    } else if (connector.type === 'railway' && creds.railway_project_id) {
+        summary = `<div class="mt-2 text-sm text-gray-600">Project: ${creds.railway_project_id}</div>`;
+    } else if (connector.type === 'vercel' && creds.vercel_project_id) {
+        summary = `<div class="mt-2 text-sm text-gray-600">Project: ${creds.vercel_project_id}</div>`;
+    } else if (connector.type === 'azure' && creds.azure_subscription_id) {
+        summary = `<div class="mt-2 text-sm text-gray-600">Subscription: ${creds.azure_subscription_id}</div>`;
     }
     return summary;
 }
@@ -1060,7 +1054,7 @@ async function updateConnectorStatusForAssignment(assignmentId) {
             const assignment = data.assignments.find(a => a.id === assignmentId);
             
             if (assignment && assignment.metrics_config) {
-                const connectors = ['github', 'jira', 'aws', 'openai'];
+                const connectors = ALL_CONNECTOR_TYPES;
                 
                 connectors.forEach(connectorType => {
                     const statusElement = document.getElementById(`${connectorType}-setup-status`);
@@ -1088,7 +1082,7 @@ async function updateConnectorStatusForAssignment(assignmentId) {
 
 function getSetupConnectorBadges(assignment) {
     const authInstances = assignment.auth_instances || {};
-    const connectors = ['github', 'jira', 'aws', 'openai'];
+    const connectors = ALL_CONNECTOR_TYPES;
     
     const configuredConnectors = connectors.filter(connector => {
         const instance = authInstances[connector];

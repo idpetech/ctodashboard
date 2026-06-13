@@ -23,6 +23,7 @@ document.addEventListener('click', function() {
 
 // Initialize authentication when page loads
 document.addEventListener('DOMContentLoaded', function() {
+    loadAct4ConnectorFlags();
     initializeAuth();
     
     // Phase 5C: Start background monitoring and real-time updates after successful auth
