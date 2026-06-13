@@ -436,6 +436,9 @@ function populateOpenAIForm(credentials) {
     if (credentials.openai_org_id) {
         document.getElementById('openai_org_id').value = credentials.openai_org_id;
     }
+    if (credentials.openai_admin_api_key) {
+        document.getElementById('openai_admin_api_key').value = credentials.openai_admin_api_key;
+    }
     if (credentials.openai_model) {
         document.getElementById('openai_model').value = credentials.openai_model;
     }
@@ -558,6 +561,7 @@ function getCredentialsFromForm(connectorType) {
             return {
                 openai_api_key: document.getElementById('openai_api_key').value,
                 openai_org_id: document.getElementById('openai_org_id').value,
+                openai_admin_api_key: document.getElementById('openai_admin_api_key').value,
                 openai_model: document.getElementById('openai_model').value
             };
         case 'railway':

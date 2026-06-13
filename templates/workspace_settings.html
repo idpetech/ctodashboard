@@ -517,7 +517,13 @@
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Organization ID (Optional)</label>
                             <input type="text" id="openai_org_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="org-xxxxxxxxxxxxxxxxxxxxxxxxx">
-                            <p class="text-xs text-gray-500 mt-1">Required if you belong to multiple organizations</p>
+                            <p class="text-xs text-gray-500 mt-1">Your org ID (org-…) from OpenAI settings.</p>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Admin API Key (Optional)</label>
+                            <input type="password" id="openai_admin_api_key" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Admin key for usage/billing metrics">
+                            <p class="text-xs text-gray-500 mt-1">Required for organization usage metrics in CTOLens.</p>
                         </div>
                         
                         <div class="mb-4">
@@ -1397,6 +1403,7 @@
                     return {
                         openai_api_key: document.getElementById('openai_api_key').value,
                         openai_org_id: document.getElementById('openai_org_id').value,
+                        openai_admin_api_key: document.getElementById('openai_admin_api_key').value,
                         openai_model: document.getElementById('openai_model').value
                     };
                 case 'railway':
