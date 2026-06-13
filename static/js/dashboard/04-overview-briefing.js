@@ -1271,7 +1271,7 @@ function generateAssignmentContent(assignment) {
 
 function renderAct4ConnectorSection(title, emoji, colorClass, borderClass, sectionId, bodyHtml) {
     let html = '<div class="' + borderClass + ' rounded mb-4">';
-    html += '<div class="cursor-pointer p-4 hover:opacity-90" onclick="toggleSection('' + sectionId + '')">';
+    html += '<div class="cursor-pointer p-4 hover:opacity-90" onclick="toggleSection(\'' + sectionId + '\')">';
     html += '<h4 class="text-lg font-semibold ' + colorClass + ' flex items-center">';
     html += '<span id="' + sectionId + '-icon" class="mr-2">▶️</span>';
     html += emoji + ' ' + title;
