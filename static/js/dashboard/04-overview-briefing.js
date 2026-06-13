@@ -1379,6 +1379,7 @@ function connectorMetricsOk(payload) {
     if (!payload) return false;
     if (payload.error) return false;
     if (payload.status === 'api_unavailable') return false;
+    if (payload.status === 'usage_unavailable') return false;
     if (payload.cost_analysis && payload.cost_analysis.error) return false;
     if (Array.isArray(payload)) {
         return payload.length > 0 && payload.every(item => !item.error);
@@ -1937,6 +1938,14 @@ function displayAllMetrics(metrics, container) {
         html += '🤖 OpenAI API Usage';
         html += '</h4></div>';
         html += '<div id="openai-section" class="hidden p-4 pt-0">';
+
+        if (metrics.openai.status === 'usage_unavailable' || metrics.openai.account_type === 'organization_limited') {
+            html += '<div class="bg-yellow-100 border border-yellow-300 text-yellow-900 p-3 rounded mb-4 text-sm">';
+            html += '<div class="font-medium mb-1">OpenAI usage not available with current keys</div>';
+            if (metrics.openai.usage_notice) html += '<div class="mb-2">' + metrics.openai.usage_notice + '</div>';
+            if (metrics.openai.recommendation) html += '<div>' + metrics.openai.recommendation + '</div>';
+            html += '</div>';
+        }
         
         // Usage Summary
         html += '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">';
@@ -1956,15 +1965,38 @@ function displayAllMetrics(metrics, container) {
         html += '</div>';
         html += '</div>';
         
-        // Models Used
-        if (metrics.openai.models_used && metrics.openai.models_used.length > 0) {
+        // Models in use (auto-detected from org usage — no manual model config)
+        const openaiBreakdown = metrics.openai.model_breakdown || {};
+        const openaiSkipModels = new Set(['costs', 'unknown', '']);
+        const openaiModels = Object.entries(openaiBreakdown)
+            .filter(([name, stats]) => name && !openaiSkipModels.has(name) && ((stats.requests || 0) > 0 || (stats.tokens || 0) > 0))
+            .sort((a, b) => (b[1].tokens || 0) - (a[1].tokens || 0) || (b[1].requests || 0) - (a[1].requests || 0));
+        const openaiModelNames = openaiModels.map(([name]) => name);
+        const openaiFallbackNames = (metrics.openai.models_used || [])
+            .filter(name => name && !openaiSkipModels.has(name) && name !== 'No usage this period' && name !== 'No data available');
+        const openaiDisplayNames = openaiModelNames.length > 0 ? openaiModelNames : openaiFallbackNames;
+        if (openaiDisplayNames.length > 0) {
             html += '<div class="bg-white p-3 rounded border mb-3">';
-            html += '<h5 class="font-medium text-gray-800 mb-2">Models Used</h5>';
-            html += '<div class="flex flex-wrap gap-2">';
-            metrics.openai.models_used.forEach(model => {
+            html += '<h5 class="font-medium text-gray-800 mb-2">Models in Use</h5>';
+            html += '<div class="flex flex-wrap gap-2 mb-3">';
+            openaiDisplayNames.forEach(model => {
                 html += '<span class="px-2 py-1 bg-purple-100 text-purple-800 text-sm rounded">' + model + '</span>';
             });
-            html += '</div></div>';
+            html += '</div>';
+            if (openaiModels.length > 0) {
+                html += '<div class="overflow-x-auto"><table class="min-w-full text-sm">';
+                html += '<thead><tr class="text-left text-gray-500 border-b"><th class="py-1 pr-4">Model</th><th class="py-1 pr-4">Requests</th><th class="py-1 pr-4">Tokens</th><th class="py-1">Est. cost</th></tr></thead><tbody>';
+                openaiModels.forEach(([model, stats]) => {
+                    html += '<tr class="border-b border-gray-100">';
+                    html += '<td class="py-1 pr-4 font-medium text-purple-800">' + model + '</td>';
+                    html += '<td class="py-1 pr-4">' + (stats.requests || 0).toLocaleString() + '</td>';
+                    html += '<td class="py-1 pr-4">' + (stats.tokens || 0).toLocaleString() + '</td>';
+                    html += '<td class="py-1">$' + (stats.cost || 0).toFixed(2) + '</td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table></div>';
+            }
+            html += '</div>';
         }
         
         // Dashboard Links

@@ -87,77 +87,135 @@ class OpenAIConnector(BaseConnector):
             headers["OpenAI-Organization"] = org_id
         return headers
 
+    def _parse_api_error(self, response) -> str:
+        try:
+            payload = response.json()
+            err = payload.get("error")
+            if isinstance(err, dict):
+                return err.get("message") or str(err)
+            if isinstance(err, str):
+                return err
+            return response.text[:240]
+        except Exception:
+            return response.text[:240] if response is not None else "Unknown OpenAI API error"
+
+    def _http_get_json(
+        self, url: str, headers: Dict[str, str], params: Optional[dict] = None
+    ) -> tuple[bool, dict, Optional[dict]]:
+        import requests
+
+        try:
+            response = requests.get(url, headers=headers, params=params or {}, timeout=15)
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, dict):
+                    return True, data, None
+                return False, {}, {"status": 200, "message": "Unexpected non-object JSON response"}
+            return (
+                False,
+                {},
+                {
+                    "status": response.status_code,
+                    "message": self._parse_api_error(response),
+                },
+            )
+        except requests.RequestException as exc:
+            return False, {}, {"status": None, "message": str(exc)}
+
+    def _merge_org_bucket_pages(self, pages: list) -> Dict:
+        merged_buckets = []
+        for page in pages:
+            merged_buckets.extend(page.get("data") or [])
+        return {"object": "page", "data": merged_buckets, "_account_scope": "organization"}
+
+    def _usage_query_params(self, start_time: int, *, group_by_model: bool = False) -> Dict[str, Any]:
+        params: Dict[str, Any] = {
+            "start_time": start_time,
+            "limit": 31,
+            "bucket_width": "1d",
+        }
+        if group_by_model:
+            params["group_by[]"] = "model"
+        return params
+
+    _USAGE_GROUP_BY_MODEL = frozenset(
+        {
+            "completions",
+            "embeddings",
+            "moderations",
+            "images",
+            "audio_speeches",
+            "audio_transcriptions",
+        }
+    )
+
     def _get_usage_data(self) -> Dict:
-        """Get usage data from OpenAI organization or legacy billing APIs."""
+        """Get usage data from OpenAI organization usage APIs (Admin key required)."""
         now = datetime.now()
-        start_date = now.replace(day=1).strftime("%Y-%m-%d")
-        end_date = now.strftime("%Y-%m-%d")
         start_time = int(now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
         headers = self._api_headers(for_usage=True)
         org_id = (self.credentials.get("openai_org_id") or "").strip()
-        last_status = None
-
-        usage_attempts = [
+        admin_configured = bool((self.credentials.get("openai_admin_api_key") or "").strip())
+        usage_paths = [
+            ("completions", f"{self.base_url}/organization/usage/completions"),
+            ("embeddings", f"{self.base_url}/organization/usage/embeddings"),
+            ("moderations", f"{self.base_url}/organization/usage/moderations"),
+            ("images", f"{self.base_url}/organization/usage/images"),
+            ("audio_speeches", f"{self.base_url}/organization/usage/audio_speeches"),
+            ("audio_transcriptions", f"{self.base_url}/organization/usage/audio_transcriptions"),
+            ("vector_stores", f"{self.base_url}/organization/usage/vector_stores"),
             (
-                f"{self.base_url}/organization/usage/completions",
-                {
-                    "start_time": start_time,
-                    "limit": 31,
-                    "bucket_width": "1d",
-                    "group_by": ["model"],
-                },
-            ),
-            (
-                f"{self.base_url}/organization/usage",
-                {"start_date": start_date, "end_date": end_date},
-            ),
-            (
-                f"{self.base_url}/dashboard/billing/usage",
-                {"start_date": start_date, "end_date": end_date},
+                "code_interpreter_sessions",
+                f"{self.base_url}/organization/usage/code_interpreter_sessions",
             ),
         ]
+        api_errors = []
+        pages = []
 
-        for url, params in usage_attempts:
-            try:
-                response = self._make_request("GET", url, headers=headers, params=params)
-                payload = response.json()
-                if org_id or "/organization/" in url:
-                    payload["_account_scope"] = "organization"
-                return payload
-            except Exception as exc:
-                last_status = getattr(getattr(exc, "response", None), "status_code", None)
-                logger.info("OpenAI usage endpoint failed (%s): %s", url, exc)
-
-        has_org = bool(org_id)
-        if has_org or (self.credentials.get("openai_admin_api_key") or "").strip():
-            message = (
-                "Could not read organization usage data with the configured API key(s). "
-                "OpenAI organization usage requires an Admin API key with usage read access "
-                "(Platform → Settings → Organization → Admin keys)."
+        for label, url in usage_paths:
+            params = self._usage_query_params(
+                start_time, group_by_model=label in self._USAGE_GROUP_BY_MODEL
             )
-            recommendation = (
-                "Add an Admin API key in connector credentials (optional Admin API Key field), "
-                "confirm your Organization ID (org-…), then reload metrics."
+            ok, payload, err = self._http_get_json(url, headers, params)
+            if ok:
+                if payload.get("data"):
+                    pages.append(payload)
+                continue
+            if err:
+                api_errors.append({**err, "endpoint": label})
+
+        if pages:
+            return self._merge_org_bucket_pages(pages)
+
+        last = api_errors[-1] if api_errors else {}
+        last_message = last.get("message") or "OpenAI usage API unavailable"
+        if "api.usage.read" in last_message.lower():
+            message = (
+                "OpenAI rejected usage access: missing api.usage.read scope. "
+                "Create an Organization Admin API key with Usage read permission and "
+                "save it in the Admin API Key field (standard project keys cannot read org usage)."
+            )
+        elif not admin_configured:
+            message = (
+                "Organization usage metrics require an Admin API key. "
+                "Add one in connector credentials (Admin API Key field) with Usage read access."
             )
         else:
-            message = (
-                "Usage/billing API access is unavailable with this API key. "
-                "If you upgraded to an Organization account, add your Organization ID (org-…) "
-                "and an Admin API key in connector settings."
-            )
-            recommendation = (
-                "Organization usage is not available on standard project API keys alone."
-            )
+            message = f"Could not read organization usage: {last_message}"
+
+        recommendation = (
+            "In OpenAI Platform → Settings → Organization → Admin keys, create an Admin key "
+            "with Usage read scope. Paste it into Admin API Key, set Organization ID (org-…), save, reload."
+        )
 
         return {
             "usage_access_limited": True,
             "message": message,
             "recommendation": recommendation,
-            "http_status": last_status,
-            "organization_id_configured": has_org,
-            "admin_key_configured": bool(
-                (self.credentials.get("openai_admin_api_key") or "").strip()
-            ),
+            "http_status": last.get("status"),
+            "api_errors": api_errors,
+            "organization_id_configured": bool(org_id),
+            "admin_key_configured": admin_configured,
         }
 
     def _get_billing_data(self) -> Dict:
@@ -215,39 +273,100 @@ class OpenAIConnector(BaseConnector):
             for result in bucket.get("results") or []:
                 if not isinstance(result, dict):
                     continue
-                obj_type = result.get("object") or ""
-                if obj_type == "organization.costs.result":
-                    amount = (result.get("amount") or {}).get("value") or 0
-                    rows.append(
-                        {
-                            "date": date_str,
-                            "model": result.get("line_item") or "costs",
-                            "requests": 0,
-                            "context_tokens": 0,
-                            "generated_tokens": 0,
-                            "tokens": 0,
-                            "cost": float(amount or 0),
-                        }
-                    )
-                    continue
-                input_tokens = int(result.get("input_tokens") or 0)
-                output_tokens = int(result.get("output_tokens") or 0)
-                input_audio = int(result.get("input_audio_tokens") or 0)
-                output_audio = int(result.get("output_audio_tokens") or 0)
-                context_tokens = input_tokens + input_audio
-                generated_tokens = output_tokens + output_audio
-                rows.append(
-                    {
-                        "date": date_str,
-                        "model": result.get("model") or "unknown",
-                        "requests": int(result.get("num_model_requests") or 0),
-                        "context_tokens": context_tokens,
-                        "generated_tokens": generated_tokens,
-                        "tokens": context_tokens + generated_tokens,
-                        "cost": float(result.get("cost") or 0),
-                    }
-                )
+                row = self._usage_result_to_row(result, date_str)
+                if row:
+                    rows.append(row)
         return rows
+
+    _NON_MODEL_KEYS = frozenset({"costs", "unknown", ""})
+
+    @classmethod
+    def _is_usage_model(cls, model: str) -> bool:
+        name = (model or "").strip()
+        if not name or name in cls._NON_MODEL_KEYS:
+            return False
+        if name.startswith("organization."):
+            return False
+        return True
+
+    def _usage_result_to_row(self, result: Dict, date_str: str) -> Optional[Dict]:
+        """Normalize any organization usage/cost result into a flat metrics row."""
+        obj_type = result.get("object") or ""
+        if obj_type == "organization.costs.result":
+            amount = (result.get("amount") or {}).get("value") or 0
+            return {
+                "date": date_str,
+                "model": result.get("line_item") or "costs",
+                "requests": 0,
+                "context_tokens": 0,
+                "generated_tokens": 0,
+                "tokens": 0,
+                "cost": float(amount or 0),
+                "is_cost_row": True,
+            }
+
+        if obj_type == "organization.usage.images.result":
+            images = int(result.get("images") or 0)
+            requests = int(result.get("num_model_requests") or 0)
+            model = (result.get("model") or "").strip() or "image_generation"
+            return {
+                "date": date_str,
+                "model": model,
+                "requests": requests,
+                "context_tokens": 0,
+                "generated_tokens": images,
+                "tokens": images,
+                "cost": float(result.get("cost") or 0),
+            }
+
+        if obj_type == "organization.usage.vector_stores.result":
+            usage_bytes = int(result.get("usage_bytes") or 0)
+            if usage_bytes <= 0:
+                return None
+            return {
+                "date": date_str,
+                "model": "vector_stores",
+                "requests": 0,
+                "context_tokens": usage_bytes,
+                "generated_tokens": 0,
+                "tokens": usage_bytes,
+                "cost": float(result.get("cost") or 0),
+            }
+
+        if obj_type == "organization.usage.code_interpreter_sessions.result":
+            sessions = int(result.get("num_sessions") or 0)
+            if sessions <= 0:
+                return None
+            return {
+                "date": date_str,
+                "model": "code_interpreter",
+                "requests": sessions,
+                "context_tokens": 0,
+                "generated_tokens": 0,
+                "tokens": 0,
+                "cost": float(result.get("cost") or 0),
+            }
+
+        input_tokens = int(result.get("input_tokens") or 0)
+        output_tokens = int(result.get("output_tokens") or 0)
+        input_audio = int(result.get("input_audio_tokens") or 0)
+        output_audio = int(result.get("output_audio_tokens") or 0)
+        context_tokens = input_tokens + input_audio
+        generated_tokens = output_tokens + output_audio
+        requests = int(result.get("num_model_requests") or result.get("num_sessions") or 0)
+        tokens = context_tokens + generated_tokens
+        model = (result.get("model") or "").strip() or "unknown"
+        if tokens == 0 and requests == 0 and float(result.get("cost") or 0) == 0:
+            return None
+        return {
+            "date": date_str,
+            "model": model,
+            "requests": requests,
+            "context_tokens": context_tokens,
+            "generated_tokens": generated_tokens,
+            "tokens": tokens,
+            "cost": float(result.get("cost") or 0),
+        }
 
     def _fetch_org_costs(self, start_time: int) -> float:
         headers = self._api_headers(for_usage=True)
@@ -307,6 +426,7 @@ class OpenAIConnector(BaseConnector):
         else:
             if usage_data.get("usage_access_limited"):
                 result["account_type"] = "organization_limited"
+                result["status"] = "usage_unavailable"
                 result["usage_notice"] = usage_data.get(
                     "message", "Organization usage data unavailable with current credentials"
                 )
@@ -315,6 +435,8 @@ class OpenAIConnector(BaseConnector):
                     result["organization_id"] = (
                         self.credentials.get("openai_org_id") or ""
                     ).strip()
+                if usage_data.get("api_errors"):
+                    result["api_errors"] = usage_data.get("api_errors")
             else:
                 result["usage_error"] = usage_data.get("error")
                 logger.warning("Usage data not available: %s", usage_data.get("error"))
@@ -386,8 +508,25 @@ class OpenAIConnector(BaseConnector):
             generated_tokens_total += generated_tokens
             total_requests += requests
             total_cost += cost
-            if model and model != "unknown":
+            if self._is_usage_model(model) and not row.get("is_cost_row"):
                 models_used.add(model)
+
+            if row.get("is_cost_row"):
+                model = model or "costs"
+
+            # Usage API returns ungrouped rows without a model name — keep totals only.
+            if model == "unknown" and not row.get("is_cost_row"):
+                if row.get("date"):
+                    daily_usage.append(
+                        {
+                            "date": row["date"],
+                            "tokens": item_tokens,
+                            "requests": requests,
+                            "cost": cost,
+                            "model": model,
+                        }
+                    )
+                continue
 
             if model not in model_breakdown:
                 model_breakdown[model] = {"requests": 0, "tokens": 0, "cost": 0.0}
@@ -408,11 +547,18 @@ class OpenAIConnector(BaseConnector):
 
         if org_cost_override > 0:
             total_cost = org_cost_override
-            if "costs" in model_breakdown:
+            known_models = {
+                name: stats
+                for name, stats in model_breakdown.items()
+                if self._is_usage_model(name)
+            }
+            known_tokens = sum(stats.get("tokens", 0) for stats in known_models.values())
+            if known_tokens > 0:
+                for name, stats in known_models.items():
+                    share = stats.get("tokens", 0) / known_tokens
+                    model_breakdown[name]["cost"] = round(org_cost_override * share, 4)
+            elif "costs" in model_breakdown:
                 model_breakdown["costs"]["cost"] = org_cost_override
-            elif model_breakdown:
-                first_model = next(iter(model_breakdown))
-                model_breakdown[first_model]["cost"] = org_cost_override
 
         # Calculate efficiency metrics
         avg_tokens_per_request = (
@@ -422,6 +568,17 @@ class OpenAIConnector(BaseConnector):
             round((total_cost / total_tokens) * 1000, 4) if total_tokens > 0 else 0
         )
         cost_per_request = round(total_cost / total_requests, 4) if total_requests > 0 else 0
+
+        models_from_usage = sorted(
+            [
+                name
+                for name, stats in model_breakdown.items()
+                if self._is_usage_model(name)
+                and (stats.get("requests", 0) > 0 or stats.get("tokens", 0) > 0)
+            ],
+            key=lambda name: (model_breakdown[name]["tokens"], model_breakdown[name]["requests"]),
+            reverse=True,
+        )
 
         return {
             "usage_this_month": {
@@ -436,7 +593,9 @@ class OpenAIConnector(BaseConnector):
                 "cost_per_thousand_tokens": cost_per_thousand_tokens,
                 "cost_per_request": cost_per_request,
             },
-            "models_used": list(models_used) if models_used else ["No usage this period"],
+            "models_used": models_from_usage
+            if models_from_usage
+            else (list(models_used) if models_used else ["No usage this period"]),
             "model_breakdown": model_breakdown,
             "daily_usage": daily_usage[-7:],  # Last 7 days
             "raw_data_points": len(raw_rows),
@@ -542,14 +701,27 @@ class OpenAIConnector(BaseConnector):
         else:
             insights["usage_patterns"].append("📊 No usage data available this month")
 
-        # Model efficiency recommendations
+        # Model efficiency recommendations (ignore ungrouped "unknown" bucket)
         model_breakdown = metrics.get("model_breakdown", {})
-        if model_breakdown:
-            most_expensive = max(model_breakdown.items(), key=lambda x: x[1]["cost"], default=None)
-            if most_expensive and most_expensive[1]["cost"] > total_cost * 0.5:
+        known_breakdown = {
+            name: stats
+            for name, stats in model_breakdown.items()
+            if self._is_usage_model(name) and (stats.get("cost", 0) > 0 or stats.get("tokens", 0) > 0)
+        }
+        if known_breakdown and total_cost > 0:
+            most_expensive = max(known_breakdown.items(), key=lambda x: x[1]["cost"], default=None)
+            if (
+                most_expensive
+                and most_expensive[1]["cost"] > 0
+                and most_expensive[1]["cost"] > total_cost * 0.5
+            ):
                 insights["optimization_recommendations"].append(
                     f"Model '{most_expensive[0]}' accounts for >50% of costs - review usage"
                 )
+        elif model_breakdown.get("unknown", {}).get("tokens", 0) > 0 and not known_breakdown:
+            insights["optimization_recommendations"].append(
+                "Model names were not returned by the usage API — reload metrics after updating the connector"
+            )
 
         # Request efficiency
         avg_tokens = usage.get("avg_tokens_per_request", 0)
