@@ -23,7 +23,9 @@ class EmbeddedGitHubMetrics:
         self.base_url = "https://api.github.com"
 
     def _init_credentials(self):
-        """Initialize GitHub credentials with workspace support and env var fallback"""
+        """Initialize GitHub credentials from Postgres; env fallback only when ALLOW_CONNECTOR_ENV_FALLBACK=true."""
+        from services.auth.credential_service import allow_connector_env_fallback
+
         if self.workspace_id and self.assignment_id:
             try:
                 from services.auth.credential_service import CredentialService
@@ -32,16 +34,20 @@ class EmbeddedGitHubMetrics:
                 credentials = credential_service.get_github_credentials(
                     self.workspace_id, self.assignment_id
                 )
-                self.token = credentials.get("token") or os.getenv("GITHUB_TOKEN")
-                self.org = credentials.get("org") or os.getenv("GITHUB_ORG")
+                self.token = credentials.get("token")
+                self.org = credentials.get("org")
+                if self.token or self.org:
+                    return
             except Exception as e:
-                logger.warning(
-                    "Could not load workspace credentials, falling back to env vars: %s", e
-                )
+                logger.warning("Could not load workspace GitHub credentials: %s", e)
+
+            if allow_connector_env_fallback():
                 self.token = os.getenv("GITHUB_TOKEN")
                 self.org = os.getenv("GITHUB_ORG")
+            else:
+                self.token = None
+                self.org = None
         else:
-            # Fallback to environment variables (preserves existing behavior)
             self.token = os.getenv("GITHUB_TOKEN")
             self.org = os.getenv("GITHUB_ORG")
 
@@ -143,6 +149,17 @@ class EmbeddedGitHubMetrics:
                         {
                             "repo_name": repo,
                             "error": "HTTP 401 - Invalid GitHub token. Please check your GITHUB_TOKEN environment variable.",
+                        }
+                    )
+                    continue
+                elif response.status_code == 404:
+                    results.append(
+                        {
+                            "repo_name": repo,
+                            "error": (
+                                f"Repository '{org}/{repo}' not found — check org and repo names "
+                                "in Setup → Connector Credentials."
+                            ),
                         }
                     )
                     continue

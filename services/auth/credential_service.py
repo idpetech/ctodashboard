@@ -10,6 +10,11 @@ from typing import Any, Dict, Optional
 from services.security.secure_database import secure_db
 
 
+def allow_connector_env_fallback() -> bool:
+    """Platform env vars (AWS_*, GITHUB_*) may only substitute assignment creds when explicitly allowed."""
+    return os.getenv("ALLOW_CONNECTOR_ENV_FALLBACK", "false").lower() == "true"
+
+
 class CredentialService:
     """Load decrypted assignment credentials from secure_db."""
 
@@ -45,8 +50,10 @@ class CredentialService:
         if credential_name in credentials and credentials[credential_name]:
             return credentials[credential_name]
 
-        # Fallback to environment variable for secret values only (documented behavior)
-        # This preserves deployment compatibility for secrets management
+        if not allow_connector_env_fallback():
+            return None
+
+        # Local/dev only: optional env fallback for secrets management
         return os.getenv(env_var_name)
 
     def get_github_credentials(

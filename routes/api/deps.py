@@ -14,6 +14,10 @@ from flask import jsonify
 from config.logging_config import get_logger
 from connectors.registry import ConnectorRegistry
 from services.assignment_metrics_config import (
+    connector_credentials_ready,
+    missing_connector_message,
+)
+from services.assignment_metrics_config import (
     github_metrics_config as build_github_metrics_config,
 )
 from services.assignment_metrics_config import (
@@ -202,22 +206,36 @@ def collect_assignment_metrics(workspace_id: str, assignment_id: str, assignment
 
     aws_config = metrics_config.get("aws", {})
     if aws_config.get("enabled", False):
-        jobs["aws"] = lambda: connectors["aws"].get_metrics()
+        if connector_credentials_ready(workspace_id, assignment_id, "aws"):
+            jobs["aws"] = lambda: connectors["aws"].get_metrics()
+        else:
+            metrics["aws"] = {"error": missing_connector_message("aws")}
 
     github_config = metrics_config.get("github", {})
     if github_config.get("enabled", False):
-        gh_cfg = build_github_metrics_config(workspace_id, assignment_id, github_config)
-        jobs["github"] = lambda c=connectors["github"], g=gh_cfg: c.get_metrics(g)
+        if connector_credentials_ready(workspace_id, assignment_id, "github"):
+            gh_cfg = build_github_metrics_config(workspace_id, assignment_id, github_config)
+            jobs["github"] = lambda c=connectors["github"], g=gh_cfg: c.get_metrics(g)
+        else:
+            metrics["github"] = {"error": missing_connector_message("github")}
 
     jira_config = metrics_config.get("jira", {})
     if jira_config.get("enabled", False):
-        jira_merged = build_jira_metrics_config(workspace_id, assignment_id, jira_config)
-        jobs["jira"] = lambda c=connectors["jira"], j=jira_merged: c.get_metrics(j)
+        if connector_credentials_ready(workspace_id, assignment_id, "jira"):
+            jira_merged = build_jira_metrics_config(workspace_id, assignment_id, jira_config)
+            jobs["jira"] = lambda c=connectors["jira"], j=jira_merged: c.get_metrics(j)
+        else:
+            metrics["jira"] = {"error": missing_connector_message("jira")}
 
     openai_config = metrics_config.get("openai", {})
     if openai_config.get("enabled", False):
-        openai_connector = ConnectorRegistry.get_connector("openai", workspace_id, assignment_id)
-        jobs["openai"] = lambda o=openai_connector, cfg=openai_config: o.get_metrics(cfg)
+        if connector_credentials_ready(workspace_id, assignment_id, "openai"):
+            openai_connector = ConnectorRegistry.get_connector(
+                "openai", workspace_id, assignment_id
+            )
+            jobs["openai"] = lambda o=openai_connector, cfg=openai_config: o.get_metrics(cfg)
+        else:
+            metrics["openai"] = {"error": missing_connector_message("openai")}
 
     railway_config = metrics_config.get("railway", {})
     if railway_config.get("enabled", False):

@@ -28,7 +28,9 @@ class EmbeddedAWSMetrics:
         self._rds_client = None
 
     def _init_credentials(self):
-        """Initialize AWS credentials from Postgres with env var fallback."""
+        """Initialize AWS credentials from Postgres; env fallback only when ALLOW_CONNECTOR_ENV_FALLBACK=true."""
+        from services.auth.credential_service import allow_connector_env_fallback
+
         if self.workspace_id and self.assignment_id:
             try:
                 from services.auth.credential_service import CredentialService
@@ -36,9 +38,9 @@ class EmbeddedAWSMetrics:
                 aws_creds = CredentialService().get_aws_credentials(
                     self.workspace_id, self.assignment_id
                 )
-                self.access_key = aws_creds.get("access_key") or os.getenv("AWS_ACCESS_KEY_ID")
-                self.secret_key = aws_creds.get("secret_key") or os.getenv("AWS_SECRET_ACCESS_KEY")
-                self.region = aws_creds.get("region") or os.getenv("AWS_REGION", "us-east-1")
+                self.access_key = aws_creds.get("access_key")
+                self.secret_key = aws_creds.get("secret_key")
+                self.region = aws_creds.get("region") or "us-east-1"
                 if self.access_key and self.secret_key:
                     logger.info(
                         "Loaded AWS credentials from Postgres for %s/%s",
@@ -47,16 +49,17 @@ class EmbeddedAWSMetrics:
                     )
                     return
             except Exception as e:
-                logger.warning(
-                    "Could not load workspace AWS credentials, falling back to env: %s",
-                    e,
-                )
-            self.access_key = os.getenv("AWS_ACCESS_KEY_ID")
-            self.secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-            self.region = os.getenv("AWS_REGION", "us-east-1")
+                logger.warning("Could not load workspace AWS credentials: %s", e)
+
+            if allow_connector_env_fallback():
+                self.access_key = os.getenv("AWS_ACCESS_KEY_ID")
+                self.secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+                self.region = os.getenv("AWS_REGION", "us-east-1")
+            else:
+                self.access_key = None
+                self.secret_key = None
+                self.region = os.getenv("AWS_REGION", "us-east-1")
         else:
-            # Fallback to environment variables (preserves existing behavior)
-            # AWS credentials from environment variables (never hardcode!)
             self.access_key = os.getenv("AWS_ACCESS_KEY_ID")
             self.secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
             self.region = os.getenv("AWS_REGION", "us-east-1")

@@ -12,6 +12,41 @@ def stored_connector_credentials(
     )
 
 
+def connector_credentials_ready(workspace_id: str, assignment_id: str, connector_type: str) -> bool:
+    """True when this assignment has stored credentials for the connector (not platform env)."""
+    stored = stored_connector_credentials(workspace_id, assignment_id, connector_type)
+    if connector_type == "github":
+        token = stored.get("github_token") or stored.get("token")
+        org = stored.get("github_org") or stored.get("org")
+        return bool(token and org)
+    if connector_type == "jira":
+        return bool(
+            (stored.get("jira_token") or stored.get("token"))
+            and (stored.get("jira_email") or stored.get("email"))
+            and (stored.get("jira_url") or stored.get("url"))
+        )
+    if connector_type == "aws":
+        return bool(stored.get("aws_access_key") and stored.get("aws_secret_key"))
+    if connector_type == "openai":
+        return bool(stored.get("openai_api_key") or stored.get("api_key"))
+    return bool(stored)
+
+
+def missing_connector_message(connector_type: str) -> str:
+    labels = {
+        "github": "GitHub",
+        "jira": "Jira",
+        "aws": "AWS",
+        "openai": "OpenAI",
+        "railway": "Railway",
+    }
+    name = labels.get(connector_type, connector_type)
+    return (
+        f"{name} is enabled for this assignment but credentials are not configured. "
+        "Add them in Setup → Workspace Settings → Connector Credentials."
+    )
+
+
 def github_metrics_config(workspace_id: str, assignment_id: str, github_config: dict) -> dict:
     stored = stored_connector_credentials(workspace_id, assignment_id, "github")
     legacy = github_config.get("auth_instance", {}).get("credentials", {}) or {}
