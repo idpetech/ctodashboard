@@ -1975,23 +1975,34 @@ function displayAllMetrics(metrics, container) {
         html += '<div><a href="' + metrics.openai.billing_url + '" target="_blank" class="text-green-600 hover:underline text-sm">💰 Check Account Balance →</a></div>';
         html += '</div></div>';
         
-        // Personal Account Notice
-        if (metrics.openai.account_type === 'personal') {
-            html += '<div class="bg-blue-100 border border-blue-300 p-3 rounded mb-3">';
-            html += '<div class="text-sm text-blue-800">';
-            html += '<div class="font-medium mb-1">📱 Personal Account Detected</div>';
+        // OpenAI status / insights
+        if (metrics.openai.account_type === 'organization_limited' || metrics.openai.usage_notice) {
+            const noticeClass = metrics.openai.account_type === 'organization_limited'
+                ? 'bg-yellow-100 border-yellow-300 text-yellow-900'
+                : 'bg-blue-100 border-blue-300 text-blue-800';
+            html += '<div class="' + noticeClass + ' border p-3 rounded mb-3">';
+            html += '<div class="text-sm">';
+            html += '<div class="font-medium mb-1">' + (metrics.openai.account_type === 'organization_limited'
+                ? '🏢 Organization — usage API not fully connected'
+                : '🏢 Organization usage notice') + '</div>';
             if (metrics.openai.usage_notice) {
                 html += '<div class="mb-2">' + metrics.openai.usage_notice + '</div>';
             }
-            if (metrics.openai.cto_insights && metrics.openai.cto_insights.optimization_recommendations) {
-                html += '<div class="font-medium mb-1">Recommendations:</div>';
-                html += '<ul class="list-disc list-inside space-y-1">';
-                metrics.openai.cto_insights.optimization_recommendations.slice(0, 3).forEach(rec => {
-                    html += '<li>' + rec + '</li>';
-                });
-                html += '</ul>';
+            if (metrics.openai.recommendation) {
+                html += '<div class="mb-2">' + metrics.openai.recommendation + '</div>';
             }
             html += '</div></div>';
+        }
+        if (metrics.openai.cto_insights) {
+            const ins = metrics.openai.cto_insights;
+            const lines = [].concat(ins.usage_patterns || [], ins.cost_efficiency || [], ins.alerts || [], (ins.optimization_recommendations || []).slice(0, 3));
+            if (lines.length) {
+                html += '<div class="bg-white p-3 rounded border mb-3">';
+                html += '<h5 class="font-medium text-gray-800 mb-2">CTO Insights</h5>';
+                html += '<ul class="list-disc list-inside space-y-1 text-sm text-gray-700">';
+                lines.slice(0, 6).forEach(function(line) { html += '<li>' + line + '</li>'; });
+                html += '</ul></div>';
+            }
         }
         
         // Note about account balance (legacy)

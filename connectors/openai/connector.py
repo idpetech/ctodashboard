@@ -100,7 +100,12 @@ class OpenAIConnector(BaseConnector):
         usage_attempts = [
             (
                 f"{self.base_url}/organization/usage/completions",
-                {"start_time": start_time, "limit": 31, "bucket_width": "1d"},
+                {
+                    "start_time": start_time,
+                    "limit": 31,
+                    "bucket_width": "1d",
+                    "group_by": ["model"],
+                },
             ),
             (
                 f"{self.base_url}/organization/usage",
@@ -189,6 +194,76 @@ class OpenAIConnector(BaseConnector):
 
         return billing_info
 
+    def _is_org_bucket_payload(self, usage_data: Dict) -> bool:
+        if usage_data.get("object") != "page":
+            return False
+        buckets = usage_data.get("data") or []
+        return (
+            bool(buckets) and isinstance(buckets[0], dict) and buckets[0].get("object") == "bucket"
+        )
+
+    def _flatten_org_buckets(self, payload: Dict) -> list:
+        """Normalize OpenAI organization usage/costs page payloads into flat rows."""
+        rows = []
+        for bucket in payload.get("data") or []:
+            if not isinstance(bucket, dict):
+                continue
+            ts = bucket.get("start_time") or bucket.get("end_time")
+            date_str = ""
+            if isinstance(ts, (int, float)) and ts > 0:
+                date_str = datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
+            for result in bucket.get("results") or []:
+                if not isinstance(result, dict):
+                    continue
+                obj_type = result.get("object") or ""
+                if obj_type == "organization.costs.result":
+                    amount = (result.get("amount") or {}).get("value") or 0
+                    rows.append(
+                        {
+                            "date": date_str,
+                            "model": result.get("line_item") or "costs",
+                            "requests": 0,
+                            "context_tokens": 0,
+                            "generated_tokens": 0,
+                            "tokens": 0,
+                            "cost": float(amount or 0),
+                        }
+                    )
+                    continue
+                input_tokens = int(result.get("input_tokens") or 0)
+                output_tokens = int(result.get("output_tokens") or 0)
+                input_audio = int(result.get("input_audio_tokens") or 0)
+                output_audio = int(result.get("output_audio_tokens") or 0)
+                context_tokens = input_tokens + input_audio
+                generated_tokens = output_tokens + output_audio
+                rows.append(
+                    {
+                        "date": date_str,
+                        "model": result.get("model") or "unknown",
+                        "requests": int(result.get("num_model_requests") or 0),
+                        "context_tokens": context_tokens,
+                        "generated_tokens": generated_tokens,
+                        "tokens": context_tokens + generated_tokens,
+                        "cost": float(result.get("cost") or 0),
+                    }
+                )
+        return rows
+
+    def _fetch_org_costs(self, start_time: int) -> float:
+        headers = self._api_headers(for_usage=True)
+        try:
+            response = self._make_request(
+                "GET",
+                f"{self.base_url}/organization/costs",
+                headers=headers,
+                params={"start_time": start_time, "limit": 31, "bucket_width": "1d"},
+            )
+            rows = self._flatten_org_buckets(response.json())
+            return round(sum(row.get("cost", 0) for row in rows), 2)
+        except Exception as exc:
+            logger.info("OpenAI organization costs endpoint failed: %s", exc)
+            return 0.0
+
     def _analyze_usage_data(self, usage_data: Dict, billing_data: Dict, config: Dict) -> Dict:
         """Analyze usage and billing data to create comprehensive metrics"""
         now = datetime.now()
@@ -207,10 +282,28 @@ class OpenAIConnector(BaseConnector):
 
         # Process usage data
         if "error" not in usage_data and "usage_access_limited" not in usage_data:
-            usage_analysis = self._process_usage_data(usage_data)
+            org_cost = 0.0
+            if usage_data.get("_account_scope") == "organization":
+                now = datetime.now()
+                start_time = int(
+                    now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp()
+                )
+                org_cost = self._fetch_org_costs(start_time)
+            usage_analysis = self._process_usage_data(usage_data, org_cost_override=org_cost)
             result.update(usage_analysis)
             if usage_data.get("_account_scope") == "organization":
                 result["account_type"] = "organization"
+                usage = result.get("usage_this_month") or {}
+                if (
+                    usage.get("total_tokens", 0) == 0
+                    and usage.get("total_requests", 0) == 0
+                    and usage.get("estimated_cost", 0) == 0
+                ):
+                    result["usage_notice"] = (
+                        f"Organization API connected for {result.get('period', 'this month')}, "
+                        "but no usage was returned. Confirm the Admin key belongs to this org "
+                        "and that API activity exists for the selected period."
+                    )
         else:
             if usage_data.get("usage_access_limited"):
                 result["account_type"] = "organization_limited"
@@ -250,53 +343,76 @@ class OpenAIConnector(BaseConnector):
 
         return result
 
-    def _process_usage_data(self, usage_data: Dict) -> Dict:
-        """Process raw usage data into metrics"""
+    def _process_usage_data(self, usage_data: Dict, org_cost_override: float = 0.0) -> Dict:
+        """Process raw usage data into metrics (legacy billing rows or org bucket pages)."""
         total_tokens = 0
         total_requests = 0
         total_cost = 0.0
+        context_tokens_total = 0
+        generated_tokens_total = 0
         models_used = set()
         daily_usage = []
         model_breakdown = {}
+        raw_rows = []
 
-        for item in usage_data.get("data", []):
-            # Token counts
-            context_tokens = item.get("n_context_tokens_total", 0)
-            generated_tokens = item.get("n_generated_tokens_total", 0)
-            item_tokens = context_tokens + generated_tokens
+        if self._is_org_bucket_payload(usage_data):
+            raw_rows = self._flatten_org_buckets(usage_data)
+        else:
+            for item in usage_data.get("data", []):
+                context_tokens = item.get("n_context_tokens_total", 0)
+                generated_tokens = item.get("n_generated_tokens_total", 0)
+                raw_rows.append(
+                    {
+                        "date": item.get("timestamp", item.get("date", "")),
+                        "model": item.get("snapshot_id", item.get("model", "unknown")),
+                        "requests": item.get("n_requests", 1),
+                        "context_tokens": context_tokens,
+                        "generated_tokens": generated_tokens,
+                        "tokens": context_tokens + generated_tokens,
+                        "cost": item.get("cost", 0.0),
+                    }
+                )
+
+        for row in raw_rows:
+            item_tokens = int(row.get("tokens") or 0)
+            context_tokens = int(row.get("context_tokens") or 0)
+            generated_tokens = int(row.get("generated_tokens") or 0)
+            requests = int(row.get("requests") or 0)
+            cost = float(row.get("cost") or 0)
+            model = row.get("model") or "unknown"
+
             total_tokens += item_tokens
-
-            # Request count
-            requests = item.get("n_requests", 1)
+            context_tokens_total += context_tokens
+            generated_tokens_total += generated_tokens
             total_requests += requests
-
-            # Cost calculation
-            cost = item.get("cost", 0.0)
             total_cost += cost
+            if model and model != "unknown":
+                models_used.add(model)
 
-            # Model tracking
-            model = item.get("snapshot_id", item.get("model", "unknown"))
-            models_used.add(model)
-
-            # Model breakdown
             if model not in model_breakdown:
                 model_breakdown[model] = {"requests": 0, "tokens": 0, "cost": 0.0}
             model_breakdown[model]["requests"] += requests
             model_breakdown[model]["tokens"] += item_tokens
             model_breakdown[model]["cost"] += cost
 
-            # Daily usage
-            timestamp = item.get("timestamp", item.get("date", ""))
-            if timestamp:
+            if row.get("date"):
                 daily_usage.append(
                     {
-                        "date": timestamp,
+                        "date": row["date"],
                         "tokens": item_tokens,
                         "requests": requests,
                         "cost": cost,
                         "model": model,
                     }
                 )
+
+        if org_cost_override > 0:
+            total_cost = org_cost_override
+            if "costs" in model_breakdown:
+                model_breakdown["costs"]["cost"] = org_cost_override
+            elif model_breakdown:
+                first_model = next(iter(model_breakdown))
+                model_breakdown[first_model]["cost"] = org_cost_override
 
         # Calculate efficiency metrics
         avg_tokens_per_request = (
@@ -311,12 +427,8 @@ class OpenAIConnector(BaseConnector):
             "usage_this_month": {
                 "total_tokens": total_tokens,
                 "tokens_used": total_tokens,  # Dashboard compatibility
-                "context_tokens": sum(
-                    item.get("n_context_tokens_total", 0) for item in usage_data.get("data", [])
-                ),
-                "generated_tokens": sum(
-                    item.get("n_generated_tokens_total", 0) for item in usage_data.get("data", [])
-                ),
+                "context_tokens": context_tokens_total,
+                "generated_tokens": generated_tokens_total,
                 "total_requests": total_requests,
                 "requests_made": total_requests,  # Dashboard compatibility
                 "estimated_cost": round(total_cost, 2),
@@ -324,10 +436,10 @@ class OpenAIConnector(BaseConnector):
                 "cost_per_thousand_tokens": cost_per_thousand_tokens,
                 "cost_per_request": cost_per_request,
             },
-            "models_used": list(models_used) if models_used else ["No data available"],
+            "models_used": list(models_used) if models_used else ["No usage this period"],
             "model_breakdown": model_breakdown,
             "daily_usage": daily_usage[-7:],  # Last 7 days
-            "raw_data_points": len(usage_data.get("data", [])),
+            "raw_data_points": len(raw_rows),
         }
 
     def _process_billing_data(self, billing_data: Dict) -> Dict:
@@ -391,6 +503,8 @@ class OpenAIConnector(BaseConnector):
 
         if metrics.get("account_type") == "organization":
             insights["usage_patterns"].append("🏢 Organization usage data connected")
+            if metrics.get("usage_notice"):
+                insights["alerts"].append(f"ℹ️ {metrics['usage_notice']}")
 
         usage = metrics.get("usage_this_month", {})
         total_cost = usage.get("estimated_cost", 0)
