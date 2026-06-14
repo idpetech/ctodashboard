@@ -1,389 +1,686 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ content.hero.headline }} - CTO Lens</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .gradient-hero {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        .attention-pulse {
-            animation: pulse 2s infinite;
-        }
-        .feature-hover {
-            transition: all 0.3s ease;
-        }
-        .feature-hover:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-        }
-        .brief-item {
-            animation: slideIn 0.5s ease-out;
-        }
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-20px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-        .attention-engine {
-            background: linear-gradient(45deg, #f093fb 0%, #f5576c 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CTOLens — Continuous Engineering Assessment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --purple: #5B21B6; --purple-light: #7C3AED; --purple-muted: #EDE9FE;
+    --slate: #0F172A; --slate-mid: #334155; --slate-soft: #64748B;
+    --border: #E2E8F0; --bg: #FFFFFF;
+    --amber: #F59E0B; --amber-bg: #FFFBEB;
+    --red: #EF4444; --red-bg: #FEF2F2;
+    --green: #10B981; --green-bg: #ECFDF5; --blue: #3B82F6;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--slate); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+
+  nav { position: sticky; top: 0; z-index: 100; background: rgba(255,255,255,0.96); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); padding: 0 1.25rem; min-height: 60px; display: flex; align-items: center; justify-content: center; }
+  .nav-inner { width: 100%; max-width: 1280px; display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 60px; flex-wrap: nowrap; }
+  .nav-logo { display: inline-flex; align-items: center; gap: 0.55rem; font-size: 1.05rem; font-weight: 700; color: var(--slate); text-decoration: none; white-space: nowrap; }
+  .nav-logo-mark { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, var(--purple-light), var(--purple)); box-shadow: 0 2px 8px rgba(91,33,182,0.25); flex-shrink: 0; }
+  .nav-logo-text span { color: var(--purple-light); }
+  .nav-toggle { display: none; background: white; border: 1px solid var(--border); border-radius: 8px; width: 40px; height: 40px; align-items: center; justify-content: center; cursor: pointer; color: var(--slate-mid); margin-left: auto; }
+  .nav-toggle-bars { width: 16px; height: 2px; background: currentColor; position: relative; display: block; }
+  .nav-toggle-bars::before, .nav-toggle-bars::after { content: ""; position: absolute; left: 0; width: 16px; height: 2px; background: currentColor; }
+  .nav-toggle-bars::before { top: -5px; }
+  .nav-toggle-bars::after { top: 5px; }
+  .nav-menu { display: flex; align-items: center; justify-content: space-between; flex: 1; gap: 1rem; min-width: 0; }
+  .nav-links { display: flex; align-items: center; justify-content: center; gap: 1.35rem; flex: 1; flex-wrap: wrap; min-width: 0; }
+  .nav-links a { font-size: 0.875rem; color: var(--slate-mid); text-decoration: none; font-weight: 500; white-space: nowrap; }
+  .nav-links a:hover { color: var(--purple); }
+  .nav-actions { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+  .nav-login { font-size: 0.875rem; color: var(--slate-mid); text-decoration: none; font-weight: 600; white-space: nowrap; }
+  .nav-login:hover { color: var(--purple); }
+  .btn-nav { background: var(--purple); color: white; border: none; border-radius: 8px; padding: 0.5rem 1.15rem; font-size: 0.875rem; font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap; }
+  .btn-nav:hover { background: var(--purple-light); }
+
+  .btn-primary { background: var(--purple); color: white; border: none; border-radius: 10px; padding: 0.875rem 1.75rem; font-size: 0.95rem; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block; box-shadow: 0 4px 14px rgba(91,33,182,0.35); transition: transform 0.15s, box-shadow 0.15s; }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(91,33,182,0.4); }
+  .btn-secondary { background: white; color: var(--purple); border: 2px solid var(--purple); border-radius: 10px; padding: 0.875rem 1.75rem; font-size: 0.95rem; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block; transition: background 0.15s; }
+  .btn-secondary:hover { background: var(--purple-muted); }
+
+  .section-eyebrow { font-size: 0.75rem; font-weight: 700; color: var(--purple); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem; }
+  .section-h2 { font-size: 2rem; font-weight: 800; color: var(--slate); margin-bottom: 0.75rem; letter-spacing: -0.02em; }
+  .section-sub { font-size: 1rem; color: var(--slate-soft); max-width: 480px; margin: 0 auto 3rem; }
+
+  .hero-section { position: relative; overflow: hidden; background: linear-gradient(180deg, #F5F3FF 0%, #FFFFFF 55%); }
+  .hero-section::before { content: ""; position: absolute; top: -120px; right: -80px; width: 480px; height: 480px; background: radial-gradient(circle, rgba(124,58,237,0.12) 0%, transparent 70%); pointer-events: none; }
+  .hero-section::after { content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 1px; background: var(--border); }
+  .hero-wrap { max-width: 1280px; margin: 0 auto; padding: 4rem 1.25rem 3.5rem; display: grid; grid-template-columns: 1fr; gap: 2.5rem; align-items: center; position: relative; z-index: 1; }
+  .hero-wrap > * { min-width: 0; }
+  .hero-badge { display: inline-flex; align-items: center; gap: 0.4rem; background: white; border: 1px solid rgba(124,58,237,0.2); color: var(--purple); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.35rem 0.85rem; border-radius: 999px; margin-bottom: 1.25rem; box-shadow: 0 2px 8px rgba(91,33,182,0.06); }
+  .hero-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--purple-light); box-shadow: 0 0 0 3px rgba(124,58,237,0.15); }
+  .hero h1 { font-size: 3rem; font-weight: 800; line-height: 1.12; color: var(--slate); margin-bottom: 1.25rem; letter-spacing: -0.03em; }
+  .hero h1 em { font-style: normal; color: var(--purple-light); }
+  .hero-sub { font-size: 1.05rem; color: var(--slate-mid); line-height: 1.75; margin-bottom: 1.75rem; max-width: 34rem; }
+  .hero-ctas { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  .cta-block { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; }
+  .cta-hint { font-size: 0.72rem; color: var(--slate-soft); padding-left: 0.15rem; }
+  .trust-inline { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem 1rem; margin-bottom: 1.5rem; max-width: 28rem; }
+  .trust-inline span { font-size: 0.8rem; color: var(--slate-mid); display: flex; align-items: center; gap: 0.4rem; font-weight: 500; }
+  .trust-inline span::before { content: "✓"; color: white; background: var(--green); font-weight: 700; font-size: 0.55rem; width: 16px; height: 16px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .hero-social { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; padding-top: 1.25rem; border-top: 1px solid rgba(15,23,42,0.06); }
+  .hero-avatars { display: flex; align-items: center; }
+  .hero-avatar { width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; margin-left: -8px; display: flex; align-items: center; justify-content: center; font-size: 0.58rem; font-weight: 700; color: white; box-shadow: 0 2px 6px rgba(15,23,42,0.12); }
+  .hero-avatar:first-child { margin-left: 0; }
+  .hero-avatar.a1{background:#7C3AED;}.hero-avatar.a2{background:#2563EB;}.hero-avatar.a3{background:#059669;}.hero-avatar.a4{background:#D97706;}
+  .hero-stars { color: #FBBF24; font-size: 0.85rem; letter-spacing: 0.05em; }
+  .hero-social-text { font-size: 0.8rem; color: var(--slate-soft); font-weight: 500; }
+
+  .hero-visual-wrap { position: relative; width: 100%; max-width: 720px; margin: 0 auto; }
+  .hero-visual-glow { position: absolute; inset: 10% -5% -10% -5%; background: radial-gradient(ellipse at center, rgba(124,58,237,0.18) 0%, transparent 70%); pointer-events: none; z-index: 0; }
+  .hero-screenshot { position: relative; z-index: 1; border-radius: 16px; overflow: hidden; box-shadow: 0 32px 80px rgba(15,23,42,0.16), 0 8px 24px rgba(91,33,182,0.08); border: 1px solid rgba(15,23,42,0.08); background: #F8FAFC; transform: none; transition: transform 0.4s ease, box-shadow 0.4s ease; }
+  .hero-screenshot:hover { transform: translateY(-3px); box-shadow: 0 36px 88px rgba(15,23,42,0.18), 0 10px 28px rgba(91,33,182,0.1); }
+  .hero-screenshot img { width: 100%; display: block; }
+  .hd-shell { background: #F3F4F6; min-height: 320px; padding: 0.65rem; }
+  .hd-app-header { font-size: 0.92rem; font-weight: 700; color: #2563EB; margin-bottom: 0.55rem; padding: 0 0.15rem; }
+  .hd-tabbar { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 0.55rem; overflow-x: auto; background: white; border-radius: 8px 8px 0 0; }
+  .hd-tab { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.55rem 0.75rem; font-size: 0.62rem; font-weight: 600; color: var(--slate-soft); white-space: nowrap; border-bottom: 2px solid transparent; }
+  .hd-tab.active { color: #2563EB; border-bottom-color: #2563EB; }
+  .hd-tab-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .hd-tab-dot.g{background:#10B981;}.hd-tab-dot.y{background:#F59E0B;}
+  .hd-portfolio-row { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; margin-bottom: 0.55rem; padding: 0 0.1rem; }
+  .hd-portfolio-label { font-size: 0.58rem; font-weight: 700; color: var(--slate-soft); text-transform: uppercase; letter-spacing: 0.05em; }
+  .hd-portfolio-tab { font-size: 0.6rem; font-weight: 600; padding: 0.28rem 0.55rem; border-radius: 999px; border: 1px solid var(--border); background: white; color: var(--slate-mid); }
+  .hd-portfolio-tab.active { background: #2563EB; border-color: #2563EB; color: white; }
+  .hd-command { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.65rem; background: rgba(255,255,255,0.98); border: 1px solid var(--border); border-radius: 10px; padding: 0.75rem 0.85rem; margin-bottom: 0.65rem; box-shadow: 0 1px 3px rgba(15,23,42,0.05); }
+  .hd-command-stats { display: flex; flex-wrap: wrap; gap: 0.65rem 1rem; font-size: 0.64rem; color: var(--slate-soft); align-items: center; }
+  .hd-command-stat { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+  .hd-command-stat strong { color: var(--slate); font-size: 0.8rem; }
+  .hd-command-stat .hs-val { color: #DC2626; font-family: 'JetBrains Mono', monospace; font-size: 1rem; font-weight: 700; }
+  .hd-band { font-size: 0.52rem; font-weight: 700; text-transform: uppercase; padding: 0.15rem 0.45rem; border-radius: 999px; background: #FEE2E2; color: #991B1B; }
+  .hd-band.at-risk { background: #FEF3C7; color: #92400E; }
+  .hd-attn { color: #B45309; font-weight: 700; }
+  .hd-command-meta { width: 100%; font-size: 0.58rem; color: var(--slate-soft); margin-top: 0.15rem; }
+  .hd-command-actions { display: flex; gap: 0.35rem; flex-wrap: wrap; justify-content: flex-end; }
+  .hd-btn { font-size: 0.56rem; font-weight: 600; padding: 0.32rem 0.55rem; border-radius: 8px; border: none; white-space: nowrap; }
+  .hd-btn.primary { background: #2563EB; color: white; }
+  .hd-btn.secondary { background: white; color: #4338CA; border: 1px solid #C7D2FE; }
+  .hd-btn.share { background: #059669; color: white; }
+  .hd-btn.pdf { background: #374151; color: white; }
+  .hd-attention-card { background: white; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
+  .hd-attention-head { padding: 0.65rem 0.85rem; background: #F9FAFB; border-bottom: 1px solid var(--border); }
+  .hd-attention-title { font-size: 0.74rem; font-weight: 700; color: var(--slate); }
+  .hd-attention-sub { font-size: 0.6rem; color: var(--slate-soft); margin-top: 0.1rem; }
+  .hd-attention-body { padding: 0.55rem 0.65rem 0.65rem; }
+  .hd-attention-item { display: flex; gap: 0.5rem; align-items: flex-start; border-left: 4px solid #F59E0B; background: #FFFBEB; padding: 0.55rem 0.65rem; border-radius: 0 8px 8px 0; font-size: 0.64rem; color: #374151; line-height: 1.45; margin-bottom: 0.45rem; }
+  .hd-attention-item:last-child { margin-bottom: 0; }
+  .hd-attention-item.critical { border-left-color: #EF4444; background: #FEF2F2; }
+  .hd-attention-sev { font-size: 0.54rem; font-weight: 700; text-transform: uppercase; flex-shrink: 0; margin-top: 0.05rem; }
+  .hd-attention-sev.warning { color: #B45309; }
+  .hd-attention-sev.critical { color: #B91C1C; }
+  .hd-more-panel { margin-top: 0.65rem; background: white; border: 1px solid var(--border); border-radius: 10px; padding: 0.65rem 0.85rem; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; opacity: 0.72; }
+  .hd-more-title { font-size: 0.68rem; font-weight: 700; color: var(--slate); }
+  .hd-more-sub { font-size: 0.58rem; color: var(--slate-soft); margin-top: 0.1rem; }
+  .hd-more-chevron { font-size: 0.75rem; color: var(--slate-soft); }
+
+  .logos-bar { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 1.25rem 2rem; display: flex; align-items: center; justify-content: center; gap: 0.6rem; flex-wrap: wrap; }
+  .logos-bar-label { font-size: 0.72rem; font-weight: 600; color: var(--slate-soft); margin-right: 0.75rem; }
+  .logo-chip { display: flex; align-items: center; gap: 0.35rem; background: #F8FAFC; border: 1px solid var(--border); border-radius: 7px; padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 600; color: var(--slate-mid); }
+
+  .pain-section { background: var(--slate); padding: 5rem 1.25rem; }
+  .pain-inner { max-width: 1280px; margin: 0 auto; text-align: center; }
+  .pain-section .section-eyebrow { color: #A78BFA; }
+  .pain-section .section-h2 { color: white; }
+  .pain-section .section-sub { color: rgba(255,255,255,0.5); margin-bottom: 2.5rem; max-width: 640px; }
+  .pain-grid { display: grid; grid-template-columns: 1fr; gap: 0.875rem; margin-bottom: 2.5rem; }
+  .pain-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 1.25rem 1rem; text-align: left; transition: background 0.2s, border-color 0.2s; }
+  .pain-card:hover { background: rgba(255,255,255,0.1); border-color: rgba(167,139,250,0.4); }
+  .pain-icon { font-size: 1.25rem; margin-bottom: 0.75rem; }
+  .pain-card p { font-size: 0.82rem; color: rgba(255,255,255,0.75); line-height: 1.55; font-weight: 500; }
+  .pain-resolution { font-size: 1rem; color: rgba(255,255,255,0.6); margin-bottom: 1.75rem; line-height: 1.65; }
+  .pain-resolution strong { color: white; }
+
+  .features { max-width: 1280px; margin: 5rem auto; padding: 0 1.25rem; text-align: center; }
+  .features-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; text-align: left; }
+  .feature-card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem 1.35rem; transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; box-shadow: 0 1px 3px rgba(15,23,42,0.05); }
+  .feature-card:hover { border-color: rgba(91,33,182,0.25); box-shadow: 0 8px 24px rgba(91,33,182,0.08); transform: translateY(-2px); }
+  .feature-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; flex-shrink: 0; }
+  .feature-icon svg { width: 20px; height: 20px; display: block; }
+  .feature-icon--green { background: #ECFDF5; color: #10B981; }
+  .feature-icon--purple { background: #EDE9FE; color: #7C3AED; }
+  .feature-icon--blue { background: #EFF6FF; color: #3B82F6; }
+  .feature-icon--orange { background: #FFF7ED; color: #F97316; }
+  .feature-icon--pink { background: #FDF2F8; color: #EC4899; }
+  .feature-card h3 { font-size: 0.95rem; font-weight: 700; color: var(--slate); margin-bottom: 0.45rem; line-height: 1.35; }
+  .feature-card p { font-size: 0.84rem; color: var(--slate-soft); line-height: 1.6; }
+
+  .sample-report { background: #F8FAFC; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 5rem 1.25rem; }
+  .sample-report-inner { max-width: 960px; margin: 0 auto; }
+  .sr-header { text-align: center; margin-bottom: 1.5rem; }
+  .sr-highlights { display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.75rem; }
+  .sr-badge { display: flex; align-items: center; gap: 0.5rem; background: white; border: 1px solid var(--border); border-radius: 999px; padding: 0.45rem 1rem; font-size: 0.78rem; font-weight: 600; color: var(--slate-mid); box-shadow: 0 2px 8px rgba(15,23,42,0.04); }
+  .sr-badge .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .sr-badge .dot.purple{background:var(--purple-light);}.sr-badge .dot.amber{background:var(--amber);}.sr-badge .dot.blue{background:var(--blue);}
+  .sr-preview-shell { background: white; border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 8px 40px rgba(15,23,42,0.08); overflow: hidden; }
+  .sr-preview-topbar { background: var(--slate); padding: 0.875rem 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .sr-preview-topbar-left { display: flex; align-items: center; gap: 0.75rem; min-width: 0; flex-wrap: wrap; }
+  .sr-preview-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .sr-preview-dot.r{background:#EF4444;}.sr-preview-dot.y{background:#F59E0B;}.sr-preview-dot.g{background:#10B981;}
+  .sr-preview-title { color: white; font-size: 0.85rem; font-weight: 600; }
+  .sr-preview-meta { font-size: 0.72rem; color: rgba(255,255,255,0.45); }
+  .sr-preview-label { display: inline-flex; align-items: center; font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #A7F3D0; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25); border-radius: 999px; padding: 0.2rem 0.55rem; white-space: nowrap; }
+  .sr-preview-body { padding: 0.85rem; background: #F8FAFC; }
+  .sr-preview-body .hd-shell { min-height: auto; border-radius: 12px; border: 1px solid var(--border); }
+  .sr-disclaimer { text-align: center; font-size: 0.82rem; color: var(--slate-soft); margin-top: 1rem; line-height: 1.55; max-width: 42rem; margin-left: auto; margin-right: auto; }
+  .sr-cta { text-align: center; margin-top: 1.5rem; }
+
+  .pricing { max-width: 1280px; margin: 5rem auto; padding: 0 1.25rem; }
+  .pricing-header { text-align: center; margin-bottom: 0.5rem; }
+  .pricing-sub-note { text-align: center; font-size: 0.875rem; color: var(--slate-soft); margin-bottom: 2.5rem; font-style: italic; }
+  .pricing-grid { display: grid; grid-template-columns: 1fr; gap: 1.25rem; align-items: start; max-width: 420px; margin: 0 auto; }
+  .pricing-card { border: 1px solid var(--border); border-radius: 16px; padding: 1.75rem; background: white; position: relative; transition: box-shadow 0.2s; }
+  .pricing-card:hover { box-shadow: 0 8px 30px rgba(15,23,42,0.08); }
+  .pricing-card.featured { border-color: var(--purple); box-shadow: 0 0 0 2px var(--purple),0 12px 40px rgba(91,33,182,0.12); }
+  .pricing-badge { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: var(--purple); color: white; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em; padding: 0.25rem 0.85rem; border-radius: 999px; white-space: nowrap; text-transform: uppercase; }
+  .pricing-tier { font-size: 0.7rem; font-weight: 700; color: var(--slate-soft); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.5rem; }
+  .pricing-card.featured .pricing-tier { color: var(--purple); }
+  .pricing-price { display: flex; align-items: flex-end; gap: 0.25rem; margin-bottom: 0.4rem; }
+  .pricing-price .currency { font-size: 1.1rem; font-weight: 700; color: var(--slate); margin-bottom: 0.35rem; }
+  .pricing-price .amount { font-family: 'JetBrains Mono',monospace; font-size: 2.75rem; font-weight: 700; color: var(--slate); line-height: 1; }
+  .pricing-price .period { font-size: 0.8rem; color: var(--slate-soft); margin-bottom: 0.4rem; }
+  .pricing-price.free-price .amount { font-size: 2rem; color: var(--green); }
+  .pricing-desc { font-size: 0.82rem; color: var(--slate-soft); line-height: 1.55; margin-bottom: 1.25rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border); }
+  .pricing-struct { border-radius: 8px; padding: 0.6rem 0.75rem; margin-bottom: 1rem; font-size: 0.75rem; font-weight: 600; }
+  .pricing-struct.starter{background:var(--purple-muted);color:var(--purple);}
+  .pricing-struct.pro{background:#F0FDF4;color:var(--green);border:1px solid #BBF7D0;}
+  .pricing-features { list-style: none; margin-bottom: 1.5rem; }
+  .pricing-features li { font-size: 0.82rem; color: var(--slate-mid); padding: 0.35rem 0; display: flex; align-items: flex-start; gap: 0.6rem; line-height: 1.45; }
+  .pricing-features li::before { content: "✓"; color: var(--green); font-weight: 700; font-size: 0.8rem; margin-top: 0.05rem; flex-shrink: 0; }
+  .pricing-features li.dim { color: var(--slate-soft); }
+  .pricing-features li.dim::before { content: "—"; color: var(--border); }
+  .btn-pp { display: block; width: 100%; text-align: center; border-radius: 10px; padding: 0.75rem; font-size: 0.9rem; font-weight: 700; cursor: pointer; text-decoration: none; }
+  .btn-pp.solid { background: var(--purple); color: white; border: none; }
+  .btn-pp.solid:hover { background: var(--purple-light); }
+  .btn-pp.outline { background: white; color: var(--purple); border: 2px solid var(--purple); }
+  .btn-pp.outline:hover { background: var(--purple-muted); }
+  .btn-pp.ghost { background: white; color: var(--slate-mid); border: 2px solid var(--border); }
+  .btn-pp.ghost:hover { border-color: var(--slate-mid); }
+  .pricing-note { text-align: center; margin-top: 1.75rem; font-size: 0.8rem; color: var(--slate-soft); }
+  .pricing-note a { color: var(--purple); text-decoration: none; }
+
+  .cta-section { max-width: 700px; margin: 5rem auto; padding: 0 2rem; text-align: center; }
+  .cta-box { background: linear-gradient(135deg,#1E1B4B,#4C1D95); border-radius: 20px; padding: 3.5rem 2.5rem; color: white; }
+  .cta-box h2 { font-size: 1.9rem; font-weight: 800; margin-bottom: 0.75rem; letter-spacing: -0.02em; }
+  .cta-box p { font-size: 1rem; opacity: 0.75; margin-bottom: 2rem; }
+  .cta-box .btn-primary { background: white; color: var(--purple); }
+  .cta-box .btn-primary:hover { background: #EDE9FE; }
+  .cta-box .btn-secondary { border-color: rgba(255,255,255,0.4); color: white; background: transparent; }
+  .cta-box .btn-secondary:hover { background: rgba(255,255,255,0.1); }
+  .cta-trust-row { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem 1.5rem; margin-top: 1.5rem; }
+  .cta-trust-row span { font-size: 0.78rem; color: rgba(255,255,255,0.55); display: flex; align-items: center; gap: 0.35rem; }
+  .cta-trust-row span::before { content: "✓"; color: #6EE7B7; font-weight: 700; }
+
+  footer { border-top: 1px solid var(--border); padding: 1.5rem 1.25rem; text-align: center; font-size: 0.8rem; color: var(--slate-soft); }
+
+  /* Tablet */
+  @media (min-width: 640px) {
+    nav { padding: 0 1.5rem; }
+    .hero-wrap { padding-left: 1.5rem; padding-right: 1.5rem; }
+    .pain-grid { grid-template-columns: repeat(2, 1fr); }
+    .features-grid { grid-template-columns: repeat(2, 1fr); }
+    .logos-bar { padding-left: 1.5rem; padding-right: 1.5rem; }
+  }
+
+  /* Desktop */
+  @media (min-width: 1024px) {
+    nav { padding: 0 2rem; }
+    .hero-wrap {
+      grid-template-columns: minmax(380px, 1fr) minmax(480px, 1.12fr);
+      gap: 4rem;
+      padding: 5rem 2rem 4.5rem;
+      align-items: center;
+    }
+    .hero-visual-wrap { max-width: none; margin: 0; }
+    .hero h1 { font-size: 3.15rem; }
+    .hero-sub { font-size: 1.08rem; max-width: 34rem; }
+    .hd-shell { padding: 1rem 1.1rem; }
+    .pain-section { padding-left: 2rem; padding-right: 2rem; }
+    .pain-grid { grid-template-columns: repeat(3, 1fr); }
+    .features { padding-left: 2rem; padding-right: 2rem; }
+    .features-grid { grid-template-columns: repeat(3, 1fr); }
+    .sample-report { padding-left: 2rem; padding-right: 2rem; }
+    .pricing { padding-left: 2rem; padding-right: 2rem; }
+    .pricing-grid {
+      grid-template-columns: repeat(3, 1fr);
+      max-width: none;
+      margin: 0;
+    }
+  }
+
+  /* Large desktop */
+  @media (min-width: 1280px) {
+    nav { padding: 0 2.5rem; }
+    .hero-wrap {
+      grid-template-columns: minmax(440px, 520px) minmax(560px, 1fr);
+      gap: 5rem;
+      padding-left: 2.5rem;
+      padding-right: 2.5rem;
+    }
+    .hero h1 { font-size: 3.35rem; }
+    .pain-grid { grid-template-columns: repeat(5, 1fr); }
+    .features-grid { grid-template-columns: repeat(5, 1fr); gap: 1.1rem; }
+    .section-h2 { font-size: 2.25rem; }
+  }
+
+  @media (max-width: 1023px) {
+    .hero-visual-wrap { order: -1; }
+    .nav-inner { flex-wrap: wrap; align-items: center; }
+    .nav-toggle { display: inline-flex; margin-left: auto; }
+    .nav-menu {
+      display: none;
+      flex: 1 1 100%;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 12px 32px rgba(15,23,42,0.08);
+      padding: 0.75rem;
+      margin-top: 0.25rem;
+    }
+    .nav-menu.open { display: flex; }
+    .nav-links {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      justify-content: flex-start;
+    }
+    .nav-links a {
+      padding: 0.65rem 0.75rem;
+      border-radius: 8px;
+    }
+    .nav-links a:hover { background: var(--purple-muted); }
+    .nav-actions {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.5rem;
+      padding-top: 0.5rem;
+      margin-top: 0.5rem;
+      border-top: 1px solid var(--border);
+    }
+    .nav-login, .btn-nav { text-align: center; padding: 0.65rem 0.75rem; }
+  }
+
+  @media (max-width: 900px) {
+    .hero h1 { font-size: 2.35rem; }
+    .trust-inline { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 600px) {
+    .hero h1 { font-size: 2rem; }
+    .features-grid, .pain-grid { grid-template-columns: 1fr; }
+    .sf-scores { grid-template-columns: repeat(2, 1fr); }
+    .hd-command-actions { display: none; }
+  }
+</style>
 </head>
-<body class="bg-gray-50">
-    <!-- Header -->
-    <header class="bg-white shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center py-4">
-                <div class="flex items-center">
-                    <a href="/" class="text-2xl font-bold text-gray-900 hover:text-gray-700">
-                        <span class="text-blue-600">CTO</span> Lens
-                    </a>
-                    <span class="ml-2 text-xs text-gray-400 hidden sm:inline">by <a href="http://idpetech.com" class="hover:text-blue-600" target="_blank" rel="noopener noreferrer">idpetech.com</a></span>
-                </div>
-                <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 shrink-0 max-sm:w-full">
-                    <a href="/dashboard" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium text-center sm:text-left">
-                        Login
-                    </a>
-                    <a href="/dashboard?signup=1" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors text-center whitespace-nowrap">
-                        <span class="sm:hidden">Start Free Trial</span>
-                        <span class="hidden sm:inline">Start 7-Day Free Trial</span>
-                    </a>
-                </div>
-            </div>
-        </div>
-    </header>
+<body>
 
-    <!-- Hero Section -->
-    <section class="gradient-hero py-20">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h1 class="text-4xl md:text-6xl font-bold text-white mb-6">
-                <span class="attention-pulse">{{ content.hero.headline }}</span>
-            </h1>
-            <p class="text-xl md:text-2xl text-blue-100 mb-8 max-w-3xl mx-auto">
-                {{ content.hero.subheadline }}
-            </p>
-            <a href="{{ content.hero.cta_link }}" class="inline-block bg-white text-blue-600 font-semibold px-8 py-4 rounded-lg text-lg hover:bg-gray-50 transition-colors shadow-lg">
-                {{ content.hero.cta_text }}
-            </a>
-            
-            <!-- Dashboard Preview -->
-            <div class="mt-16 max-w-4xl mx-auto">
-                <div class="bg-white/10 backdrop-blur-sm rounded-xl p-8 shadow-2xl">
-                    <div class="bg-white rounded-lg p-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Today's CTO Briefing</h3>
-                        <div class="space-y-3">
-                            {% for item in content.hero.preview_items %}
-                            <div class="flex items-center {% if item.type == 'urgent' %}text-red-600{% elif item.type == 'warning' %}text-yellow-600{% elif item.type == 'good' %}text-green-600{% else %}text-blue-600{% endif %}">
-                                <span class="text-xl mr-3">{{ item.icon }}</span>
-                                <span class="font-medium">{{ item.text }}</span>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+{% set signup_link = content.hero.cta_link %}
+{% set hero_emphasis = content.hero.get('headline_emphasis', '5 minutes.') %}
+{% set trust_items = content.hero.get('trust_items', ['Setup in minutes', 'Read-only access', 'No code stored', 'Cancel anytime']) %}
+{% set social_proof = content.hero.get('social_proof', {'text': 'Built for founders and fractional CTOs', 'avatars': []}) %}
+{% set secondary_cta_text = content.hero.get('cta_secondary_text', 'See Sample Report') %}
+{% set secondary_cta_link = content.hero.get('cta_secondary_link', '#sample') %}
+{% set primary_hint = content.hero.get('cta_primary_hint', 'No credit card required') %}
+{% set secondary_hint = content.hero.get('cta_secondary_hint', 'Preview in 30 seconds') %}
+{% set hero_eyebrow = content.hero.get('eyebrow', 'AI-POWERED CTO INTELLIGENCE') %}
+{% set hero_screenshot = content.hero.get('screenshot_url', '') %}
 
-    <!-- Problem Section -->
-    <section class="py-20 bg-white">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-                "{{ content.problem.headline }}<br>
-                <span class="text-blue-600">{{ content.problem.subheadline }}"</span>
-            </h2>
-            
-            <div class="grid md:grid-cols-3 gap-8 mt-16">
-                {% for challenge in content.problem.challenges %}
-                <div class="text-center">
-                    <div class="{% if challenge.icon == 'scatter' %}bg-red-100{% elif challenge.icon == 'view' %}bg-yellow-100{% else %}bg-purple-100{% endif %} w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                        {% if challenge.icon == 'scatter' %}
-                        <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
-                        </svg>
-                        {% elif challenge.icon == 'view' %}
-                        <svg class="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                        </svg>
-                        {% else %}
-                        <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                        </svg>
-                        {% endif %}
-                    </div>
-                    <h3 class="text-xl font-semibold text-gray-900 mb-2">{{ challenge.title }}</h3>
-                    <p class="text-gray-600">{{ challenge.description }}</p>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-    </section>
+{% macro overview_dashboard_mock(animate_health=false) %}
+<div class="hd-shell">
+  <div class="hd-app-header">🚀 CTO Lens</div>
+  <div class="hd-tabbar">
+    <div class="hd-tab active">📊 Overview (5)</div>
+    <div class="hd-tab"><span class="hd-tab-dot g"></span>IDPETECH</div>
+    <div class="hd-tab"><span class="hd-tab-dot g"></span>ILSA Interactive</div>
+    <div class="hd-tab"><span class="hd-tab-dot y"></span>Legacy Cleanup</div>
+  </div>
+  <div class="hd-portfolio-row">
+    <span class="hd-portfolio-label">Portfolio</span>
+    <span class="hd-portfolio-tab active">All (Consolidated)</span>
+    <span class="hd-portfolio-tab">Main</span>
+  </div>
+  <div class="hd-command">
+    <div class="hd-command-stats">
+      <div class="hd-command-stat">Health <strong class="hs-val"{% if animate_health %} id="hs-anim"{% endif %}>57</strong><span style="font-size:0.55rem;color:var(--slate-soft)">/100</span> <span class="hd-band">Critical</span></div>
+      <div class="hd-command-stat">Attention <span class="hd-attn">2 need attention</span></div>
+      <div class="hd-command-stat">Burn <strong>$28,100</strong> <span>/ $950 target</span></div>
+      <div class="hd-command-stat">4 active</div>
+      <div class="hd-command-meta">Briefing updated · 2026-06-14T18:46:03Z</div>
+    </div>
+    <div class="hd-command-actions">
+      <span class="hd-btn primary">Refresh briefing</span>
+      <span class="hd-btn secondary">Live metrics</span>
+      <span class="hd-btn share">Share</span>
+      <span class="hd-btn pdf">PDF</span>
+    </div>
+  </div>
+  <div class="hd-attention-card">
+    <div class="hd-attention-head">
+      <div class="hd-attention-title">🚨 Needs Attention (2)</div>
+      <div class="hd-attention-sub">Items requiring your action</div>
+    </div>
+    <div class="hd-attention-body">
+      <div class="hd-attention-item critical"><span class="hd-attention-sev critical">Critical</span> ILSA Interactive: Monthly burn 1000 exceeds target 800 by 25.0%.</div>
+      <div class="hd-attention-item"><span class="hd-attention-sev warning">Warning</span> ILSA Interactive: Team size 20 is 3.0x the portfolio average of 6.8.</div>
+    </div>
+  </div>
+  <div class="hd-more-panel" aria-hidden="true">
+    <div>
+      <div class="hd-more-title">🎯 CTOLens Daily Briefing</div>
+      <div class="hd-more-sub">Executive summary and recommended actions below the fold</div>
+    </div>
+    <span class="hd-more-chevron">▼</span>
+  </div>
+</div>
+{% endmacro %}
 
-    <!-- Solution Section -->
-    <section class="py-20 bg-gray-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 class="text-5xl font-bold mb-8">
-                <span class="attention-engine">{{ content.solution.title }}</span>
-            </h2>
-            <p class="text-xl text-gray-600 mb-12 max-w-3xl mx-auto">
-                {{ content.solution.description }}
-            </p>
-            
-            <!-- Workflow Diagram -->
-            <div class="flex flex-col md:flex-row items-center justify-center space-y-8 md:space-y-0 md:space-x-8 mt-16">
-                {% for step in content.solution.workflow %}
-                <div class="flex flex-col items-center">
-                    <div class="{% if step.icon_type == 'tools' %}bg-white{% elif step.icon_type == 'engine' %}bg-gradient-to-r from-pink-500 to-rose-500{% else %}bg-white{% endif %} rounded-lg p-6 shadow-lg mb-4">
-                        {% if step.icon_type == 'tools' %}
-                        <div class="flex space-x-4">
-                            <div class="w-8 h-8 bg-gray-900 rounded"></div>
-                            <div class="w-8 h-8 bg-blue-500 rounded"></div>
-                            <div class="w-8 h-8 bg-green-500 rounded"></div>
-                            <div class="w-8 h-8 bg-purple-500 rounded"></div>
-                        </div>
-                        {% elif step.icon_type == 'engine' %}
-                        <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                            </svg>
-                        </div>
-                        {% else %}
-                        <div class="space-y-2">
-                            <div class="flex items-center">
-                                <span class="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
-                                <div class="w-20 h-2 bg-gray-200 rounded"></div>
-                            </div>
-                            <div class="flex items-center">
-                                <span class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
-                                <div class="w-16 h-2 bg-gray-200 rounded"></div>
-                            </div>
-                            <div class="flex items-center">
-                                <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                                <div class="w-12 h-2 bg-gray-200 rounded"></div>
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
-                    <span class="text-sm font-medium text-gray-700">{{ step.name }}</span>
-                </div>
-                
-                {% if not loop.last %}
-                <div class="hidden md:block">
-                    <svg class="w-12 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                    </svg>
-                </div>
-                {% endif %}
-                {% endfor %}
-            </div>
-        </div>
-    </section>
+{% set nav = content.get('navigation', {}) %}
+{% set nav_links = nav.get('links', [
+  {'label': 'Product', 'href': '#features'},
+  {'label': 'How it Works', 'href': '#pain'},
+  {'label': 'Sample Report', 'href': '#sample'},
+  {'label': 'Pricing', 'href': '#pricing'},
+  {'label': 'Resources', 'href': 'http://idpetech.com'}
+]) %}
+{% set nav_login_label = nav.get('login_label', 'Log in') %}
+{% set nav_login_href = nav.get('login_href', '/dashboard') %}
+{% set sample = content.get('daily_brief', {}) %}
 
-    <!-- Features Section -->
-    <section class="py-20 bg-white">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center mb-16">
-                <h2 class="text-4xl font-bold text-gray-900 mb-4">{{ content.features.title }}</h2>
-                <p class="text-xl text-gray-600">{{ content.features.subtitle }}</p>
-            </div>
-            
-            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-                {% for feature in content.features.feature_list %}
-                <div class="feature-hover bg-white p-6 rounded-xl shadow-lg border">
-                    <div class="{% if feature.icon == 'github' %}bg-gray-900{% elif feature.icon == 'jira' %}bg-blue-600{% elif feature.icon == 'aws' %}bg-orange-500{% else %}bg-purple-500{% endif %} w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-                        {% if feature.icon == 'github' %}
-                        <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M12 0C5.374 0 0 5.373 0 12 0 17.302 3.438 21.8 8.207 23.387c.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
-                        </svg>
-                        {% elif feature.icon == 'jira' %}
-                        <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                            <path d="M11.571 11.513H0a5.218 5.218 0 0 0 5.232 5.215h2.13v2.057A5.215 5.215 0 0 0 12.575 24V12.518a1.005 1.005 0 0 0-1.004-1.005zm5.723-5.756H5.736a5.215 5.215 0 0 0 5.215 5.214h2.129v2.057a5.217 5.217 0 0 0 5.215 5.214V6.758a1.001 1.001 0 0 0-1.001-1.001zM23.013 0H11.455a5.215 5.215 0 0 0 5.215 5.215v2.057a5.217 5.217 0 0 0 5.215 5.214V1.005A1.001 1.001 0 0 0 23.013 0z"/>
-                        </svg>
-                        {% elif feature.icon == 'aws' %}
-                        <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                            <path d="M6.763 10.036c0 .296.032.535.088.71.056.175.088.373.088.593 0 .478-.088.877-.264 1.193a2.36 2.36 0 0 1-.749.793 3.31 3.31 0 0 1-1.066.455 4.81 4.81 0 0 1-1.252.162 5.803 5.803 0 0 1-1.066-.097 4.67 4.67 0 0 1-.939-.291v-1.336a5.763 5.763 0 0 0 .984.373 4.74 4.74 0 0 0 1.097.129c.285 0 .535-.032.749-.097a1.54 1.54 0 0 0 .553-.275.75.75 0 0 0 .21-.503.714.714 0 0 0-.178-.488.925.925 0 0 0-.504-.275 6.14 6.14 0 0 0-.73-.162 8.173 8.173 0 0 1-.94-.242 2.577 2.577 0 0 1-.763-.421 1.997 1.997 0 0 1-.504-.626 1.776 1.776 0 0 1-.194-.842c0-.47.097-.86.291-1.171a2.47 2.47 0 0 1 .779-.81 3.535 3.535 0 0 1 1.139-.47 5.366 5.366 0 0 1 1.379-.178c.44 0 .86.032 1.262.097.401.064.763.162 1.085.291v1.294a4.551 4.551 0 0 0-1.022-.34 4.899 4.899 0 0 0-1.058-.11c-.244 0-.47.024-.679.073a1.363 1.363 0 0 0-.537.242.582.582 0 0 0-.21.488.549.549 0 0 0 .194.44 1.178 1.178 0 0 0 .585.25 6.686 6.686 0 0 0 .892.178 8.68 8.68 0 0 1 1.003.243 2.786 2.786 0 0 1 .892.44 2.034 2.034 0 0 1 .585.73 1.946 1.946 0 0 1 .21.923zm5.173 1.337c0 .296.032.535.088.71.056.175.088.373.088.593 0 .478-.088.877-.264 1.193a2.36 2.36 0 0 1-.749.793 3.31 3.31 0 0 1-1.066.455 4.81 4.81 0 0 1-1.252.162 5.803 5.803 0 0 1-1.066-.097 4.67 4.67 0 0 1-.939-.291v-1.336a5.763 5.763 0 0 0 .984.373 4.74 4.74 0 0 0 1.097.129c.285 0 .535-.032.749-.097a1.54 1.54 0 0 0 .553-.275.75.75 0 0 0 .21-.503.714.714 0 0 0-.178-.488.925.925 0 0 0-.504-.275 6.14 6.14 0 0 0-.73-.162 8.173 8.173 0 0 1-.94-.242 2.577 2.577 0 0 1-.763-.421 1.997 1.997 0 0 1-.504-.626 1.776 1.776 0 0 1-.194-.842c0-.47.097-.86.291-1.171a2.47 2.47 0 0 1 .779-.81 3.535 3.535 0 0 1 1.139-.47 5.366 5.366 0 0 1 1.379-.178c.44 0 .86.032 1.262.097.401.064.763.162 1.085.291v1.294a4.551 4.551 0 0 0-1.022-.34 4.899 4.899 0 0 0-1.058-.11c-.244 0-.47.024-.679.073a1.363 1.363 0 0 0-.537.242.582.582 0 0 0-.21.488.549.549 0 0 0 .194.44 1.178 1.178 0 0 0 .585.25 6.686 6.686 0 0 0 .892.178 8.68 8.68 0 0 1 1.003.243 2.786 2.786 0 0 1 .892.44 2.034 2.034 0 0 1 .585.73 1.946 1.946 0 0 1 .21.923z"/>
-                        </svg>
-                        {% else %}
-                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                        </svg>
-                        {% endif %}
-                    </div>
-                    <h3 class="text-xl font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                        {% if feature.icon == 'github' %}
-                        <svg class="w-5 h-5 text-gray-900 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C5.374 0 0 5.373 0 12 0 17.302 3.438 21.8 8.207 23.387c.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
-                        {% elif feature.icon == 'jira' %}
-                        <svg class="w-5 h-5 text-blue-600 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11.571 11.513H0a5.218 5.218 0 0 0 5.232 5.215h2.13v2.057A5.215 5.215 0 0 0 12.575 24V12.518a1.005 1.005 0 0 0-1.004-1.005zm5.723-5.756H5.736a5.215 5.215 0 0 0 5.215 5.214h2.129v2.057a5.217 5.217 0 0 0 5.215 5.214V6.758a1.001 1.001 0 0 0-1.001-1.001zM23.013 0H11.455a5.215 5.215 0 0 0 5.215 5.215v2.057a5.217 5.217 0 0 0 5.215 5.214V1.005A1.001 1.001 0 0 0 23.013 0z"/></svg>
-                        {% elif feature.icon == 'aws' %}
-                        <svg class="w-5 h-5 text-orange-500 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.763 10.036c0 .296.032.535.088.71.056.175.088.373.088.593 0 .478-.088.877-.264 1.193a2.36 2.36 0 0 1-.749.793 3.31 3.31 0 0 1-1.066.455 4.81 4.81 0 0 1-1.252.162 5.803 5.803 0 0 1-1.066-.097 4.67 4.67 0 0 1-.939-.291v-1.336a5.763 5.763 0 0 0 .984.373 4.74 4.74 0 0 0 1.097.129c.285 0 .535-.032.749-.097a1.54 1.54 0 0 0 .553-.275.75.75 0 0 0 .21-.503.714.714 0 0 0-.178-.488.925.925 0 0 0-.504-.275 6.14 6.14 0 0 0-.73-.162 8.173 8.173 0 0 1-.94-.242 2.577 2.577 0 0 1-.763-.421 1.997 1.997 0 0 1-.504-.626 1.776 1.776 0 0 1-.194-.842c0-.47.097-.86.291-1.171a2.47 2.47 0 0 1 .779-.81 3.535 3.535 0 0 1 1.139-.47 5.366 5.366 0 0 1 1.379-.178c.44 0 .86.032 1.262.097.401.064.763.162 1.085.291v1.294a4.551 4.551 0 0 0-1.022-.34 4.899 4.899 0 0 0-1.058-.11c-.244 0-.47.024-.679.073a1.363 1.363 0 0 0-.537.242.582.582 0 0 0-.21.488.549.549 0 0 0 .194.44 1.178 1.178 0 0 0 .585.25 6.686 6.686 0 0 0 .892.178 8.68 8.68 0 0 1 1.003.243 2.786 2.786 0 0 1 .892.44 2.034 2.034 0 0 1 .585.73 1.946 1.946 0 0 1 .21.923z"/></svg>
-                        {% endif %}
-                        <span>{{ feature.title }}</span>
-                    </h3>
-                    <p class="text-gray-600 mb-4">{{ feature.description }}</p>
-                    <ul class="text-sm text-gray-500 space-y-1">
-                        {% for detail in feature.details %}
-                        <li>• {{ detail }}</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-    </section>
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="/">
+      <span class="nav-logo-mark" aria-hidden="true"></span>
+      <span class="nav-logo-text">CTO<span>Lens</span></span>
+    </a>
+    <button type="button" class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="nav-menu" aria-label="Open navigation menu">
+      <span class="nav-toggle-bars" aria-hidden="true"></span>
+    </button>
+    <div class="nav-menu" id="nav-menu">
+      <div class="nav-links">
+        {% for link in nav_links %}
+        <a href="{{ link.href }}"{% if link.href.startswith('http') %} target="_blank" rel="noopener noreferrer"{% endif %}>{{ link.label }}</a>
+        {% endfor %}
+      </div>
+      <div class="nav-actions">
+        <a href="{{ nav_login_href }}" class="nav-login">{{ nav_login_label }}</a>
+        <a href="{{ signup_link }}" class="btn-nav">{{ content.hero.cta_text }}</a>
+      </div>
+    </div>
+  </div>
+</nav>
 
-    <!-- Example Daily Brief Section -->
-    <section class="py-20 bg-gray-50">
-        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center mb-12">
-                <h2 class="text-4xl font-bold text-gray-900 mb-4">{{ content.daily_brief.title }}</h2>
-                <p class="text-xl text-gray-600">{{ content.daily_brief.subtitle }}</p>
-            </div>
-            
-            <div class="bg-white rounded-2xl shadow-xl p-8">
-                <div class="border-b border-gray-200 pb-4 mb-6">
-                    <div class="flex justify-between items-center">
-                        <h3 class="text-2xl font-bold text-gray-900">Today's Briefing</h3>
-                        <span class="text-sm text-gray-500" id="daily-brief-date">{{ briefing_date }}</span>
-                    </div>
-                </div>
-                
-                <div class="space-y-4">
-                    {% for item in content.daily_brief.brief_items %}
-                    <div class="brief-item flex items-start p-4 {% if item.level == 'urgent' %}bg-red-50 border-l-4 border-red-500{% elif item.level == 'warning' %}bg-yellow-50 border-l-4 border-yellow-500{% elif item.level == 'good' %}bg-green-50 border-l-4 border-green-500{% else %}bg-blue-50 border-l-4 border-blue-500{% endif %} rounded-lg">
-                        <span class="text-2xl mr-4">{{ item.icon }}</span>
-                        <div>
-                            <h4 class="font-semibold {% if item.level == 'urgent' %}text-red-800{% elif item.level == 'warning' %}text-yellow-800{% elif item.level == 'good' %}text-green-800{% else %}text-blue-800{% endif %}">{{ item.title }}</h4>
-                            <p class="{% if item.level == 'urgent' %}text-red-600{% elif item.level == 'warning' %}text-yellow-600{% elif item.level == 'good' %}text-green-600{% else %}text-blue-600{% endif %} text-sm mt-1">{{ item.description }}</p>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                
-                <div class="mt-8 text-center">
-                    <a href="{{ content.daily_brief.cta.link }}" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg transition-colors">
-                        {{ content.daily_brief.cta.text }}
-                    </a>
-                </div>
-            </div>
-        </div>
-    </section>
+<section class="hero-section">
+<div class="hero-wrap">
+  <div class="hero">
+    <div class="hero-badge">{{ hero_eyebrow }}</div>
+    <h1>{{ content.hero.headline }} <em>{{ hero_emphasis }}</em></h1>
+    <p class="hero-sub">{{ content.hero.subheadline }}</p>
+    <div class="hero-ctas">
+      <div class="cta-block">
+        <a href="{{ signup_link }}" class="btn-primary">{{ content.hero.cta_text }}</a>
+        <span class="cta-hint">{{ primary_hint }}</span>
+      </div>
+      <div class="cta-block">
+        <a href="{{ secondary_cta_link }}" class="btn-secondary">{{ secondary_cta_text }} →</a>
+        <span class="cta-hint">{{ secondary_hint }}</span>
+      </div>
+    </div>
+    <div class="trust-inline">
+      {% for item in trust_items %}
+      <span>{{ item }}</span>
+      {% endfor %}
+    </div>
+    {% if social_proof.text %}
+    <div class="hero-social">
+      {% if social_proof.avatars %}
+      <div class="hero-avatars">
+        {% for avatar in social_proof.avatars %}
+        <div class="hero-avatar a{{ loop.index }}">{{ avatar }}</div>
+        {% endfor %}
+      </div>
+      <div class="hero-stars">★★★★★</div>
+      {% endif %}
+      <div class="hero-social-text">{{ social_proof.text }}</div>
+    </div>
+    {% endif %}
+  </div>
 
-    <!-- Pricing Section -->
-    <section class="py-20 bg-white">
-        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 class="text-4xl font-bold text-gray-900 mb-4">{{ content.pricing.title }}</h2>
-            <p class="text-xl text-gray-600 mb-12">{{ content.pricing.subtitle }}</p>
-            
-            <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-                {% for plan in content.pricing.plans %}
-                <div class="{% if plan.popular %}border-2 border-blue-500{% else %}border border-gray-200{% endif %} rounded-xl p-8 relative">
-                    {% if plan.popular %}
-                    <div class="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                        <span class="bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-medium">Popular</span>
-                    </div>
-                    {% endif %}
-                    <h3 class="text-xl font-semibold text-gray-900 mb-4">{{ plan.name }}</h3>
-                    <div class="text-3xl font-bold text-gray-900 mb-4">{{ plan.price }}<span class="text-lg text-gray-600">{{ plan.period }}</span></div>
-                    <p class="text-gray-600 mb-6">{{ plan.description }}</p>
-                    <ul class="text-sm text-gray-600 space-y-2 mb-8">
-                        {% for feature in plan.features %}
-                        <li>• {{ feature }}</li>
-                        {% endfor %}
-                    </ul>
-                    <a href="{{ plan.cta.link }}" class="block w-full {% if plan.cta.style == 'primary' %}bg-blue-600 hover:bg-blue-700 text-white{% else %}border border-gray-300 bg-white text-gray-800 hover:bg-gray-50{% endif %} py-3 rounded-lg font-medium transition-colors">
-                        {{ plan.cta.text }}
-                    </a>
-                    {% if plan.note %}
-                    <p class="text-xs text-gray-500 mt-3 leading-relaxed">{{ plan.note }}</p>
-                    {% endif %}
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-    </section>
+  <div class="hero-visual-wrap">
+    <div class="hero-visual-glow"></div>
+    <div class="hero-screenshot">
+      {% if hero_screenshot %}
+      <img src="{{ hero_screenshot }}" alt="CTOLens Overview showing portfolio health score, needs attention, and daily briefing">
+      {% else %}
+      {{ overview_dashboard_mock(animate_health=true) }}
+      {% endif %}
+    </div>
+  </div>
+</div>
+</section>
 
-    <!-- Footer -->
-    <footer class="bg-gray-900 text-white py-12">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="grid md:grid-cols-4 gap-8">
-                <div>
-                    <div class="text-2xl font-bold mb-4">
-                        <span class="text-blue-400">CTO</span> Lens
-                    </div>
-                    <p class="text-gray-400 text-sm mb-2">
-                        {{ content.footer.tagline }}
-                    </p>
-                    <p class="text-gray-500 text-xs">
-                        A product of <a href="http://idpetech.com" class="text-blue-400 hover:text-white" target="_blank" rel="noopener noreferrer">idpetech.com</a>
-                    </p>
-                </div>
-                
-                {% for section in content.footer.sections %}
-                <div>
-                    <h4 class="font-semibold mb-4">{{ section.title }}</h4>
-                    <ul class="space-y-2 text-sm text-gray-400">
-                        {% for link in section.links %}
-                        <li><a href="{{ link.url }}" class="hover:text-white"{% if link.url.startswith('http') %} target="_blank" rel="noopener noreferrer"{% endif %}>{{ link.text }}</a></li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                {% endfor %}
-            </div>
-            
-            <div class="border-t border-gray-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
-                <p class="text-gray-400 text-sm">
-                    © 2026 <a href="http://idpetech.com" class="text-gray-400 hover:text-white underline" target="_blank" rel="noopener noreferrer">idpetech.com</a> All rights reserved.
-                </p>
-                <div class="flex space-x-6 mt-4 md:mt-0">
-                    {% for social in content.footer.social_links %}
-                    <a href="{{ social.url }}" class="text-gray-400 hover:text-white">
-                        {% if social.platform == 'twitter' %}
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/>
-                        </svg>
-                        {% elif social.platform == 'linkedin' %}
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                        </svg>
-                        {% endif %}
-                    </a>
-                    {% endfor %}
-                </div>
-            </div>
+<div class="logos-bar">
+  <span class="logos-bar-label">Connect your tools in minutes</span>
+  {% for tool in content.integrations %}
+  <div class="logo-chip">{{ tool }}</div>
+  {% endfor %}
+</div>
+
+<section class="pain-section" id="pain">
+  <div class="pain-inner">
+    <div class="section-eyebrow">{{ content.problem.get('eyebrow', 'Does any of this sound familiar?') }}</div>
+    <h2 class="section-h2" style="color:white">{{ content.problem.headline }}</h2>
+    <p class="section-sub">{{ content.problem.get('subheadline', content.problem.get('subheadline', '')) }}</p>
+    <div class="pain-grid">
+      {% for challenge in content.problem.challenges %}
+      <div class="pain-card">
+        <div class="pain-icon">{{ challenge.get('icon', challenge.get('emoji', '📊')) }}</div>
+        <p>{{ challenge.description if challenge.description else challenge.title }}</p>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="pain-resolution"><strong>{{ content.problem.get('resolution_bold', 'CTOLens connects your assignments and tools') }}</strong>{{ content.problem.get('resolution_suffix', ' and surfaces what needs your attention in one Overview briefing.') }}</p>
+    <a href="#sample" class="btn-secondary" style="border-color:rgba(255,255,255,0.3);color:white;background:transparent;">See a Sample Assessment Report →</a>
+  </div>
+</section>
+
+<section class="features" id="features">
+  {% if content.features.get('eyebrow') %}
+  <div class="section-eyebrow">{{ content.features.eyebrow }}</div>
+  {% endif %}
+  <h2 class="section-h2">{{ content.features.title }}</h2>
+  {% if content.features.get('subtitle') %}
+  <p class="section-sub">{{ content.features.subtitle }}</p>
+  {% endif %}
+  <div class="features-grid">
+    {% for feature in content.features.feature_list %}
+    <div class="feature-card">
+      <div class="feature-icon feature-icon--{{ feature.get('color', 'purple') }}">
+        {% set icon = feature.get('icon', '') %}
+        {% if icon == 'shield' %}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        {% elif icon == 'dollar' %}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20M17 7H9.5a2.5 2.5 0 0 0 0 5h5a2.5 2.5 0 0 1 0 5H7"/></svg>
+        {% elif icon == 'chart' %}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 7-8"/><path d="M14 7h7v7"/></svg>
+        {% elif icon == 'bolt' %}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h8l-1 8 10-12h-8l1-8z"/></svg>
+        {% elif icon == 'document' %}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>
+        {% else %}
+        <span aria-hidden="true">{{ feature.get('emoji', '📊') }}</span>
+        {% endif %}
+      </div>
+      <h3>{{ feature.title }}</h3>
+      <p>{{ feature.description }}</p>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="sample-report" id="sample">
+  <div class="sample-report-inner">
+    <div class="sr-header">
+      {% if sample.get('eyebrow') %}
+      <div class="section-eyebrow">{{ sample.eyebrow }}</div>
+      {% endif %}
+      <h2 class="section-h2">{{ sample.get('title', 'What the Overview briefing looks like today') }}</h2>
+      {% if sample.get('subtitle') %}
+      <p class="section-sub" style="margin-bottom:0">{{ sample.subtitle }}</p>
+      {% endif %}
+    </div>
+    <div class="sr-highlights">
+      {% for pill in sample.get('highlights', [
+        {'label': 'Portfolio health score', 'color': 'purple'},
+        {'label': 'Needs attention items', 'color': 'amber'},
+        {'label': 'Daily executive briefing', 'color': 'blue'}
+      ]) %}
+      <div class="sr-badge"><div class="dot {{ pill.get('color', 'purple') }}"></div>{{ pill.label }}</div>
+      {% endfor %}
+    </div>
+    <div class="sr-preview-shell">
+      <div class="sr-preview-topbar">
+        <div class="sr-preview-topbar-left">
+          <span class="sr-preview-dot r"></span><span class="sr-preview-dot y"></span><span class="sr-preview-dot g"></span>
+          <span class="sr-preview-title">Demo Workspace · Overview</span>
+          <span class="sr-preview-label">Available today</span>
         </div>
-    </footer>
-    <script>
-        (function() {
-            var dateEl = document.getElementById('daily-brief-date');
-            if (dateEl && !dateEl.textContent.trim()) {
-                dateEl.textContent = new Date().toLocaleDateString('en-US', {
-                    month: 'long',
-                    day: 'numeric',
-                    year: 'numeric'
-                });
-            }
-        })();
-        (function() {
-            var storageKey = 'analytics_home_pv';
-            if (sessionStorage.getItem(storageKey)) return;
-            sessionStorage.setItem(storageKey, '1');
-            var anonId = localStorage.getItem('analytics_anon_id');
-            if (!anonId) {
-                anonId = (Math.random().toString(36).slice(2) + Date.now().toString(36)).slice(0, 16);
-                localStorage.setItem('analytics_anon_id', anonId);
-            }
-            fetch('/api/analytics/page-view', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path: window.location.pathname || '/', anonymous_id: anonId }),
-            }).catch(function() {});
-        })();
-    </script>
+        <div class="sr-preview-meta">Briefing refreshed · {{ briefing_date }}</div>
+      </div>
+      <div class="sr-preview-body">
+        {{ overview_dashboard_mock() }}
+      </div>
+    </div>
+    <p class="sr-disclaimer">{{ sample.get('disclaimer', 'Illustrative sample data. Your Overview briefing reflects your assignments, budgets, and connected tools.') }}</p>
+    <div class="sr-cta">
+      <a href="{{ sample.get('cta', {}).get('link', signup_link) }}" class="btn-primary">{{ sample.get('cta', {}).get('text', content.hero.cta_text) }}</a>
+    </div>
+  </div>
+</section>
+
+<section class="pricing" id="pricing">
+  <div class="pricing-header">
+    <div class="section-eyebrow">Pricing</div>
+    <h2 class="section-h2">{{ content.pricing.title }}</h2>
+  </div>
+  <p class="pricing-sub-note">{{ content.pricing.subtitle }}</p>
+  <div class="pricing-grid">
+    {% for plan in content.pricing.plans %}
+    <div class="pricing-card{% if plan.popular %} featured{% endif %}">
+      {% if plan.popular %}<div class="pricing-badge">Most Popular</div>{% endif %}
+      <div class="pricing-tier">{{ plan.tier|default(plan.name) }}</div>
+      <div class="pricing-price{% if plan.price_type == 'free' or plan.price == 'Free' or plan.price == '$0' %} free-price{% endif %}">
+        {% if plan.price_type == 'free' or plan.price == 'Free' or plan.price == '$0' %}
+        <div class="amount">Free</div>
+        {% else %}
+        <div class="currency">$</div><div class="amount">{{ plan.price|replace('$', '')|replace('/mo', '')|trim }}</div><div class="period">{{ plan.period|default('/month') }}</div>
+        {% endif %}
+      </div>
+      <div class="pricing-desc">{{ plan.description }}</div>
+      {% if plan.struct %}
+      <div class="pricing-struct {{ plan.struct_style|default('starter') }}">{{ plan.struct }}</div>
+      {% endif %}
+      <ul class="pricing-features">
+        {% for feature in plan.features %}
+        <li{% if feature is mapping and not feature.included %} class="dim"{% elif feature is string and feature.startswith('—') %} class="dim"{% endif %}>
+          {% if feature is mapping %}{{ feature.text }}{% else %}{{ feature|replace('— ', '') }}{% endif %}
+        </li>
+        {% endfor %}
+        {% if plan.excluded_features %}
+        {% for feature in plan.excluded_features %}
+        <li class="dim">{{ feature }}</li>
+        {% endfor %}
+        {% endif %}
+      </ul>
+      <a href="{{ plan.cta.link }}" class="btn-pp {{ plan.cta.style|default('solid') }}">{{ plan.cta.text }}</a>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="pricing-note">{{ content.pricing.get('footnote', '7-day free trial on all plans · Cancel anytime') }} · <a href="{{ content.footer.company_url|default('http://idpetech.com') }}">Questions? Talk to us →</a></div>
+</section>
+
+<div class="cta-section">
+  <div class="cta-box">
+    <h2>{{ content.get('final_cta', {}).get('headline', 'Your next critical issue is already in your data.') }}</h2>
+    <p>{{ content.get('final_cta', {}).get('subheadline', 'Run your first assessment in minutes and see what CTOLens uncovers.') }}</p>
+    <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;align-items:flex-start;">
+      <div class="cta-block">
+        <a href="{{ signup_link }}" class="btn-primary">{{ content.hero.cta_text }}</a>
+        <span class="cta-hint">{{ content.get('final_cta', {}).get('primary_hint', primary_hint) }}</span>
+      </div>
+      <a href="#sample" class="btn-secondary">{{ secondary_cta_text }}</a>
+    </div>
+    <div class="cta-trust-row">
+      {% for item in trust_items %}
+      <span>{{ item }}</span>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<footer>
+  <strong style="color:var(--slate)">CTOLens</strong> by <a href="{{ content.footer.company_url|default('http://idpetech.com') }}" style="color:var(--purple)">IDPETECH</a> · © 2026 ·
+  {% for section in content.footer.sections %}
+    {% if section.title == 'Legal' %}
+      {% for link in section.links %}
+  <a href="{{ link.url }}" style="color:var(--slate-soft)">{{ link.text }}</a>{% if not loop.last %} · {% endif %}
+      {% endfor %}
+    {% endif %}
+  {% endfor %}
+</footer>
+
+<script>
+window.addEventListener('load', () => {
+    const el = document.getElementById('hs-anim');
+    if (!el) return;
+    let v = 0;
+    const tick = setInterval(() => {
+      v += 2; if (v >= 57) { v = 57; clearInterval(tick); }
+      el.textContent = v;
+    }, 20);
+  });
+  (function() {
+    var toggle = document.getElementById('nav-toggle');
+    var menu = document.getElementById('nav-menu');
+    if (!toggle || !menu) return;
+    function setOpen(open) {
+      menu.classList.toggle('open', open);
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      toggle.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
+    }
+    toggle.addEventListener('click', function() {
+      setOpen(!menu.classList.contains('open'));
+    });
+    menu.querySelectorAll('a').forEach(function(link) {
+      link.addEventListener('click', function() { setOpen(false); });
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') setOpen(false);
+    });
+  })();
+(function() {
+    var storageKey = 'analytics_home_pv';
+    if (sessionStorage.getItem(storageKey)) return;
+    sessionStorage.setItem(storageKey, '1');
+    var anonId = localStorage.getItem('analytics_anon_id');
+    if (!anonId) {
+      anonId = (Math.random().toString(36).slice(2) + Date.now().toString(36)).slice(0, 16);
+      localStorage.setItem('analytics_anon_id', anonId);
+    }
+    fetch('/api/analytics/page-view', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: window.location.pathname || '/', anonymous_id: anonId }),
+    }).catch(function() {});
+  })();
+</script>
 </body>
 </html>
