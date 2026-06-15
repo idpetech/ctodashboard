@@ -2,17 +2,44 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any, Dict, List, Set
 
 from services.repo_intelligence.snapshot_models import FolderNode
 
-IGNORED_SEGMENTS: frozenset[str] = frozenset({"node_modules", "target", "build", ".git"})
+IGNORED_SEGMENTS: frozenset[str] = frozenset(
+    {
+        "node_modules",
+        "target",
+        "build",
+        ".git",
+        "venv",
+        ".venv",
+        "__pycache__",
+        ".pytest_cache",
+        ".ruff_cache",
+        "_attic",
+    }
+)
+
+
+def ignored_segments() -> frozenset[str]:
+    extra = os.getenv("REPO_INTEL_IGNORE_SEGMENTS", "")
+    if not extra.strip():
+        return IGNORED_SEGMENTS
+    merged = set(IGNORED_SEGMENTS)
+    for part in extra.split(","):
+        token = part.strip()
+        if token:
+            merged.add(token)
+    return frozenset(merged)
 
 
 def should_ignore_path(path: str) -> bool:
     if not path:
         return False
-    return any(segment in IGNORED_SEGMENTS for segment in path.split("/"))
+    blocked = ignored_segments()
+    return any(segment in blocked for segment in path.split("/"))
 
 
 def filter_tree_items(tree_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
