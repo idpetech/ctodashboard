@@ -1,5 +1,6 @@
 """Modular API route registration."""
 
+from routes.api.analysis import register_analysis_routes
 from routes.api.analytics import register_analytics_routes
 from routes.api.assignments import register_assignments_routes
 from routes.api.audit import register_audit_routes
@@ -9,6 +10,8 @@ from routes.api.chatbot import register_chatbot_routes
 from routes.api.import_export import register_import_export_routes
 from routes.api.pages import register_pages_routes
 from routes.api.portfolios import register_portfolios_routes
+from routes.api.reporting import register_reporting_routes
+from routes.api.repo_intelligence import register_repo_intelligence_routes
 from routes.api.system import register_system_routes
 from routes.api.workspaces import register_workspaces_routes
 
@@ -26,3 +29,6 @@ def register_routes(app):
     register_audit_routes(app)
     register_import_export_routes(app)
     register_analytics_routes(app)
+    register_analysis_routes(app)
+    register_reporting_routes(app)
+    register_repo_intelligence_routes(app)

@@ -20,6 +20,14 @@ class _Tables:
     ANALYTICS_EVENTS = "analytics_events"
     ANALYTICS_SESSIONS = "analytics_sessions"
     ANALYTICS_USER_PROFILES = "analytics_user_profiles"
+    REPO_SNAPSHOTS = "repo_snapshots"
+    REPO_FILE_INDEX = "repo_file_index"
+    REPOSITORIES = "repositories"
+    REPOSITORY_SNAPSHOTS = "repository_snapshots"
+    REPOSITORY_COMMITS = "repository_commits"
+    REPOSITORY_CODE_SYMBOLS = "repository_code_symbols"
+    REPOSITORY_CODE_INDEX = "repository_code_index"
+    REPOSITORY_BASELINE_METRICS = "repository_baseline_metrics"
 
 
 TABLES = _Tables()
@@ -143,6 +151,147 @@ DDL_STATEMENTS: List[str] = [
     f"CREATE INDEX IF NOT EXISTS idx_analytics_events_session ON {TABLES.ANALYTICS_EVENTS} (session_id)",
     f"CREATE INDEX IF NOT EXISTS idx_analytics_events_name_time ON {TABLES.ANALYTICS_EVENTS} (event_name, occurred_at)",
     f"CREATE INDEX IF NOT EXISTS idx_analytics_sessions_user_started ON {TABLES.ANALYTICS_SESSIONS} (user_id, started_at)",
+    f"""
+    CREATE TABLE IF NOT EXISTS {TABLES.REPO_SNAPSHOTS} (
+        snapshot_id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL,
+        assignment_id TEXT NOT NULL,
+        repo_full_name TEXT NOT NULL,
+        default_branch TEXT,
+        commit_sha TEXT NOT NULL,
+        captured_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        status TEXT NOT NULL DEFAULT 'pending',
+        error_message TEXT,
+        repo_metadata JSONB NOT NULL DEFAULT '{{}}'::jsonb,
+        language_bytes JSONB NOT NULL DEFAULT '{{}}'::jsonb,
+        tree_stats JSONB NOT NULL DEFAULT '{{}}'::jsonb,
+        index_version INTEGER NOT NULL DEFAULT 1
+    )
+    """,
+    f"CREATE INDEX IF NOT EXISTS idx_repo_snapshots_workspace ON {TABLES.REPO_SNAPSHOTS} (workspace_id, assignment_id, captured_at DESC)",
+    f"""
+    CREATE TABLE IF NOT EXISTS {TABLES.REPO_FILE_INDEX} (
+        id SERIAL PRIMARY KEY,
+        snapshot_id TEXT NOT NULL REFERENCES {TABLES.REPO_SNAPSHOTS}(snapshot_id) ON DELETE CASCADE,
+        path TEXT NOT NULL,
+        git_sha TEXT NOT NULL,
+        size_bytes BIGINT NOT NULL,
+        node_type TEXT NOT NULL,
+        extension TEXT,
+        language TEXT,
+        line_count INTEGER,
+        content_sha256 TEXT,
+        depth INTEGER NOT NULL DEFAULT 0,
+        UNIQUE(snapshot_id, path)
+    )
+    """,
+    f"CREATE INDEX IF NOT EXISTS idx_repo_file_index_snapshot ON {TABLES.REPO_FILE_INDEX} (snapshot_id)",
+    f"CREATE INDEX IF NOT EXISTS idx_repo_file_index_path ON {TABLES.REPO_FILE_INDEX} (snapshot_id, path)",
+
+    f"""
+    CREATE TABLE IF NOT EXISTS {TABLES.REPOSITORIES} (
+        repository_id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL,
+        assignment_id TEXT NOT NULL,
+        owner TEXT NOT NULL,
+        repo_name TEXT NOT NULL,
+        repo_full_name TEXT NOT NULL,
+        default_branch TEXT,
+        metadata JSONB NOT NULL DEFAULT '{{}}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (workspace_id, assignment_id, repo_full_name)
+    )
+    """,
+    f"CREATE INDEX IF NOT EXISTS idx_repositories_workspace ON {TABLES.REPOSITORIES} (workspace_id, assignment_id)",
+    f"CREATE INDEX IF NOT EXISTS idx_repositories_full_name ON {TABLES.REPOSITORIES} (repo_full_name)",
+    f"""
+    CREATE TABLE IF NOT EXISTS {TABLES.REPOSITORY_SNAPSHOTS} (
+        snapshot_id TEXT PRIMARY KEY,
+        repository_id TEXT REFERENCES {TABLES.REPOSITORIES}(repository_id) ON DELETE CASCADE,
+        workspace_id TEXT NOT NULL,
+        assignment_id TEXT NOT NULL,
+        owner TEXT NOT NULL,
+        repo_name TEXT NOT NULL,
+        repo_full_name TEXT NOT NULL,
+        default_branch TEXT,
+        head_commit_sha TEXT NOT NULL DEFAULT '',
+        last_synced_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        status TEXT NOT NULL DEFAULT 'pending',
+        error_message TEXT,
+        payload JSONB NOT NULL DEFAULT '{{}}'::jsonb,
+        snapshot_version INTEGER NOT NULL DEFAULT 1
+    )
+    """,
+    f"CREATE INDEX IF NOT EXISTS idx_repository_snapshots_workspace ON {TABLES.REPOSITORY_SNAPSHOTS} (workspace_id, assignment_id, last_synced_at DESC)",
+    f"CREATE INDEX IF NOT EXISTS idx_repository_snapshots_repository_time ON {TABLES.REPOSITORY_SNAPSHOTS} (repository_id, last_synced_at DESC)",
+    f"CREATE INDEX IF NOT EXISTS idx_repository_snapshots_repo_full_name ON {TABLES.REPOSITORY_SNAPSHOTS} (repo_full_name, last_synced_at DESC)",
+
+    f"""
+    CREATE TABLE IF NOT EXISTS {TABLES.REPOSITORY_COMMITS} (
+        id BIGSERIAL PRIMARY KEY,
+        snapshot_id TEXT NOT NULL REFERENCES {TABLES.REPOSITORY_SNAPSHOTS}(snapshot_id) ON DELETE CASCADE,
+        repository_id TEXT NOT NULL REFERENCES {TABLES.REPOSITORIES}(repository_id) ON DELETE CASCADE,
+        commit_hash TEXT NOT NULL,
+        author TEXT NOT NULL DEFAULT '',
+        committed_at TIMESTAMPTZ NOT NULL,
+        files_changed_count INTEGER NOT NULL DEFAULT 0,
+        commit_payload JSONB NOT NULL DEFAULT '{{}}'::jsonb,
+        UNIQUE (snapshot_id, commit_hash)
+    )
+    """,
+    f"CREATE INDEX IF NOT EXISTS idx_repository_commits_repository_time ON {TABLES.REPOSITORY_COMMITS} (repository_id, committed_at DESC)",
+    f"CREATE INDEX IF NOT EXISTS idx_repository_commits_snapshot_time ON {TABLES.REPOSITORY_COMMITS} (snapshot_id, committed_at DESC)",
+    f"""
+    CREATE TABLE IF NOT EXISTS {TABLES.REPOSITORY_CODE_INDEX} (
+        id SERIAL PRIMARY KEY,
+        snapshot_id TEXT NOT NULL REFERENCES {TABLES.REPOSITORY_SNAPSHOTS}(snapshot_id) ON DELETE CASCADE,
+        repository_id TEXT REFERENCES {TABLES.REPOSITORIES}(repository_id) ON DELETE CASCADE,
+        file_path TEXT NOT NULL,
+        git_sha TEXT NOT NULL DEFAULT '',
+        language TEXT NOT NULL DEFAULT '',
+        index_payload JSONB NOT NULL DEFAULT '{{}}'::jsonb,
+        last_indexed TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        code_index_version INTEGER NOT NULL DEFAULT 1,
+        UNIQUE(snapshot_id, file_path)
+    )
+    """,
+    f"CREATE INDEX IF NOT EXISTS idx_repository_code_index_snapshot ON {TABLES.REPOSITORY_CODE_INDEX} (snapshot_id)",
+    f"CREATE INDEX IF NOT EXISTS idx_repository_code_index_path ON {TABLES.REPOSITORY_CODE_INDEX} (snapshot_id, file_path)",
+    f"CREATE INDEX IF NOT EXISTS idx_repository_code_index_repository_path ON {TABLES.REPOSITORY_CODE_INDEX} (repository_id, file_path)",
+    f"CREATE INDEX IF NOT EXISTS idx_repository_code_index_payload ON {TABLES.REPOSITORY_CODE_INDEX} USING GIN (index_payload)",
+
+    f"""
+    CREATE TABLE IF NOT EXISTS {TABLES.REPOSITORY_CODE_SYMBOLS} (
+        id BIGSERIAL PRIMARY KEY,
+        snapshot_id TEXT NOT NULL REFERENCES {TABLES.REPOSITORY_SNAPSHOTS}(snapshot_id) ON DELETE CASCADE,
+        repository_id TEXT NOT NULL REFERENCES {TABLES.REPOSITORIES}(repository_id) ON DELETE CASCADE,
+        file_path TEXT NOT NULL,
+        symbol_kind TEXT NOT NULL CHECK (symbol_kind IN ('function', 'class', 'method')),
+        symbol_name TEXT NOT NULL,
+        parent_symbol TEXT,
+        line INTEGER NOT NULL,
+        language TEXT NOT NULL DEFAULT '',
+        git_sha TEXT NOT NULL DEFAULT '',
+        symbol_payload JSONB NOT NULL DEFAULT '{{}}'::jsonb,
+        last_indexed TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (snapshot_id, file_path, symbol_kind, symbol_name, line)
+    )
+    """,
+    f"CREATE INDEX IF NOT EXISTS idx_repository_code_symbols_repo_name ON {TABLES.REPOSITORY_CODE_SYMBOLS} (repository_id, symbol_name)",
+    f"CREATE INDEX IF NOT EXISTS idx_repository_code_symbols_snapshot_path ON {TABLES.REPOSITORY_CODE_SYMBOLS} (snapshot_id, file_path)",
+    f"CREATE INDEX IF NOT EXISTS idx_repository_code_symbols_repo_time ON {TABLES.REPOSITORY_CODE_SYMBOLS} (repository_id, last_indexed DESC)",
+    f"""
+    CREATE TABLE IF NOT EXISTS {TABLES.REPOSITORY_BASELINE_METRICS} (
+        snapshot_id TEXT PRIMARY KEY REFERENCES {TABLES.REPOSITORY_SNAPSHOTS}(snapshot_id) ON DELETE CASCADE,
+        repo_full_name TEXT NOT NULL DEFAULT '',
+        metrics_payload JSONB NOT NULL DEFAULT '{{}}'::jsonb,
+        computed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        metrics_version INTEGER NOT NULL DEFAULT 1
+    )
+    """,
+    f"CREATE INDEX IF NOT EXISTS idx_repository_baseline_metrics_repo ON {TABLES.REPOSITORY_BASELINE_METRICS} (repo_full_name)",
+    f"CREATE INDEX IF NOT EXISTS idx_repository_baseline_metrics_repository_time ON {TABLES.REPOSITORY_BASELINE_METRICS} (repository_id, computed_at DESC)",
     f"""
     CREATE TABLE IF NOT EXISTS {TABLES.SCHEMA_VERSION} (
         version INTEGER PRIMARY KEY,

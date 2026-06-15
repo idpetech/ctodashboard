@@ -6,9 +6,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from services.billing_prefs import billing_grants_write, get_billing_prefs
 from services.plan_access import plan_access_fields
-from services.stripe_billing_service import billing_grants_write, billing_summary, get_billing_prefs
-from services.trial_service import DEFAULT_TRIAL_DAYS, EXPIRING_DAYS, _iso_date, _parse_dt
+from services.stripe_billing_service import billing_summary
+from services.trial_common import DEFAULT_TRIAL_DAYS, EXPIRING_DAYS, iso_date, parse_dt
 
 
 def resolve_account_state(user_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -75,10 +76,10 @@ def resolve_account_state(user_data: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     legacy = prefs.get("trial") or {}
-    start = _parse_dt(
+    start = parse_dt(
         prefs.get("trial_start_date") or legacy.get("started_at") or user_data.get("created_at")
     )
-    end = _parse_dt(prefs.get("trial_end_date") or legacy.get("expires_at"))
+    end = parse_dt(prefs.get("trial_end_date") or legacy.get("expires_at"))
     if not end and start:
         days = int(legacy.get("trial_days") or DEFAULT_TRIAL_DAYS)
         from datetime import datetime, timedelta
@@ -111,8 +112,8 @@ def resolve_account_state(user_data: Dict[str, Any]) -> Dict[str, Any]:
     return {
         **b_summary,
         **plan_access_fields(user_data),
-        "trial_start_date": _iso_date(start) if start else None,
-        "trial_end_date": _iso_date(end) if end else None,
+        "trial_start_date": iso_date(start) if start else None,
+        "trial_end_date": iso_date(end) if end else None,
         "trial_status": trial_status,
         "days_remaining": days_remaining,
         "can_write": can_write,

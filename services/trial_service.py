@@ -6,29 +6,19 @@ Trial fields live in users.preferences JSON (no schema migration).
 
 from __future__ import annotations
 
-import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
-EXPIRING_DAYS = int(os.getenv("TRIAL_EXPIRING_DAYS", "3"))
-DEFAULT_TRIAL_DAYS = int(os.getenv("FREE_TRIAL_DAYS", "7"))
+from services.trial_common import (
+    DEFAULT_TRIAL_DAYS,
+    EXPIRING_DAYS,
+    iso_date,
+    parse_dt,
+)
 
-
-def _parse_dt(value: Any) -> Optional[datetime]:
-    if not value:
-        return None
-    if isinstance(value, datetime):
-        return value
-    try:
-        text = str(value).replace("Z", "+00:00")
-        dt = datetime.fromisoformat(text)
-        return dt.replace(tzinfo=None) if dt.tzinfo else dt
-    except (TypeError, ValueError):
-        return None
-
-
-def _iso_date(dt: datetime) -> str:
-    return dt.isoformat()
+# Backward-compatible aliases for existing imports.
+_parse_dt = parse_dt
+_iso_date = iso_date
 
 
 def normalize_trial_fields(user_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -50,10 +40,10 @@ def normalize_trial_fields(user_data: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     legacy = prefs.get("trial") or {}
-    start = _parse_dt(
+    start = parse_dt(
         prefs.get("trial_start_date") or legacy.get("started_at") or user_data.get("created_at")
     )
-    end = _parse_dt(prefs.get("trial_end_date") or legacy.get("expires_at"))
+    end = parse_dt(prefs.get("trial_end_date") or legacy.get("expires_at"))
 
     if not end and start:
         days = int(legacy.get("trial_days") or DEFAULT_TRIAL_DAYS)
@@ -86,8 +76,8 @@ def normalize_trial_fields(user_data: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     return {
-        "trial_start_date": _iso_date(start),
-        "trial_end_date": _iso_date(end),
+        "trial_start_date": iso_date(start),
+        "trial_end_date": iso_date(end),
         "trial_status": status,
         "days_remaining": days_remaining if status != "paid" else None,
         "can_write": status in ("active", "expiring"),
@@ -104,22 +94,16 @@ def trial_prefs_for_new_user(
     _end = _start + timedelta(days=_days)
     return {
         "plan": "free",
-        "trial_start_date": _iso_date(_start),
-        "trial_end_date": _iso_date(_end),
+        "trial_start_date": iso_date(_start),
+        "trial_end_date": iso_date(_end),
         "trial_status": "active",
         "trial": {
             "plan": "free",
             "trial_days": _days,
-            "started_at": _iso_date(_start),
-            "expires_at": _iso_date(_end),
+            "started_at": iso_date(_start),
+            "expires_at": iso_date(_end),
         },
     }
-
-
-def can_write(user_data: Optional[Dict[str, Any]]) -> bool:
-    from services.user_access import can_write as unified_can_write
-
-    return unified_can_write(user_data)
 
 
 def trial_write_denied_response():

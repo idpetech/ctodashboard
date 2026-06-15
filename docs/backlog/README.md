@@ -2,6 +2,12 @@
 
 Backlog items for Jira import and execution tracking.
 
+## Repo intelligence (infrastructure POC)
+
+| File | Purpose |
+|------|---------|
+| [../REPO-INTELLIGENCE-POC.md](../REPO-INTELLIGENCE-POC.md) | GitHub snapshot + file index ingest (no AI/findings) — **flag:** `ENABLE_REPO_INTELLIGENCE` |
+
 ## CTOLens phase status
 
 | Phase | Status | Doc |

@@ -8,8 +8,8 @@ from typing import Any, Dict, Optional, Tuple
 
 from flask import jsonify
 
+from services.billing_prefs import PLANS, get_billing_prefs
 from services.portfolio_scope_service import DEFAULT_PORTFOLIO_ID
-from services.stripe_billing_service import PLANS, get_billing_prefs
 
 PROFESSIONAL_PLAN = "professional"
 STARTER_PLAN = "starter"

@@ -170,6 +170,7 @@ Keep in exports: executive summary, top risks, opportunities (summarized), recom
 
 ### Phase 3 — Polish
 
+- [ ] **Scale:** per-workspace due-time scheduling + async queue — see [CTOLENS-SCHEDULED-ENRICHMENT-SCALE-PLAN.md](./CTOLENS-SCHEDULED-ENRICHMENT-SCALE-PLAN.md)
 - [ ] Map PR/build/release overlay fields when connector payloads support them
 - [ ] Per-workspace cap on assignments per enriched run
 - [ ] Optional enriched run after import (`on_import`, default off)

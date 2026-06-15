@@ -223,6 +223,18 @@ Act 4 (complete): Railway, Vercel, and Azure connectors behind `ENABLE_*_CONNECT
 
 **Pattern:** Each module exposes `register_*_routes(app)`; no route logic in `integrated_dashboard.py`.
 
+## Repo intelligence POC (infrastructure, feature-flagged)
+
+**Flag:** `ENABLE_REPO_INTELLIGENCE` (default `false`).
+
+- **Package:** `services/repo_intelligence/` — GitHub ingest, tree parse, file index, Postgres storage
+- **Tables:** `repo_snapshots`, `repo_file_index`
+- **API:** `routes/api/repo_intelligence.py` — snapshot create/list + file index read
+- **No AI / findings / dashboards** — metadata only for downstream pipelines
+- **Plan:** [REPO-INTELLIGENCE-POC.md](./REPO-INTELLIGENCE-POC.md)
+
+---
+
 ## Product analytics (MVP, feature-flagged)
 
 **Flag:** `ENABLE_PRODUCT_ANALYTICS` (default `false`).

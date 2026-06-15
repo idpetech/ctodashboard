@@ -259,7 +259,7 @@ def assess_extended_staleness(
     assignments: List[Dict[str, Any]],
     run_status: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    from services.briefing_pipeline import assess_briefing_staleness
+    from services.briefing_staleness import assess_briefing_staleness
 
     base = assess_briefing_staleness(briefing, assignments)
     run_status = run_status or {}
