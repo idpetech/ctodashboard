@@ -8,13 +8,17 @@ The CTO Dashboard homepage uses a modular content management system that allows 
 
 All homepage content is stored in `config/homepage_content.json` with the following sections:
 
-- **Hero**: Main headline, subheadline, CTA button
-- **Problem**: Challenge statements for target audience  
-- **Solution**: Attention Engine explanation
-- **Features**: Product feature cards with icons and descriptions
-- **Daily Brief**: Example briefing items with status indicators
-- **Pricing**: Pricing plans with features and CTAs
-- **Footer**: Navigation links, social links, copyright
+- **navigation**: Sticky nav links, login label/href
+- **hero**: Eyebrow, headline, emphasis, subheadline, primary/secondary CTAs, trust chips, social proof (text only), optional `screenshot_url`
+- **integrations**: Connector chips (must match wired connectors)
+- **problem**: Pain section — eyebrow, headline, challenges, resolution copy
+- **features**: Feature cards (icon, color, title, description)
+- **daily_brief**: Sample Report section — title, highlights, disclaimer, CTA (rendered as Overview mock in template)
+- **pricing**: Plans, footnote, unified signup CTAs
+- **final_cta**: Scroll-end band headline, subheadline, `primary_hint`
+- **footer**: Company URL, legal links, copyright
+
+**Phase status:** CTOLens Phase 1 complete — see [`docs/CTOLENS-PHASES.md`](CTOLENS-PHASES.md).
 
 ## Manual Content Updates
 

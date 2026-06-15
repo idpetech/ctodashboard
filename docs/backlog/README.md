@@ -2,6 +2,13 @@
 
 Backlog items for Jira import and execution tracking.
 
+## CTOLens phase status
+
+| Phase | Status | Doc |
+|-------|--------|-----|
+| **Phase 1** — Honest landing & signup funnel | ✅ Complete (2026-06-14, `5b203cb`) | [CTOLENS-PHASES.md](../CTOLENS-PHASES.md) |
+| **Phase 2** — Conversion, proof, signup → first value | 🔜 Next | [CTOLENS-PHASES.md](../CTOLENS-PHASES.md#phase-2--notch-higher-next) |
+
 ## Active chapter (discussion draft)
 
 | File | Purpose |

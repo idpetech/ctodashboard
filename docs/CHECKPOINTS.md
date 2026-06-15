@@ -6,7 +6,22 @@ Tagged restore points before risky changes. Use these if a refactor goes south.
 
 | Tag | Date | Purpose | Restore |
 |-----|------|---------|---------|
+| `ctolens/phase-1-homepage-complete` | 2026-06-14 | CTOLens Phase 1 — honest homepage & unified signup funnel (`5b203cb`) | See below |
 | `checkpoint/pre-cto-briefing-2026-06-06` | 2026-06-06 | Stable state before CTO Briefing flow redesign | See below |
+
+### CTOLens Phase 1 — homepage complete (`ctolens/phase-1-homepage-complete`)
+
+- Marketing homepage rebuilt: hero → integrations → pain → features → sample Overview → pricing → final CTA
+- All CTAs: **Start Free Assessment** → `/dashboard?signup=1`
+- Honest copy only (no fake reviews, no unsupported integrations)
+- Deployed: `staging` + `master` on Railway
+- **Phase doc:** [CTOLENS-PHASES.md](./CTOLENS-PHASES.md)
+- **Next:** Phase 2 — conversion analytics, product proof, signup → first briefing
+
+```bash
+git fetch origin --tags
+git checkout ctolens/phase-1-homepage-complete
+```
 
 ### What this checkpoint includes
 
