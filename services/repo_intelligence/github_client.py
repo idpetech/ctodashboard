@@ -54,9 +54,7 @@ class GitHubRepoClient:
             raise GitHubRepoClientError("GitHub credentials are invalid or expired")
         if response.status_code == 403:
             remaining = response.headers.get("X-RateLimit-Remaining", "?")
-            raise GitHubRepoClientError(
-                f"GitHub API forbidden (rate limit remaining: {remaining})"
-            )
+            raise GitHubRepoClientError(f"GitHub API forbidden (rate limit remaining: {remaining})")
         if response.status_code >= 400:
             body = (response.text or "")[:200]
             raise GitHubRepoClientError(f"GitHub API error {response.status_code}: {body}")
@@ -140,7 +138,9 @@ class GitHubRepoClient:
         tree = data.get("tree") or []
         return sorted(tree, key=lambda item: item.get("path") or "")
 
-    def list_recent_commits(self, owner: str, repo: str, *, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    def list_recent_commits(
+        self, owner: str, repo: str, *, limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
         target = limit if limit is not None else max_commits()
         target = max(1, min(target, max_commits()))
         collected: List[Dict[str, Any]] = []

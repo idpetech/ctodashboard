@@ -7,7 +7,6 @@ Persists results to workspace.settings.ctolens_briefing.
 
 from __future__ import annotations
 
-from services.workspace.db_access import resolve_workspace_db
 import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -18,6 +17,7 @@ from services.executive_briefing.feedback import feedback_summary
 from services.executive_briefing.generator import ExecutiveBriefingGenerator, is_ai_briefing_enabled
 from services.recommendations.engine import RecommendationEngine
 from services.signals.engine import SignalEngine
+from services.workspace.db_access import resolve_workspace_db
 
 logger = get_logger(__name__)
 

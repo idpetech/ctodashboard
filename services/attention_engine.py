@@ -9,7 +9,6 @@ Architecture map: docs/CTO-BRIEFING-FLOW.md (read before changing briefing flow)
 
 from __future__ import annotations
 
-from services.workspace.db_access import resolve_workspace_db
 import hashlib
 import json
 from datetime import datetime
@@ -24,6 +23,7 @@ from services.portfolio_service import (
     portfolio_health_score,
     portfolio_summary,
 )
+from services.workspace.db_access import resolve_workspace_db
 
 logger = get_logger(__name__)
 

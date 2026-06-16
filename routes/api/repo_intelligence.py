@@ -132,11 +132,19 @@ def register_repo_intelligence_routes(app):
             entries = store.list_index_entries(snapshot_id, limit=limit, offset=offset)
             total = store.count_index_entries(snapshot_id)
             return jsonify(
-                {"snapshot_id": snapshot_id, "entries": entries, "total": total, "limit": limit, "offset": offset}
+                {
+                    "snapshot_id": snapshot_id,
+                    "entries": entries,
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset,
+                }
             )
 
         assignment_id = record.get("assignment_id")
-        if not assignment_id or not connector_credentials_ready(workspace_id, assignment_id, "github"):
+        if not assignment_id or not connector_credentials_ready(
+            workspace_id, assignment_id, "github"
+        ):
             return jsonify({"error": missing_connector_message("github")}), 400
 
         creds = CredentialService().get_github_credentials(workspace_id, assignment_id)

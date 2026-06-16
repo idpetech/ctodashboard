@@ -22,7 +22,6 @@ def register_briefing_routes(app):
 
         return resolve_workspace_db(None)
 
-
     @app.route("/api/workspaces/<workspace_id>/attention/briefing", methods=["GET"])
     @get_require_workspace_access()
     def get_attention_briefing(workspace_id):
@@ -171,7 +170,9 @@ def register_briefing_routes(app):
             assignments = ws_result.get("assignments") or []
             previous = get_stored_briefing(None, workspace_id)
             last_import = (
-                (_workspace_db().get_workspace(workspace_id) or {}).get("settings", {}).get("last_import")
+                (_workspace_db().get_workspace(workspace_id) or {})
+                .get("settings", {})
+                .get("last_import")
             )
             briefing = build_attention_briefing(
                 assignments,

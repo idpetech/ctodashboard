@@ -34,7 +34,9 @@ class ClassSymbol:
         return {
             "name": self.name,
             "line": self.line,
-            "methods": [m.to_dict() for m in sorted(self.methods, key=lambda row: (row.line, row.name))],
+            "methods": [
+                m.to_dict() for m in sorted(self.methods, key=lambda row: (row.line, row.name))
+            ],
         }
 
 
@@ -76,7 +78,10 @@ class FileCodeIndex:
             "file_path": self.file_path,
             "language": self.language,
             "symbols": {"functions": functions, "classes": classes},
-            "imports": [entry.to_dict() for entry in sorted(self.imports, key=lambda row: (row.line, row.module))],
+            "imports": [
+                entry.to_dict()
+                for entry in sorted(self.imports, key=lambda row: (row.line, row.module))
+            ],
             "last_indexed": self.last_indexed,
             "git_sha": self.git_sha,
         }

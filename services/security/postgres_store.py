@@ -221,7 +221,6 @@ class SecureDatabaseManager:
         except Exception as e:
             logger.warning("repo_snapshots migration skipped: %s", e)
 
-        
         # Repo intelligence structured storage (db/schema.sql; idempotent).
         try:
             from services.security.canonical_schema import TABLES
@@ -292,7 +291,6 @@ class SecureDatabaseManager:
                 self.adapter.execute_update(ddl)
         except Exception as e:
             logger.warning("repo intelligence structured storage migration skipped: %s", e)
-
 
         # Repository snapshot table (idempotent; gated at runtime by ENABLE_REPO_INTELLIGENCE).
         try:

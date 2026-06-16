@@ -113,7 +113,7 @@ def register_assignments_routes(app):
             if len(scope_ids) == 1:
                 from services.attention_engine import compute_score_trends
 
-                ws = secure_db.get_workspace(scope_ids[0])
+                ws = get_workspace_service().get_workspace(scope_ids[0])
                 history = (ws.get("settings") or {}).get("health_score_history") or []
                 health = overview.get("health_score") or {}
                 comps = health.get("components") or {}

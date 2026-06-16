@@ -7,13 +7,14 @@ carry portfolio_id='default' in Postgres; portfolio APIs return 403.
 
 from __future__ import annotations
 
-from services.workspace.db_access import resolve_workspace_db
 import os
 import re
 import uuid
 from copy import deepcopy
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
+
+from services.workspace.db_access import resolve_workspace_db
 
 DEFAULT_PORTFOLIO_ID = "default"
 DEFAULT_PORTFOLIO_NAME = "Main"

@@ -175,8 +175,10 @@ def create_repo_snapshot(
     if not connector_credentials_ready(workspace_id, assignment_id, "github"):
         raise RepoSnapshotError(missing_connector_message("github"))
 
-    resolved = repo_input or repo_full_name or _resolve_repo_input(
-        workspace_id, assignment_id, assignment, None
+    resolved = (
+        repo_input
+        or repo_full_name
+        or _resolve_repo_input(workspace_id, assignment_id, assignment, None)
     )
 
     from services.auth.credential_service import CredentialService
@@ -195,7 +197,9 @@ def create_repo_snapshot(
     return {"success": True, "snapshot": payload}
 
 
-def list_snapshots(workspace_id: str, assignment_id: str, *, limit: int = 20) -> List[Dict[str, Any]]:
+def list_snapshots(
+    workspace_id: str, assignment_id: str, *, limit: int = 20
+) -> List[Dict[str, Any]]:
     if not is_repo_intelligence_enabled():
         return []
     return get_store().list_snapshots(workspace_id, assignment_id, limit=limit)
