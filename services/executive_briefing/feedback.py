@@ -7,6 +7,7 @@ Future: personalize RecommendationEngine ranking from acceptance history.
 
 from __future__ import annotations
 
+from services.workspace.db_access import resolve_workspace_db
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -42,6 +43,7 @@ def record_recommendation_feedback(
     status: str,
     reason: Optional[str] = None,
 ) -> Dict[str, Any]:
+    secure_db = resolve_workspace_db(secure_db)
     """Store one feedback event. Returns the saved record."""
     status_norm = (status or "").strip().lower()
     if status_norm not in VALID_STATUSES:
@@ -77,6 +79,7 @@ def list_recommendation_feedback(
     *,
     limit: int = 100,
 ) -> List[Dict[str, Any]]:
+    secure_db = resolve_workspace_db(secure_db)
     ws = secure_db.get_workspace(workspace_id)
     if not ws:
         return []
@@ -85,6 +88,7 @@ def list_recommendation_feedback(
 
 
 def feedback_summary(secure_db: Any, workspace_id: str) -> Dict[str, Any]:
+    secure_db = resolve_workspace_db(secure_db)
     """Aggregate acceptance stats for future ranking personalization."""
     history = list_recommendation_feedback(secure_db, workspace_id, limit=500)
     accepted = sum(1 for h in history if h.get("status") == "accepted")

@@ -6,7 +6,7 @@ Provides endpoints to monitor and manage the secure database
 from flask import jsonify, render_template_string
 
 from routes.api.deps import get_require_admin
-from services.security.secure_database import secure_db
+from services.security.db_system import secure_db
 
 
 def register_database_admin_routes(app):

@@ -72,7 +72,7 @@ def test_database_persistence():
         # Try to check user count
         try:
             sys.path.insert(0, str(Path(__file__).parent))
-            from services.security.secure_database import secure_db
+            from services.security.db_system import secure_db
             health = secure_db.health_check()
             user_count = health.get('statistics', {}).get('users', 0)
             print(f"👥 Database has {user_count} users")

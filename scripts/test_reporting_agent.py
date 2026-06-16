@@ -43,7 +43,17 @@ SAMPLE = {
             "recommendation": "Spread ownership via pairing",
         },
     ],
-    "summary": {"risk_score": 75, "top_risks": []},
+    "summary": {
+        "risk_score": 75,
+        "top_risks": [],
+        "architecture_profile": {
+            "pattern": "modular_monolith",
+            "pattern_label": "Modular Monolith",
+            "confidence": 0.82,
+            "summary": "Single deployable with domain modules under services/.",
+            "signals": ["Primary application entry detected at integrated_dashboard.py."],
+        },
+    },
 }
 
 
@@ -62,6 +72,14 @@ def main() -> int:
     assert first["executive_summary"]["overall_health"] == "Critical"
     assert len(first["key_findings"]) <= 5
     assert first["cto_notes"]
+
+    assert first["architecture_context"]["pattern"] == "modular_monolith"
+    assert first["category_analysis"]
+    assert first["category_analysis"][0]["findings"][0]["judgment_hint"]
+    assert first["severity_summary"]["total"] == len(SAMPLE["findings"])
+    assert sum(row["count"] for row in first["risks_by_severity"]) == first["severity_summary"]["total"]
+    high_section = next(row for row in first["risks_by_severity"] if row["severity"] == "high")
+    assert high_section["count"] >= 1
 
     # isolation: reporting package must not import pipeline/github layers
     import ast

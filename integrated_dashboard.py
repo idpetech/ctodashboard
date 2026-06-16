@@ -111,7 +111,7 @@ if not os.getenv("RAILWAY_ENVIRONMENT"):
     def debug_auth():
         """Debug endpoint to check authentication status - v2"""
         try:
-            from services.security.secure_database import secure_db
+            from services.security.db_system import secure_db
 
             health = secure_db.health_check()
 
@@ -149,7 +149,7 @@ if not os.getenv("RAILWAY_ENVIRONMENT"):
     def force_init():
         """Force database initialization - emergency endpoint"""
         try:
-            from services.security.secure_database import secure_db
+            from services.security.db_system import secure_db
 
             # Force auto-initialization
             secure_db._auto_initialize_if_empty()
@@ -175,7 +175,7 @@ if not os.getenv("RAILWAY_ENVIRONMENT"):
     def debug_db_location():
         """Show exactly where database is being written"""
         try:
-            from services.security.secure_database import secure_db
+            from services.security.db_system import secure_db
 
             db_path = secure_db.db_path
             abs_db_path = os.path.abspath(db_path)

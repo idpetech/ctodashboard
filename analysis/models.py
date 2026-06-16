@@ -84,11 +84,44 @@ class Finding:
 
 
 @dataclass(frozen=True)
+class ArchitectureProfile:
+    """Repository shape inferred during analysis (for reporting context)."""
+
+    pattern: str
+    pattern_label: str
+    confidence: float
+    summary: str
+    signals: Tuple[str, ...] = field(default_factory=tuple)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "pattern": self.pattern,
+            "pattern_label": self.pattern_label,
+            "confidence": self.confidence,
+            "summary": self.summary,
+            "signals": list(self.signals),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> ArchitectureProfile:
+        raw_signals = data.get("signals") or []
+        signals = tuple(str(item) for item in raw_signals if str(item).strip())
+        return cls(
+            pattern=str(data.get("pattern") or "other"),
+            pattern_label=str(data.get("pattern_label") or "Mixed or Undetermined"),
+            confidence=float(data.get("confidence") or 0.0),
+            summary=str(data.get("summary") or ""),
+            signals=signals,
+        )
+
+
+@dataclass(frozen=True)
 class AnalysisSummary:
     """Aggregated analysis output (numeric risk score + ranked risks)."""
 
     risk_score: int
     top_risks: Tuple[Finding, ...] = field(default_factory=tuple)
+    architecture_profile: ArchitectureProfile | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.risk_score, int):
@@ -97,18 +130,28 @@ class AnalysisSummary:
             raise ValueError("risk_score must be between 0 and 100")
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        payload: Dict[str, Any] = {
             "risk_score": self.risk_score,
             "top_risks": [finding.to_dict() for finding in self.top_risks],
         }
+        if self.architecture_profile is not None:
+            payload["architecture_profile"] = self.architecture_profile.to_dict()
+        return payload
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> AnalysisSummary:
         raw_risks = data.get("top_risks") or []
         top_risks = tuple(Finding.from_dict(row) for row in raw_risks if isinstance(row, Mapping))
+        profile_raw = data.get("architecture_profile")
+        architecture_profile = (
+            ArchitectureProfile.from_dict(profile_raw)
+            if isinstance(profile_raw, Mapping)
+            else None
+        )
         return cls(
             risk_score=int(data.get("risk_score") or 0),
             top_risks=top_risks,
+            architecture_profile=architecture_profile,
         )
 
 

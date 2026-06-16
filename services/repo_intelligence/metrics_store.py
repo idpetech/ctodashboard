@@ -24,6 +24,6 @@ class BaselineMetricsStore:
 
 
 def get_metrics_store() -> BaselineMetricsStore:
-    from services.security.secure_database import secure_db
+    from services.security.db_system import secure_db
 
     return BaselineMetricsStore(secure_db.adapter)

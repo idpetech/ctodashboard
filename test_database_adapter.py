@@ -78,7 +78,7 @@ def test_environment_detection():
     print("=" * 40)
     
     try:
-        from services.security.secure_database import SecureDatabaseManager
+        from services.security.db_system import SecureDatabaseManager
         
         # Test local environment (should use SQLite)
         os.environ.pop('DATABASE_URL', None)
@@ -117,7 +117,7 @@ def test_current_sqlite_functionality():
     print("=" * 40)
     
     try:
-        from services.security.secure_database import secure_db
+        from services.security.db_system import secure_db
         
         # Test health check
         health = secure_db.health_check()

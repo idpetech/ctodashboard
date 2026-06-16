@@ -26,7 +26,7 @@ def get_workspace_credential_status(workspace_id):
             },
         }
 
-        from services.security.secure_database import secure_db
+        from services.security.db_credentials import secure_db
 
         for assignment in assignments.get("assignments", []):
             assignment_id = assignment.get("id")

@@ -116,6 +116,9 @@ def _run_analysis(artifact_dir: Path) -> dict:
     summary = analysis_result.get("summary") or {}
     print(f"  risk_score: {summary.get('risk_score')}")
     print(f"  findings:   {len(analysis_result.get('findings') or [])}")
+    profile = summary.get("architecture_profile") or {}
+    if profile:
+        print(f"  pattern:    {profile.get('pattern_label')} ({profile.get('confidence')})")
     return analysis_result
 
 
@@ -131,6 +134,22 @@ def _run_report(artifact_dir: Path, analysis_result: dict | None = None) -> dict
     summary = report.get("executive_summary") or {}
     print(f"  health:     {summary.get('overall_health')}")
     print(f"  risk_score: {summary.get('risk_score')}")
+    context = report.get("architecture_context") or {}
+    if context:
+        print(f"  pattern:    {context.get('pattern_label')}")
+    categories = report.get("category_analysis") or []
+    if categories:
+        print(f"  categories: {', '.join(row.get('category_label', '') for row in categories)}")
+    severity = report.get("severity_summary") or {}
+    if severity:
+        print(
+            "  severity:   "
+            f"critical={severity.get('critical', 0)} "
+            f"high={severity.get('high', 0)} "
+            f"medium={severity.get('medium', 0)} "
+            f"low={severity.get('low', 0)} "
+            f"(total {severity.get('total', 0)})"
+        )
     return report
 
 

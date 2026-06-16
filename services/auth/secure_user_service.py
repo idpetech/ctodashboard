@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 import jwt
 from flask import request
 
-from ..security.secure_database import secure_db
+from ..security.db_users import secure_db
 
 logger = logging.getLogger(__name__)
 

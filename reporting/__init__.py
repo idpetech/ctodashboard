@@ -3,6 +3,8 @@
 from reporting.agent import CTOReportAgent, ReportAgentError, run_cto_report
 from reporting.models import (
     AnalysisInput,
+    ArchitectureContext,
+    CategoryAnalysis,
     CTOReport,
     ExecutiveSummary,
     KeyFinding,
@@ -11,6 +13,8 @@ from reporting.models import (
 
 __all__ = [
     "AnalysisInput",
+    "ArchitectureContext",
+    "CategoryAnalysis",
     "CTOReport",
     "CTOReportAgent",
     "ExecutiveSummary",

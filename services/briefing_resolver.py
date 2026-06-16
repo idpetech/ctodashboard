@@ -4,6 +4,7 @@ Resolve stored briefing for export/share — CTOLens or legacy attention engine.
 
 from __future__ import annotations
 
+from services.workspace.db_access import resolve_workspace_db
 import os
 from typing import Any, Dict, List, Optional
 
@@ -24,6 +25,7 @@ def ctolens_enabled() -> bool:
 
 
 def get_stored_briefing_raw(secure_db: Any, workspace_id: str) -> Optional[Dict[str, Any]]:
+    secure_db = resolve_workspace_db(secure_db)
     """Return CTOLens briefing when enabled, else legacy attention briefing."""
     ws = secure_db.get_workspace(workspace_id)
     if not ws:
@@ -46,6 +48,7 @@ def ensure_stored_briefing(
     fetch_metrics: bool = False,
     use_ai: Optional[bool] = None,
 ) -> Dict[str, Any]:
+    secure_db = resolve_workspace_db(secure_db)
     """Return stored briefing, generating a fast deterministic one if missing."""
     existing = get_stored_briefing_raw(secure_db, workspace_id)
     if existing:

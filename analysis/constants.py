@@ -26,3 +26,19 @@ SEVERITY_POINTS = {
 }
 
 TOP_RISKS_LIMIT = 5
+
+# v1.1 calibrated scoring — cap contribution per rule family (avoid saturation).
+SCORE_CAP_BY_RULE_PREFIX = {
+    "architecture.coupling_hotspot": 30,
+    "architecture.circular_dependency": 30,
+    "architecture.layering_violation": 15,
+    "code_health.large_file": 30,
+    "code_health.low_cohesion": 14,
+    "code_health.import_overload": 15,
+    "delivery.bus_factor": 15,
+    "delivery.stale_activity": 7,
+    "delivery.high_churn_stable_loc": 7,
+}
+
+# Scale down bucket totals so multi-rule repos stay in the 0–100 band.
+CALIBRATED_SCORE_MULTIPLIER = 0.55

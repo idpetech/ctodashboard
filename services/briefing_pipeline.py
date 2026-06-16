@@ -7,6 +7,7 @@ Persists results to workspace.settings.ctolens_briefing.
 
 from __future__ import annotations
 
+from services.workspace.db_access import resolve_workspace_db
 import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -242,6 +243,7 @@ def store_ctolens_briefing(
     workspace_id: str,
     briefing: Dict[str, Any],
 ) -> bool:
+    secure_db = resolve_workspace_db(secure_db)
     try:
         ws = secure_db.get_workspace(workspace_id)
         if not ws:
@@ -264,6 +266,7 @@ def get_stored_ctolens_briefing(
     secure_db: Any,
     workspace_id: str,
 ) -> Optional[Dict[str, Any]]:
+    secure_db = resolve_workspace_db(secure_db)
     ws = secure_db.get_workspace(workspace_id)
     if not ws:
         return None
@@ -274,6 +277,7 @@ def get_ctolens_briefing_with_feedback(
     secure_db: Any,
     workspace_id: str,
 ) -> Optional[Dict[str, Any]]:
+    secure_db = resolve_workspace_db(secure_db)
     briefing = get_stored_ctolens_briefing(secure_db, workspace_id)
     if not briefing:
         return None
@@ -285,12 +289,13 @@ def get_ctolens_briefing_with_feedback(
 def refresh_workspace_ctolens_briefing(
     workspace_id: str,
     assignments: List[Dict[str, Any]],
-    secure_db: Any,
+    secure_db: Any = None,
     *,
     fetch_metrics: bool = False,
     use_ai: Optional[bool] = None,
     run_source: str = "manual",
 ) -> Dict[str, Any]:
+    secure_db = resolve_workspace_db(secure_db)
     import time
 
     from services.ctolens_run_metadata import (

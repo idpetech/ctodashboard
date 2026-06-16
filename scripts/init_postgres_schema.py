@@ -20,7 +20,7 @@ if not os.getenv("RAILWAY_ENVIRONMENT"):
 os.environ.setdefault("ENABLE_DB_AUTO_INIT", "true")
 
 # ruff: noqa: E402
-from services.security.secure_database import secure_db
+from services.security.db_system import secure_db
 
 
 def main() -> int:

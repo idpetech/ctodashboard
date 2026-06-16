@@ -9,6 +9,7 @@ Architecture map: docs/CTO-BRIEFING-FLOW.md (read before changing briefing flow)
 
 from __future__ import annotations
 
+from services.workspace.db_access import resolve_workspace_db
 import hashlib
 import json
 from datetime import datetime
@@ -484,6 +485,7 @@ def store_briefing_in_workspace(
     workspace_id: str,
     briefing: Dict[str, Any],
 ) -> bool:
+    secure_db = resolve_workspace_db(secure_db)
     """Persist briefing in workspace.settings (no new tables)."""
     try:
         ws = secure_db.get_workspace(workspace_id)
@@ -505,6 +507,7 @@ def store_briefing_in_workspace(
 
 
 def get_stored_briefing(secure_db: Any, workspace_id: str) -> Optional[Dict[str, Any]]:
+    secure_db = resolve_workspace_db(secure_db)
     ws = secure_db.get_workspace(workspace_id)
     if not ws:
         return None

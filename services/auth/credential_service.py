@@ -7,7 +7,7 @@ See docs/POSTGRES-SINGLE-SOURCE-PLAN.md
 import os
 from typing import Any, Dict, Optional
 
-from services.security.secure_database import secure_db
+from services.security.db_credentials import secure_db
 
 
 def allow_connector_env_fallback() -> bool:

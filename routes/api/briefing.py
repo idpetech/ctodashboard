@@ -17,6 +17,12 @@ from services.portfolio_service import build_portfolio_overview
 def register_briefing_routes(app):
     """Register briefing routes."""
 
+    def _workspace_db():
+        from services.workspace.db_access import resolve_workspace_db
+
+        return resolve_workspace_db(None)
+
+
     @app.route("/api/workspaces/<workspace_id>/attention/briefing", methods=["GET"])
     @get_require_workspace_access()
     def get_attention_briefing(workspace_id):
@@ -26,9 +32,8 @@ def register_briefing_routes(app):
 
         try:
             from services.attention_engine import get_stored_briefing
-            from services.security.secure_database import secure_db
 
-            briefing = get_stored_briefing(secure_db, workspace_id)
+            briefing = get_stored_briefing(None, workspace_id)
             if not briefing:
                 return jsonify(
                     {
@@ -53,19 +58,18 @@ def register_briefing_routes(app):
 
         try:
             from services.report_share_service import create_share_link, list_share_links
-            from services.security.secure_database import secure_db
 
             body = request.get_json(silent=True) or {}
             expires_in_days = body.get("expires_in_days", 30)
             base = request.host_url.rstrip("/")
 
             result = create_share_link(
-                secure_db,
+                None,
                 workspace_id,
                 expires_in_days=expires_in_days,
                 request_base_url=base,
             )
-            result["existing_links"] = list_share_links(secure_db, workspace_id)
+            result["existing_links"] = list_share_links(None, workspace_id)
             _track_report_generated("share_link", workspace_id)
             return jsonify(result)
         except ValueError as e:
@@ -85,9 +89,8 @@ def register_briefing_routes(app):
 
         try:
             from services.report_share_service import list_share_links
-            from services.security.secure_database import secure_db
 
-            return jsonify({"shares": list_share_links(secure_db, workspace_id)})
+            return jsonify({"shares": list_share_links(None, workspace_id)})
         except Exception as e:
             logger.exception("List share links failed")
             return jsonify({"error": str(e)}), 500
@@ -108,12 +111,11 @@ def register_briefing_routes(app):
 
         try:
             from services.briefing_pdf_service import generate_briefing_pdf
-            from services.security.secure_database import secure_db
 
-            assignments = secure_db.get_workspace_assignments(workspace_id) or []
-            briefing = get_stored_briefing_raw(secure_db, workspace_id)
+            assignments = _workspace_db().get_workspace_assignments(workspace_id) or []
+            briefing = get_stored_briefing_raw(None, workspace_id)
             if not briefing:
-                briefing = ensure_stored_briefing(secure_db, workspace_id, assignments)
+                briefing = ensure_stored_briefing(None, workspace_id, assignments)
             if not briefing:
                 return jsonify(
                     {
@@ -124,7 +126,7 @@ def register_briefing_routes(app):
 
             briefing = normalize_briefing_for_export(briefing)
             portfolio = build_portfolio_overview(assignments)
-            ws = secure_db.get_workspace(workspace_id) or {}
+            ws = _workspace_db().get_workspace(workspace_id) or {}
             portfolio_name = ws.get("name") or workspace_id
 
             pdf_bytes = generate_briefing_pdf(portfolio_name, briefing, portfolio)
@@ -164,20 +166,19 @@ def register_briefing_routes(app):
                 get_stored_briefing,
                 store_briefing_in_workspace,
             )
-            from services.security.secure_database import secure_db
 
             ws_result = get_workspace_service().get_workspace_assignments(workspace_id)
             assignments = ws_result.get("assignments") or []
-            previous = get_stored_briefing(secure_db, workspace_id)
+            previous = get_stored_briefing(None, workspace_id)
             last_import = (
-                (secure_db.get_workspace(workspace_id) or {}).get("settings", {}).get("last_import")
+                (_workspace_db().get_workspace(workspace_id) or {}).get("settings", {}).get("last_import")
             )
             briefing = build_attention_briefing(
                 assignments,
                 previous_briefing=previous,
                 import_metadata=last_import,
             )
-            store_briefing_in_workspace(secure_db, workspace_id, briefing)
+            store_briefing_in_workspace(None, workspace_id, briefing)
             _track_report_generated("attention_refresh", workspace_id)
             return jsonify(
                 {
@@ -237,22 +238,21 @@ def register_briefing_routes(app):
             from services.briefing_pipeline import get_ctolens_briefing_with_feedback
             from services.briefing_resolver import ensure_stored_briefing
             from services.executive_briefing.feedback import feedback_summary
-            from services.security.secure_database import secure_db
 
             assignments = _load_workspace_assignments(workspace_id)
-            briefing = get_ctolens_briefing_with_feedback(secure_db, workspace_id)
+            briefing = get_ctolens_briefing_with_feedback(None, workspace_id)
             if not briefing and assignments:
                 briefing = ensure_stored_briefing(
-                    secure_db,
+                    None,
                     workspace_id,
                     assignments,
                     fetch_metrics=False,
                     use_ai=False,
                 )
                 briefing = dict(briefing)
-                briefing["feedback_summary"] = feedback_summary(secure_db, workspace_id)
+                briefing["feedback_summary"] = feedback_summary(None, workspace_id)
             if not briefing:
-                ctx = _ctolens_workspace_context(secure_db, workspace_id, assignments, None)
+                ctx = _ctolens_workspace_context(_workspace_db(), workspace_id, assignments, None)
                 return jsonify(
                     {
                         "workspace_id": workspace_id,
@@ -261,7 +261,7 @@ def register_briefing_routes(app):
                         "message": "Add assignments to generate a CTOLens briefing.",
                     }
                 )
-            ctx = _ctolens_workspace_context(secure_db, workspace_id, assignments, briefing)
+            ctx = _ctolens_workspace_context(_workspace_db(), workspace_id, assignments, briefing)
             return jsonify(
                 {
                     "workspace_id": workspace_id,
@@ -282,7 +282,6 @@ def register_briefing_routes(app):
             return disabled
         try:
             from services.briefing_pipeline import refresh_workspace_ctolens_briefing
-            from services.security.secure_database import secure_db
 
             body = request.get_json(silent=True) or {}
             fetch_metrics = bool(body.get("fetch_metrics", False))
@@ -294,12 +293,12 @@ def register_briefing_routes(app):
             briefing = refresh_workspace_ctolens_briefing(
                 workspace_id,
                 assignments,
-                secure_db,
+                None,
                 fetch_metrics=fetch_metrics,
                 use_ai=use_ai,
                 run_source="manual",
             )
-            ctx = _ctolens_workspace_context(secure_db, workspace_id, assignments, briefing)
+            ctx = _ctolens_workspace_context(_workspace_db(), workspace_id, assignments, briefing)
             _track_report_generated(
                 "ctolens_generate",
                 workspace_id,
@@ -326,9 +325,8 @@ def register_briefing_routes(app):
             normalize_schedule,
             validate_schedule,
         )
-        from services.security.secure_database import secure_db
 
-        ws = secure_db.get_workspace(workspace_id)
+        ws = _workspace_db().get_workspace(workspace_id)
         if not ws:
             return jsonify({"error": "Workspace not found"}), 404
         settings = ws.get("settings") or {}
@@ -379,7 +377,6 @@ def register_briefing_routes(app):
             is_scheduled_enrichment_enabled,
             should_run_enriched_now,
         )
-        from services.security.secure_database import secure_db
 
         if not is_scheduled_enrichment_enabled():
             return jsonify({"error": "Scheduled enrichment is disabled"}), 403
@@ -393,14 +390,14 @@ def register_briefing_routes(app):
         target_workspace = (body.get("workspace_id") or "").strip()
         results = []
 
-        workspaces = secure_db.list_workspaces() or []
+        workspaces = _workspace_db().list_workspaces() or []
         for ws_row in workspaces:
             ws_id = ws_row.get("workspace_id") or ws_row.get("id")
             if not ws_id:
                 continue
             if target_workspace and ws_id != target_workspace:
                 continue
-            ws = secure_db.get_workspace(ws_id) or {}
+            ws = _workspace_db().get_workspace(ws_id) or {}
             schedule = get_workspace_schedule(ws.get("settings") or {})
             if not schedule.get("enabled"):
                 continue
@@ -418,7 +415,7 @@ def register_briefing_routes(app):
                 refresh_workspace_ctolens_briefing(
                     ws_id,
                     assignments,
-                    secure_db,
+                    None,
                     fetch_metrics=True,
                     use_ai=False,
                     run_source="scheduled",
@@ -516,7 +513,6 @@ def register_briefing_routes(app):
                 feedback_summary,
                 record_recommendation_feedback,
             )
-            from services.security.secure_database import secure_db
 
             body = request.get_json(silent=True) or {}
             recommendation_id = (body.get("recommendation_id") or "").strip()
@@ -528,7 +524,7 @@ def register_briefing_routes(app):
                 return jsonify({"error": "recommendation_id and title are required"}), 400
 
             record = record_recommendation_feedback(
-                secure_db,
+                None,
                 workspace_id,
                 recommendation_id=recommendation_id,
                 title=title,
@@ -539,7 +535,7 @@ def register_briefing_routes(app):
                 {
                     "workspace_id": workspace_id,
                     "feedback": record,
-                    "summary": feedback_summary(secure_db, workspace_id),
+                    "summary": feedback_summary(None, workspace_id),
                 }
             )
         except ValueError as e:

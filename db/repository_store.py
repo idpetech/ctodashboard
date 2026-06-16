@@ -846,6 +846,6 @@ class RepositoryStore:
 
 
 def get_repository_store() -> RepositoryStore:
-    from services.security.secure_database import secure_db
+    from services.security.db_system import secure_db
 
     return RepositoryStore(secure_db.adapter)

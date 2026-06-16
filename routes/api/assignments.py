@@ -112,7 +112,6 @@ def register_assignments_routes(app):
             overview = build_portfolio_overview(all_assignments)
             if len(scope_ids) == 1:
                 from services.attention_engine import compute_score_trends
-                from services.security.secure_database import secure_db
 
                 ws = secure_db.get_workspace(scope_ids[0])
                 history = (ws.get("settings") or {}).get("health_score_history") or []

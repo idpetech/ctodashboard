@@ -85,6 +85,6 @@ class RepositorySnapshotStore:
 
 
 def get_store() -> RepositorySnapshotStore:
-    from services.security.secure_database import secure_db
+    from services.security.db_system import secure_db
 
     return RepositorySnapshotStore(secure_db.adapter)

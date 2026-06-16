@@ -50,7 +50,7 @@ def ensure_config_directory():
 def initialize_secure_database():
     """Initialize the secure database if it doesn't exist"""
     try:
-        from services.security.secure_database import secure_db
+        from services.security.db_system import secure_db
         
         # Test database connectivity
         health = secure_db.health_check()
@@ -72,7 +72,7 @@ def initialize_secure_database():
 def create_initial_user_if_needed():
     """Create an admin user if no users exist (Railway first run)"""
     try:
-        from services.security.secure_database import secure_db
+        from services.security.db_system import secure_db
         
         # Check if any users exist
         health = secure_db.health_check()

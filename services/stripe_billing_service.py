@@ -364,7 +364,7 @@ def _sync_subscription(subscription: Dict[str, Any], *, deleted: bool = False) -
 
 
 def _email_for_customer(customer_id: str) -> Optional[str]:
-    from services.security.secure_database import secure_db
+    from services.security.db_users import secure_db
 
     users = secure_db.list_all_users() or []
     for row in users:
@@ -378,7 +378,7 @@ def _email_for_customer(customer_id: str) -> Optional[str]:
 
 
 def _persist_billing(email: str, billing_update: Dict[str, Any]) -> None:
-    from services.security.secure_database import secure_db
+    from services.security.db_users import secure_db
 
     user = secure_db.get_user_credentials(email)
     if not user:

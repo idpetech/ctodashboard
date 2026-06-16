@@ -16,14 +16,20 @@ from services.portfolio_scope_service import (
     list_portfolios,
     update_portfolio,
 )
-from services.security.secure_database import secure_db
+from services.workspace.db_access import get_workspace_db
 
 
 class PostgresWorkspaceBackend:
     """Thin facade over SecureDatabaseManager for workspace/assignment CRUD."""
 
     def __init__(self):
-        self.db = secure_db
+        self._db = None
+
+    @property
+    def db(self):
+        if self._db is None:
+            self._db = get_workspace_db()
+        return self._db
 
     def create_workspace(
         self, workspace_id: str, name: str, description: str = ""

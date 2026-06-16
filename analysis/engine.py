@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Mapping, Sequence
 
+from analysis.architecture_profile import detect_architecture_profile
 from analysis.analyzers.architecture import ArchitectureAnalyzer
 from analysis.analyzers.code_health import CodeHealthAnalyzer
 from analysis.analyzers.delivery import DeliveryAnalyzer
-from analysis.models import AnalysisResult, AnalysisSummary, Finding, PipelineInput
+from analysis.calibration import apply_pattern_severity, calibrate_findings
+from analysis.config import is_analysis_strict_mode
+from analysis.models import AnalysisResult, AnalysisSummary, ArchitectureProfile, Finding, PipelineInput
 from analysis.scorer import RiskScorer
 
 
@@ -45,11 +48,33 @@ class AnalysisEngine:
         findings.extend(self._delivery.analyze(pipeline_input))
 
         findings = sorted(findings, key=lambda finding: finding.id)
-        risk_score, top_risks = self._scorer.score(findings)
+        strict = is_analysis_strict_mode()
+        findings = list(
+            calibrate_findings(
+                findings,
+                strict=strict,
+                metrics=pipeline_input.metrics,
+                snapshot=pipeline_input.snapshot,
+            )
+        )
+        profile_raw = detect_architecture_profile(pipeline_input)
+        architecture_profile = ArchitectureProfile.from_dict(profile_raw)
+        findings = list(
+            apply_pattern_severity(
+                findings,
+                architecture_profile.pattern,
+                strict=strict,
+            )
+        )
+        risk_score, top_risks = self._scorer.score(findings, strict=strict)
 
         result = AnalysisResult(
             findings=tuple(findings),
-            summary=AnalysisSummary(risk_score=risk_score, top_risks=top_risks),
+            summary=AnalysisSummary(
+                risk_score=risk_score,
+                top_risks=top_risks,
+                architecture_profile=architecture_profile,
+            ),
         )
         return result.to_dict()
 

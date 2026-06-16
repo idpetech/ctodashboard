@@ -1,12 +1,10 @@
 """
-Secure database entry point — re-exports PostgreSQL implementation.
+Secure database entry point — backward-compatible re-export.
 
-Canonical DDL: canonical_schema.py
-Implementation: postgres_store.py
-
-Legacy dual-schema code: secure_database.legacy.py (DELETE after validation — see docs/DEPRECATION-MANIFEST.md)
+Prefer domain facades:
+  db_workspaces, db_credentials, db_assignments, db_users, db_system
 """
 
-from .postgres_store import SecureDatabaseManager, get_secure_db, secure_db
+from services.security.db_registry import SecureDatabaseManager, get_secure_db, secure_db
 
 __all__ = ["SecureDatabaseManager", "get_secure_db", "secure_db"]

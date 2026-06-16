@@ -38,7 +38,7 @@ ENABLE_DB_AUTO_INIT=true python3 scripts/init_postgres_schema.py
 # Verify setup
 echo "🔍 Verifying setup..."
 python3 -c "
-from services.security.secure_database import secure_db
+from services.security.db_system import secure_db
 health = secure_db.health_check()
 if health['database_type'] == 'postgresql':
     print('✅ Local PostgreSQL setup successful!')

@@ -167,10 +167,9 @@ def register_portfolios_routes(app):
             return denied
 
         try:
-            from services.security.secure_database import secure_db
 
             briefing = load_scoped_briefing(
-                secure_db,
+                None,
                 workspace_id,
                 scope="portfolio",
                 scope_id=portfolio_id,
@@ -211,7 +210,6 @@ def register_portfolios_routes(app):
 
         try:
             from services.attention_engine import build_attention_briefing
-            from services.security.secure_database import secure_db
 
             assignments = (
                 get_workspace_service()
@@ -220,7 +218,7 @@ def register_portfolios_routes(app):
             )
             scoped = filter_assignments_by_portfolio(assignments, portfolio_id)
             previous = load_scoped_briefing(
-                secure_db,
+                None,
                 workspace_id,
                 scope="portfolio",
                 scope_id=portfolio_id,
@@ -235,7 +233,7 @@ def register_portfolios_routes(app):
             briefing["scope"] = "portfolio"
             briefing["portfolio_id"] = portfolio_id
             persist_scoped_briefing(
-                secure_db,
+                None,
                 workspace_id,
                 scope="portfolio",
                 scope_id=portfolio_id,
@@ -273,10 +271,9 @@ def register_portfolios_routes(app):
             return denied
 
         try:
-            from services.security.secure_database import secure_db
 
             briefing = load_scoped_briefing(
-                secure_db,
+                None,
                 workspace_id,
                 scope="assignment",
                 scope_id=assignment_id,
@@ -315,11 +312,10 @@ def register_portfolios_routes(app):
 
         try:
             from services.attention_engine import build_attention_briefing
-            from services.security.secure_database import secure_db
 
             ws = get_workspace_service().get_workspace(workspace_id)
             previous = load_scoped_briefing(
-                secure_db,
+                None,
                 workspace_id,
                 scope="assignment",
                 scope_id=assignment_id,
@@ -335,7 +331,7 @@ def register_portfolios_routes(app):
             briefing["scope"] = "assignment"
             briefing["assignment_id"] = assignment_id
             persist_scoped_briefing(
-                secure_db,
+                None,
                 workspace_id,
                 scope="assignment",
                 scope_id=assignment_id,
@@ -376,7 +372,6 @@ def register_portfolios_routes(app):
             return denied
 
         try:
-            from services.security.secure_database import secure_db
 
             assignments = (
                 get_workspace_service()
@@ -386,7 +381,7 @@ def register_portfolios_routes(app):
             scoped = filter_assignments_by_portfolio(assignments, portfolio_id)
 
             briefing = load_scoped_briefing(
-                secure_db,
+                None,
                 workspace_id,
                 scope="portfolio",
                 scope_id=portfolio_id,
@@ -402,14 +397,14 @@ def register_portfolios_routes(app):
                 briefing = refresh_workspace_ctolens_briefing(
                     workspace_id,
                     scoped,
-                    secure_db,
+                    None,
                     fetch_metrics=False,
                     run_source="portfolio_auto",
                 )
                 briefing["scope"] = "portfolio"
                 briefing["portfolio_id"] = portfolio_id
                 persist_scoped_briefing(
-                    secure_db,
+                    None,
                     workspace_id,
                     scope="portfolio",
                     scope_id=portfolio_id,
@@ -451,7 +446,6 @@ def register_portfolios_routes(app):
 
         try:
             from services.briefing_pipeline import refresh_workspace_ctolens_briefing
-            from services.security.secure_database import secure_db
 
             assignments = (
                 get_workspace_service()
@@ -462,14 +456,14 @@ def register_portfolios_routes(app):
             briefing = refresh_workspace_ctolens_briefing(
                 workspace_id,
                 scoped,
-                secure_db,
+                None,
                 fetch_metrics=request.args.get("fetch_metrics", "").lower() == "true",
                 run_source="portfolio_manual",
             )
             briefing["scope"] = "portfolio"
             briefing["portfolio_id"] = portfolio_id
             persist_scoped_briefing(
-                secure_db,
+                None,
                 workspace_id,
                 scope="portfolio",
                 scope_id=portfolio_id,

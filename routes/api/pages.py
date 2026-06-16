@@ -22,10 +22,9 @@ def register_pages_routes(app):
                 build_report_template_context,
                 get_share_report,
             )
-            from services.security.secure_database import secure_db
 
             report, err = get_share_report(
-                secure_db,
+                None,
                 share_token,
                 user_agent=request.headers.get("User-Agent", ""),
                 record_view=True,

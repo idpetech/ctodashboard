@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from config.logging_config import get_logger
 from services.portfolio_scope_service import list_portfolios
-from services.security.secure_database import secure_db
+from services.workspace.db_access import resolve_workspace_db
 from services.workspace.workspace_service import WorkspaceService
 
 logger = get_logger(__name__)
@@ -25,7 +25,13 @@ class DataExportService:
 
     def __init__(self):
         self.workspace_service = WorkspaceService()
-        self.secure_db = secure_db  # Use singleton instance
+        self._secure_db = None  # lazy singleton
+
+    @property
+    def secure_db(self):
+        if self._secure_db is None:
+            self._secure_db = resolve_workspace_db(None)
+        return self._secure_db
         self.export_dir = Path("exports")
         self.export_dir.mkdir(exist_ok=True)
 

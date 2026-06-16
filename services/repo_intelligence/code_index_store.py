@@ -37,6 +37,6 @@ class CodeIndexStore:
 
 
 def get_code_index_store() -> CodeIndexStore:
-    from services.security.secure_database import secure_db
+    from services.security.db_system import secure_db
 
     return CodeIndexStore(secure_db.adapter)

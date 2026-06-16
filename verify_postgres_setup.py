@@ -44,7 +44,7 @@ def test_database_connection():
         # Set environment to use local PostgreSQL
         os.environ['DATABASE_URL'] = "postgresql://haseebtoor:localdevpassword@localhost:5432/railway?options=-csearch_path%3Dctodashboard"
         
-        from services.security.secure_database import SecureDatabaseManager
+        from services.security.db_system import SecureDatabaseManager
         
         # Try to create database manager
         db = SecureDatabaseManager()

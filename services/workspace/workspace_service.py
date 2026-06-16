@@ -16,13 +16,23 @@ from .postgres_backend import PostgresWorkspaceBackend
 
 logger = logging.getLogger(__name__)
 
+_backend_singleton: PostgresWorkspaceBackend | None = None
+
+
+def get_workspace_backend() -> PostgresWorkspaceBackend:
+    """Shared Postgres workspace backend (single instance)."""
+    global _backend_singleton
+    if _backend_singleton is None:
+        _backend_singleton = PostgresWorkspaceBackend()
+    return _backend_singleton
+
 
 class WorkspaceService:
     """Workspace and assignment operations backed by Postgres."""
 
     def __init__(self):
         self.feature_enabled = os.getenv("ENABLE_WORKSPACES", "true").lower() == "true"
-        self._store = PostgresWorkspaceBackend()
+        self._store = get_workspace_backend()
 
     def is_workspace_enabled(self) -> bool:
         return self.feature_enabled
@@ -304,8 +314,6 @@ class WorkspaceService:
         credentials: Dict[str, str],
     ) -> Dict[str, Any]:
         """Store credentials in Postgres; metadata flags only in metrics_config."""
-        from services.security.secure_database import secure_db
-
         if not self.feature_enabled:
             return {"success": False, "error": "Workspace functionality is disabled"}
         if not credentials or not any(credentials.values()):
@@ -319,7 +327,7 @@ class WorkspaceService:
         if connector_type not in metrics_config:
             return {"success": False, "error": f"Connector '{connector_type}' not in assignment"}
 
-        if not secure_db.store_assignment_credentials(
+        if not self._store.db.store_assignment_credentials(
             workspace_id, assignment_id, connector_type, credentials
         ):
             return {"success": False, "error": "Failed to store credentials"}
@@ -344,12 +352,10 @@ class WorkspaceService:
     def clear_assignment_auth(
         self, workspace_id: str, assignment_id: str, connector_type: str
     ) -> Dict[str, Any]:
-        from services.security.secure_database import secure_db
-
         if not self.feature_enabled:
             return {"success": False, "error": "Workspace functionality is disabled"}
 
-        secure_db.delete_assignment_credentials(workspace_id, assignment_id, connector_type)
+        self._store.db.delete_assignment_credentials(workspace_id, assignment_id, connector_type)
         assignment = self._store.get_assignment(workspace_id, assignment_id)
         if assignment:
             metrics_config = assignment.get("metrics_config", {})

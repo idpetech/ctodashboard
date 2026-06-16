@@ -72,6 +72,7 @@ class AnalysisInput:
     findings: Tuple[FindingInput, ...]
     risk_score: int
     top_risks: Tuple[FindingInput, ...] = field(default_factory=tuple)
+    architecture_profile: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> AnalysisInput:
@@ -98,7 +99,104 @@ class AnalysisInput:
         if not 0 <= risk_score <= 100:
             raise ValueError("risk_score must be between 0 and 100")
 
-        return cls(findings=findings, risk_score=risk_score, top_risks=top_risks)
+        profile_raw = summary.get("architecture_profile") or {}
+        architecture_profile = dict(profile_raw) if isinstance(profile_raw, Mapping) else {}
+
+        return cls(
+            findings=findings,
+            risk_score=risk_score,
+            top_risks=top_risks,
+            architecture_profile=architecture_profile,
+        )
+
+
+@dataclass(frozen=True)
+class ArchitectureContext:
+    pattern: str
+    pattern_label: str
+    confidence: float
+    summary: str
+    signals: Tuple[str, ...]
+    judgment_guidance: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "pattern": self.pattern,
+            "pattern_label": self.pattern_label,
+            "confidence": self.confidence,
+            "summary": self.summary,
+            "signals": list(self.signals),
+            "judgment_guidance": self.judgment_guidance,
+        }
+
+
+@dataclass(frozen=True)
+class RiskFindingDetail:
+    id: str
+    category: FindingCategory
+    category_label: str
+    title: str
+    severity: FindingSeverity
+    evidence: str
+    impact: str
+    recommendation: str
+    confidence: float
+    judgment_hint: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class RisksBySeveritySection:
+    severity: FindingSeverity
+    severity_label: str
+    count: int
+    findings: Tuple[RiskFindingDetail, ...]
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "severity": self.severity,
+            "severity_label": self.severity_label,
+            "count": self.count,
+            "findings": [row.to_dict() for row in self.findings],
+        }
+
+
+@dataclass(frozen=True)
+class CategoryFindingDetail:
+    id: str
+    title: str
+    severity: FindingSeverity
+    evidence: str
+    impact: str
+    recommendation: str
+    judgment_hint: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class CategoryAnalysis:
+    category: FindingCategory
+    category_label: str
+    finding_count: int
+    severity_counts: Dict[str, int]
+    assessment: str
+    judgment_guidance: str
+    findings: Tuple[CategoryFindingDetail, ...]
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "category": self.category,
+            "category_label": self.category_label,
+            "finding_count": self.finding_count,
+            "severity_counts": self.severity_counts,
+            "assessment": self.assessment,
+            "judgment_guidance": self.judgment_guidance,
+            "findings": [row.to_dict() for row in self.findings],
+        }
 
 
 @dataclass(frozen=True)
@@ -132,16 +230,24 @@ class Recommendation:
 
 @dataclass(frozen=True)
 class CTOReport:
+    architecture_context: ArchitectureContext
     executive_summary: ExecutiveSummary
+    severity_summary: Dict[str, int]
+    risks_by_severity: Tuple[RisksBySeveritySection, ...]
     key_findings: Tuple[KeyFinding, ...]
+    category_analysis: Tuple[CategoryAnalysis, ...]
     risk_breakdown: Dict[str, Dict[str, int]]
     recommendations: Tuple[Recommendation, ...]
     cto_notes: str
 
     def to_dict(self) -> Dict[str, Any]:
         return {
+            "architecture_context": self.architecture_context.to_dict(),
             "executive_summary": self.executive_summary.to_dict(),
+            "severity_summary": self.severity_summary,
+            "risks_by_severity": [row.to_dict() for row in self.risks_by_severity],
             "key_findings": [row.to_dict() for row in self.key_findings],
+            "category_analysis": [row.to_dict() for row in self.category_analysis],
             "risk_breakdown": self.risk_breakdown,
             "recommendations": [row.to_dict() for row in self.recommendations],
             "cto_notes": self.cto_notes,

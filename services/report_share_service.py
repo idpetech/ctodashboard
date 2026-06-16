@@ -6,6 +6,7 @@ Lightweight persistence: workspace.settings.shared_reports + local token index.
 
 from __future__ import annotations
 
+from services.workspace.db_access import resolve_workspace_db
 import json
 import os
 import secrets
@@ -60,6 +61,7 @@ def create_share_link(
     expires_in_days: Optional[int] = 30,
     request_base_url: str = "",
 ) -> Dict[str, Any]:
+    secure_db = resolve_workspace_db(secure_db)
     """Snapshot current briefing + portfolio and return a public share URL."""
     from services.briefing_resolver import (
         ensure_stored_briefing,
@@ -144,6 +146,7 @@ def get_share_report(
     user_agent: str = "",
     record_view: bool = True,
 ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    secure_db = resolve_workspace_db(secure_db)
     """
     Load a shared report snapshot. Returns (report_dict, error_message).
     Increments view_count when record_view=True.
@@ -299,6 +302,7 @@ def build_report_template_context(report: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def list_share_links(secure_db: Any, workspace_id: str) -> List[Dict[str, Any]]:
+    secure_db = resolve_workspace_db(secure_db)
     ws = secure_db.get_workspace(workspace_id)
     if not ws:
         return []

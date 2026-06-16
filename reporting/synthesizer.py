@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Dict, List, Sequence
 
 from reporting.models import (
+    ArchitectureContext,
     ExecutiveSummary,
     FindingInput,
     HealthState,
@@ -13,6 +14,7 @@ from reporting.models import (
     health_state_for_risk_score,
 )
 from reporting.templates import (
+    ARCHITECTURE_CONTEXT_JUDGMENT,
     CATEGORY_BUSINESS_LABEL,
     CATEGORY_CTO_LABEL,
     CTO_NOTES_TEMPLATE,
@@ -26,9 +28,46 @@ from reporting.templates import (
 class Synthesizer:
     """Convert analysis findings into executive narrative structures."""
 
-    def build_executive_summary(self, risk_score: int) -> ExecutiveSummary:
+    def build_architecture_context(
+        self,
+        architecture_profile: Mapping[str, object],
+    ) -> ArchitectureContext:
+        pattern = str(architecture_profile.get("pattern") or "other")
+        pattern_label = str(
+            architecture_profile.get("pattern_label") or "Mixed or Undetermined"
+        )
+        confidence = float(architecture_profile.get("confidence") or 0.0)
+        summary = str(architecture_profile.get("summary") or "").strip()
+        if not summary:
+            summary = (
+                "Architecture pattern could not be inferred from analysis metadata. "
+                "Confirm deployable shape with the engineering team."
+            )
+        raw_signals = architecture_profile.get("signals") or []
+        signals = tuple(str(item) for item in raw_signals if str(item).strip())
+        guidance = ARCHITECTURE_CONTEXT_JUDGMENT.get(
+            pattern,
+            ARCHITECTURE_CONTEXT_JUDGMENT["other"],
+        )
+        return ArchitectureContext(
+            pattern=pattern,
+            pattern_label=pattern_label,
+            confidence=round(confidence, 2),
+            summary=summary,
+            signals=signals,
+            judgment_guidance=guidance,
+        )
+
+    def build_executive_summary(
+        self,
+        risk_score: int,
+        architecture_context: ArchitectureContext,
+    ) -> ExecutiveSummary:
         health = health_state_for_risk_score(risk_score)
+        confidence_pct = f"{int(round(architecture_context.confidence * 100))}%"
         one_line = EXECUTIVE_SUMMARY_TEMPLATE.format(
+            pattern_label=architecture_context.pattern_label,
+            confidence_pct=confidence_pct,
             health_state=health,
             score=risk_score,
         )
@@ -75,6 +114,7 @@ class Synthesizer:
         self,
         grouped: Dict[str, List[FindingInput]],
         health: HealthState,
+        architecture_context: ArchitectureContext,
     ) -> str:
         dominant = self._dominant_category(grouped)
         dominant_label = CATEGORY_CTO_LABEL.get(dominant, dominant)
@@ -84,7 +124,10 @@ class Synthesizer:
             "At Risk": "Near-term intervention is recommended to prevent delivery drag.",
             "Critical": "Immediate executive attention is warranted to reduce systemic exposure.",
         }[health]
-        return f"{notes} {health_clause}"
+        return (
+            f"{architecture_context.pattern_label}: {architecture_context.judgment_guidance} "
+            f"{notes} {health_clause}"
+        )
 
     def build_risk_breakdown(
         self,

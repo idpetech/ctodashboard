@@ -345,7 +345,6 @@ def collect_assignment_metrics(workspace_id: str, assignment_id: str, assignment
 def _refresh_workspace_attention_briefing(workspace_id: str) -> None:
     """Rebuild stored CTO briefing after assignment/budget changes (best-effort)."""
     try:
-        from services.security.secure_database import secure_db
 
         ws_result = get_workspace_service().get_workspace_assignments(workspace_id)
         assignments = ws_result.get("assignments") or []
@@ -363,16 +362,15 @@ def _refresh_workspace_attention_briefing(workspace_id: str) -> None:
             store_briefing_in_workspace,
         )
 
-        previous = get_stored_briefing(secure_db, workspace_id)
-        last_import = (
-            (secure_db.get_workspace(workspace_id) or {}).get("settings", {}).get("last_import")
-        )
+        previous = get_stored_briefing(None, workspace_id)
+        ws = get_workspace_service().get_workspace(workspace_id)
+        last_import = (ws.get("settings") or {}).get("last_import")
         briefing = build_attention_briefing(
             assignments,
             previous_briefing=previous,
             import_metadata=last_import,
         )
-        store_briefing_in_workspace(secure_db, workspace_id, briefing)
+        store_briefing_in_workspace(None, workspace_id, briefing)
     except Exception as e:
         logger.warning("Briefing auto-refresh failed for %s: %s", workspace_id, e)
 

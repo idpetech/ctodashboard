@@ -7,6 +7,7 @@ carry portfolio_id='default' in Postgres; portfolio APIs return 403.
 
 from __future__ import annotations
 
+from services.workspace.db_access import resolve_workspace_db
 import os
 import re
 import uuid
@@ -290,6 +291,7 @@ def persist_scoped_briefing(
     briefing: Dict[str, Any],
     engine: str = "attention",
 ) -> bool:
+    secure_db = resolve_workspace_db(secure_db)
     ws = secure_db.get_workspace(workspace_id)
     if not ws:
         return False
@@ -316,6 +318,7 @@ def load_scoped_briefing(
     scope_id: str,
     engine: str = "attention",
 ) -> Optional[Dict[str, Any]]:
+    secure_db = resolve_workspace_db(secure_db)
     ws = secure_db.get_workspace(workspace_id)
     if not ws:
         return None
