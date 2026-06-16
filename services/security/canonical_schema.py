@@ -187,7 +187,6 @@ DDL_STATEMENTS: List[str] = [
     """,
     f"CREATE INDEX IF NOT EXISTS idx_repo_file_index_snapshot ON {TABLES.REPO_FILE_INDEX} (snapshot_id)",
     f"CREATE INDEX IF NOT EXISTS idx_repo_file_index_path ON {TABLES.REPO_FILE_INDEX} (snapshot_id, path)",
-
     f"""
     CREATE TABLE IF NOT EXISTS {TABLES.REPOSITORIES} (
         repository_id TEXT PRIMARY KEY,
@@ -226,7 +225,6 @@ DDL_STATEMENTS: List[str] = [
     f"CREATE INDEX IF NOT EXISTS idx_repository_snapshots_workspace ON {TABLES.REPOSITORY_SNAPSHOTS} (workspace_id, assignment_id, last_synced_at DESC)",
     f"CREATE INDEX IF NOT EXISTS idx_repository_snapshots_repository_time ON {TABLES.REPOSITORY_SNAPSHOTS} (repository_id, last_synced_at DESC)",
     f"CREATE INDEX IF NOT EXISTS idx_repository_snapshots_repo_full_name ON {TABLES.REPOSITORY_SNAPSHOTS} (repo_full_name, last_synced_at DESC)",
-
     f"""
     CREATE TABLE IF NOT EXISTS {TABLES.REPOSITORY_COMMITS} (
         id BIGSERIAL PRIMARY KEY,
@@ -260,7 +258,6 @@ DDL_STATEMENTS: List[str] = [
     f"CREATE INDEX IF NOT EXISTS idx_repository_code_index_path ON {TABLES.REPOSITORY_CODE_INDEX} (snapshot_id, file_path)",
     f"CREATE INDEX IF NOT EXISTS idx_repository_code_index_repository_path ON {TABLES.REPOSITORY_CODE_INDEX} (repository_id, file_path)",
     f"CREATE INDEX IF NOT EXISTS idx_repository_code_index_payload ON {TABLES.REPOSITORY_CODE_INDEX} USING GIN (index_payload)",
-
     f"""
     CREATE TABLE IF NOT EXISTS {TABLES.REPOSITORY_CODE_SYMBOLS} (
         id BIGSERIAL PRIMARY KEY,

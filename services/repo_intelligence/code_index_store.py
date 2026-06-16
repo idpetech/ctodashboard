@@ -27,7 +27,9 @@ class CodeIndexStore:
         limit: int = 500,
         offset: int = 0,
     ) -> List[Dict[str, Any]]:
-        return self._store.list_code_index_entries(snapshot_id=snapshot_id, limit=limit, offset=offset)
+        return self._store.list_code_index_entries(
+            snapshot_id=snapshot_id, limit=limit, offset=offset
+        )
 
     def count_index_entries(self, snapshot_id: str) -> int:
         return self._store.count_code_index_entries(snapshot_id)

@@ -6,7 +6,6 @@ Lightweight persistence: workspace.settings.shared_reports + local token index.
 
 from __future__ import annotations
 
-from services.workspace.db_access import resolve_workspace_db
 import json
 import os
 import secrets
@@ -15,6 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from config.logging_config import get_logger
 from services.portfolio_service import build_portfolio_overview
+from services.workspace.db_access import resolve_workspace_db
 
 logger = get_logger(__name__)
 

@@ -345,7 +345,6 @@ def collect_assignment_metrics(workspace_id: str, assignment_id: str, assignment
 def _refresh_workspace_attention_briefing(workspace_id: str) -> None:
     """Rebuild stored CTO briefing after assignment/budget changes (best-effort)."""
     try:
-
         ws_result = get_workspace_service().get_workspace_assignments(workspace_id)
         assignments = ws_result.get("assignments") or []
 

@@ -7,10 +7,11 @@ Future: personalize RecommendationEngine ranking from acceptance history.
 
 from __future__ import annotations
 
-from services.workspace.db_access import resolve_workspace_db
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+
+from services.workspace.db_access import resolve_workspace_db
 
 
 @dataclass

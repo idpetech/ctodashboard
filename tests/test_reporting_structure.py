@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from reporting.agent import CTOReportAgent
 
-
 SAMPLE = {
     "findings": [
         {

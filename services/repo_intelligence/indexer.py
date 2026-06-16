@@ -210,7 +210,9 @@ def build_code_index_from_snapshot(
         content_bytes, _size = client.get_blob_content(owner, repo, git_sha)
         return content_bytes.decode("utf-8", errors="replace")
 
-    when = indexed_at or snapshot_payload.get("repository", {}).get("last_synced_at") or _utc_now_iso()
+    when = (
+        indexed_at or snapshot_payload.get("repository", {}).get("last_synced_at") or _utc_now_iso()
+    )
     return build_code_index(files, content_fetcher=fetch, indexed_at=when)
 
 

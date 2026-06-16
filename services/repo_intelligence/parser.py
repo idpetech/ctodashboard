@@ -19,9 +19,7 @@ class TreeParseError(Exception):
 
 def parse_tree_nodes(tree_items: List[dict]) -> List[TreeNode]:
     if len(tree_items) > max_tree_entries():
-        raise TreeParseError(
-            f"Tree has {len(tree_items)} entries; limit is {max_tree_entries()}"
-        )
+        raise TreeParseError(f"Tree has {len(tree_items)} entries; limit is {max_tree_entries()}")
 
     nodes: List[TreeNode] = []
     for item in tree_items:

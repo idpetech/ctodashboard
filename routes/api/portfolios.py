@@ -167,7 +167,6 @@ def register_portfolios_routes(app):
             return denied
 
         try:
-
             briefing = load_scoped_briefing(
                 None,
                 workspace_id,
@@ -271,7 +270,6 @@ def register_portfolios_routes(app):
             return denied
 
         try:
-
             briefing = load_scoped_briefing(
                 None,
                 workspace_id,
@@ -372,7 +370,6 @@ def register_portfolios_routes(app):
             return denied
 
         try:
-
             assignments = (
                 get_workspace_service()
                 .get_workspace_assignments(workspace_id)

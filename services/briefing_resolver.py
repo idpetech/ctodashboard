@@ -4,11 +4,11 @@ Resolve stored briefing for export/share — CTOLens or legacy attention engine.
 
 from __future__ import annotations
 
-from services.workspace.db_access import resolve_workspace_db
 import os
 from typing import Any, Dict, List, Optional
 
 from config.logging_config import get_logger
+from services.workspace.db_access import resolve_workspace_db
 
 logger = get_logger(__name__)
 

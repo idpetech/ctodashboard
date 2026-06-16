@@ -10,8 +10,8 @@ from routes.api.chatbot import register_chatbot_routes
 from routes.api.import_export import register_import_export_routes
 from routes.api.pages import register_pages_routes
 from routes.api.portfolios import register_portfolios_routes
-from routes.api.reporting import register_reporting_routes
 from routes.api.repo_intelligence import register_repo_intelligence_routes
+from routes.api.reporting import register_reporting_routes
 from routes.api.system import register_system_routes
 from routes.api.workspaces import register_workspaces_routes
 
