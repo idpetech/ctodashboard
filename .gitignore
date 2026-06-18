@@ -1935,3 +1935,7 @@ config/secrets/
 
 # Auto-added by credential manager
 config/secrets/
+
+# Local workspace exports (may contain credentials)
+exports/
+CSV-configuration-*.txt

@@ -4,6 +4,8 @@ import os
 
 from flask import jsonify, request
 
+from services.cloud_access.flags import cloud_access_capabilities
+from services.connectors.oauth_flags import oauth_capabilities
 from services.stripe_billing_service import is_billing_enabled, stripe_config_summary
 
 
@@ -43,6 +45,8 @@ def register_system_routes(app):
                 == "true",
                 "vercel_connector": os.getenv("ENABLE_VERCEL_CONNECTOR", "false").lower() == "true",
                 "azure_connector": os.getenv("ENABLE_AZURE_CONNECTOR", "false").lower() == "true",
+                **oauth_capabilities(),
+                **cloud_access_capabilities(),
                 **(stripe_config_summary() if is_billing_enabled() else {}),
             }
         )

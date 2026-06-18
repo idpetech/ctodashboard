@@ -348,123 +348,64 @@
                 <div id="credentialError" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"></div>
                 <div id="credentialSuccess" class="hidden bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4"></div>
 
-                <!-- GitHub Form -->
-                <div id="github-form" class="credential-form">
-                    <div class="mb-6">
-                        <h4 class="font-medium text-gray-800 mb-2">GitHub Configuration</h4>
-                        <p class="text-sm text-gray-600">Connect to GitHub for repository metrics and activity tracking</p>
-                    </div>
-                    
-                    <form onsubmit="saveCredentials(event, 'github')">
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Personal Access Token</label>
-                            <input type="password" id="github_token" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
-                            <p class="text-xs text-gray-500 mt-1">
-                                <a href="https://github.com/settings/personal-access-tokens" target="_blank" class="text-blue-600 hover:underline">
-                                    Generate a token with 'repo', 'read:org', 'read:user' scopes
-                                </a>
-                            </p>
-                        </div>
-                        
-                        <div class="mb-6">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">GitHub Organization (Optional)</label>
-                            <input type="text" id="github_org" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="your-org-name">
-                            <p class="text-xs text-gray-500 mt-1">Leave blank for personal repositories</p>
-                        </div>
-                        
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Repositories to Monitor</label>
-                            <input type="text" id="github_repos" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="repo1,repo2,repo3 (comma separated)">
-                            <p class="text-xs text-gray-500 mt-1">Enter repository names to monitor (e.g., myapp,website,api)</p>
-                        </div>
-
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Assignment</label>
-                            <select id="github_assignment" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <option value="">Select assignment...</option>
-                            </select>
-                        </div>
-                        
-                        <div class="flex space-x-3">
-                            <button type="button" onclick="testCredentials('github')" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
-                                Test Connection
-                            </button>
-                            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                                Save Credentials
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- Jira Form -->
-                <div id="jira-form" class="credential-form">
-                    <div class="mb-6">
-                        <h4 class="font-medium text-gray-800 mb-2">Jira Configuration</h4>
-                        <p class="text-sm text-gray-600">Connect to Jira for project management and issue tracking</p>
-                    </div>
-                    
-                    <form onsubmit="saveCredentials(event, 'jira')">
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Jira Instance URL</label>
-                            <input type="url" id="jira_url" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="https://yourcompany.atlassian.net" title="Site root only — not a project or board URL">
-                            <p class="text-xs text-gray-500 mt-1">Use your Atlassian site root only (e.g. https://yourcompany.atlassian.net), not a project link.</p>
-                        </div>
-                        
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                            <input type="email" id="jira_email" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="your@email.com">
-                        </div>
-                        
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">API Token</label>
-                            <input type="password" id="jira_token" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="ATxxxxxxxxxxxxxxxxxxxxxx">
-                            <p class="text-xs text-gray-500 mt-1">
-                                <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" class="text-blue-600 hover:underline">
-                                    Generate API token from Atlassian account settings
-                                </a>
-                            </p>
-                        </div>
-                        
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Projects to Monitor</label>
-                            <input type="text" id="jira_projects" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="PROJECT-KEY,ANOTHER-KEY (comma separated)">
-                            <p class="text-xs text-gray-500 mt-1">Enter Jira project keys to monitor (e.g., MYPROJECT,WEBAPP)</p>
-                        </div>
-
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Assignment</label>
-                            <select id="jira_assignment" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <option value="">Select assignment...</option>
-                            </select>
-                        </div>
-                        
-                        <div class="flex space-x-3">
-                            <button type="button" onclick="testCredentials('jira')" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
-                                Test Connection
-                            </button>
-                            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                                Save Credentials
-                            </button>
-                        </div>
-                    </form>
-                </div>
+{% include 'shared/_connector_form_github.html' %}
+{% include 'shared/_connector_form_jira.html' %}
 
                 <!-- AWS Form -->
                 <div id="aws-form" class="credential-form">
                     <div class="mb-6">
                         <h4 class="font-medium text-gray-800 mb-2">AWS Configuration</h4>
-                        <p class="text-sm text-gray-600">Connect to AWS for cloud infrastructure and cost tracking</p>
+                        <p class="text-sm text-gray-600">Connect via cross-account IAM role (recommended) or legacy access keys</p>
+                    </div>
+
+                    <div id="aws-role-panel" class="hidden mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p class="text-sm text-gray-700 mb-2"><strong>Enterprise onboarding:</strong> Deploy the CTOLens CloudFormation stack in your AWS account. CTOLens assumes a read-only role via STS — no access keys shared.</p>
+                        <ol class="text-sm text-gray-600 list-decimal list-inside mb-3 space-y-1">
+                            <li>Download the CloudFormation template</li>
+                            <li>Deploy with your <strong>External ID</strong> and <strong>CTOLens Account ID</strong></li>
+                            <li>Register the stack <strong>Role ARN</strong> and <strong>Account ID</strong> below</li>
+                        </ol>
+                        <div class="flex flex-wrap gap-2 mb-3">
+                            <a id="aws-cf-download" href="/api/cloud-access/aws/cloudformation-template" class="bg-white border border-blue-300 text-blue-700 px-4 py-2 rounded text-sm hover:bg-blue-100" download>
+                                Download CloudFormation Template
+                            </a>
+                            <button type="button" onclick="loadAwsOnboardingHints()" class="bg-gray-200 text-gray-800 px-4 py-2 rounded text-sm hover:bg-gray-300">
+                                Load External ID
+                            </button>
+                        </div>
+                        <div class="text-xs text-gray-600 grid grid-cols-1 gap-2">
+                            <div>CTOLens AWS Account ID: <span id="aws-ctolens-account" class="font-mono">—</span></div>
+                            <div>External ID: <span id="aws-external-id-hint" class="font-mono break-all">Select assignment, then Load External ID</span></div>
+                        </div>
                     </div>
                     
                     <form onsubmit="saveCredentials(event, 'aws')">
+                        <div id="aws-role-fields" class="hidden mb-4 space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Role ARN</label>
+                                <input type="text" id="aws_role_arn" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="arn:aws:iam::123456789012:role/CTOLensReadOnlyRole">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">AWS Account ID</label>
+                                <input type="text" id="aws_account_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="123456789012" pattern="[0-9]{12}">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">External ID</label>
+                                <input type="text" id="aws_external_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="ctolens-workspace-assignment">
+                                <input type="hidden" id="aws_auth_method" value="">
+                            </div>
+                        </div>
+
+                        <div id="aws-access-key-fields">
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Access Key ID</label>
-                            <input type="password" id="aws_access_key" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="AKIAXXXXXXXXXXXXXXXXX">
+                            <input type="password" id="aws_access_key" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="AKIAXXXXXXXXXXXXXXXXX">
                         </div>
                         
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Secret Access Key</label>
-                            <input type="password" id="aws_secret_key" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+                            <input type="password" id="aws_secret_key" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+                        </div>
                         </div>
                         
                         <div class="mb-4">
@@ -477,7 +418,7 @@
                                 <option value="ap-northeast-1">Asia Pacific (Tokyo)</option>
                             </select>
                         </div>
-
+                        
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Assignment</label>
                             <select id="aws_assignment" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -831,6 +772,7 @@
 
     {% include 'dashboard/_assignment_edit_modal.html' %}
 
+    <script src="/static/js/dashboard/12-connector-oauth.js"></script>
     <script>
         // Global variables
         let currentWorkspace = null;
@@ -1022,6 +964,71 @@
             });
         }
 
+        let connectorOAuthFlags = {
+            github_oauth_available: false,
+            jira_oauth_available: false,
+            disable_manual_tokens: false,
+        };
+
+        let cloudAccessFlags = {
+            aws_role_onboarding_available: false,
+            disable_aws_access_keys: false,
+        };
+
+        async function loadAwsRoleUi() {
+            try {
+                const response = await fetch('/api/feature-flags', { credentials: 'same-origin' });
+                if (!response.ok) return;
+                const flags = await response.json();
+                cloudAccessFlags = {
+                    aws_role_onboarding_available: !!flags.aws_role_onboarding_available,
+                    disable_aws_access_keys: !!flags.disable_aws_access_keys,
+                };
+                const panel = document.getElementById('aws-role-panel');
+                const roleFields = document.getElementById('aws-role-fields');
+                const keyFields = document.getElementById('aws-access-key-fields');
+                if (panel) panel.classList.toggle('hidden', !flags.aws_role_onboarding_available);
+                if (roleFields) roleFields.classList.toggle('hidden', !flags.aws_role_onboarding_available);
+                if (keyFields) keyFields.classList.toggle('hidden', flags.disable_aws_access_keys);
+                if (flags.ctolens_aws_account_id) {
+                    const el = document.getElementById('aws-ctolens-account');
+                    if (el) el.textContent = flags.ctolens_aws_account_id;
+                }
+            } catch (error) {
+                console.warn('AWS role UI flags unavailable:', error);
+            }
+        }
+
+        async function loadAwsOnboardingHints() {
+            const assignmentId = document.getElementById('aws_assignment')?.value;
+            if (!assignmentId) {
+                showMessage('Select an assignment first', 'error');
+                return;
+            }
+            try {
+                const response = await fetch(
+                    `/api/workspaces/${currentWorkspace}/cloud-access/aws/onboarding?assignment_id=${encodeURIComponent(assignmentId)}`,
+                    { credentials: 'same-origin', headers: wsAuthHeaders() }
+                );
+                const data = await response.json();
+                if (!response.ok) {
+                    showMessage(data.error || 'Could not load AWS onboarding info', 'error');
+                    return;
+                }
+                const extInput = document.getElementById('aws_external_id');
+                const hint = document.getElementById('aws-external-id-hint');
+                const acct = document.getElementById('aws-ctolens-account');
+                const authMethod = document.getElementById('aws_auth_method');
+                if (extInput && !extInput.value) extInput.value = data.external_id || '';
+                if (hint) hint.textContent = data.external_id || '—';
+                if (acct) acct.textContent = data.ctolens_aws_account_id || '—';
+                if (authMethod) authMethod.value = 'aws_assume_role';
+                showMessage('External ID loaded — use it in your CloudFormation stack', 'success');
+            } catch (error) {
+                showMessage(`Failed to load onboarding info: ${error.message}`, 'error');
+            }
+        }
+
         async function loadAct4Connectors() {
             try {
                 const response = await fetch('/api/feature-flags', { credentials: 'same-origin' });
@@ -1064,6 +1071,9 @@
                 await loadPortfoliosUi();
                 displayWorkspaceSettings();
                 await loadAct4Connectors();
+                await loadConnectorOAuthUi();
+                await loadAwsRoleUi();
+                handleOAuthReturnBanner();
                 loadCredentialStatus();
                 loadCtolenSchedule();
 
@@ -1141,11 +1151,130 @@
             
             selectors.forEach(selectorId => {
                 const selector = document.getElementById(selectorId);
+                if (!selector) return;
+                const previous = selector.value;
                 selector.innerHTML = '<option value="">Select assignment...</option>' +
                     assignments.map(assignment => 
                         `<option value="${assignment.id}">${assignment.name || assignment.id}</option>`
                     ).join('');
+                if (previous && assignments.some(a => a.id === previous)) {
+                    selector.value = previous;
+                }
+                selector.onchange = () => onConnectorAssignmentChanged(selectorId.replace('_assignment', ''));
             });
+        }
+
+        function clearConnectorFormFields(connectorType) {
+            const clearIds = {
+                github: ['github_token', 'github_org', 'github_repos'],
+                jira: ['jira_url', 'jira_email', 'jira_token', 'jira_projects'],
+                aws: ['aws_access_key', 'aws_secret_key', 'aws_role_arn', 'aws_account_id', 'aws_external_id', 'aws_auth_method'],
+                openai: ['openai_api_key', 'openai_org_id', 'openai_admin_api_key'],
+                railway: ['railway_token', 'railway_project_id', 'railway_project_name'],
+                vercel: ['vercel_token', 'vercel_project_id', 'vercel_team_id'],
+                azure: ['azure_tenant_id', 'azure_client_id', 'azure_client_secret', 'azure_subscription_id', 'azure_resource_group'],
+            };
+            (clearIds[connectorType] || []).forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (el.tagName === 'SELECT') {
+                    if (id === 'aws_region') return;
+                }
+                el.value = '';
+            });
+            if (connectorType === 'aws') {
+                const region = document.getElementById('aws_region');
+                if (region) region.value = 'us-east-1';
+                const hint = document.getElementById('aws-external-id-hint');
+                if (hint) hint.textContent = 'Select assignment, then Load External ID';
+            }
+            if ((connectorType === 'github' || connectorType === 'jira') && typeof defaultConnectorAuthTab === 'function') {
+                defaultConnectorAuthTab(connectorType);
+            }
+        }
+
+        function populateConnectorFormFromCredentials(connectorType, credentials) {
+            if (!credentials) return;
+            const set = (id, value) => {
+                const el = document.getElementById(id);
+                if (el && value != null && value !== '') el.value = value;
+            };
+            switch (connectorType) {
+                case 'github':
+                    set('github_org', credentials.github_org || credentials.org);
+                    set('github_repos', credentials.github_repos);
+                    if (typeof setConnectorAuthMethodFromCredentials === 'function') {
+                        setConnectorAuthMethodFromCredentials('github', credentials);
+                    }
+                    break;
+                case 'jira':
+                    set('jira_url', credentials.jira_url);
+                    set('jira_email', credentials.jira_email);
+                    set('jira_projects', credentials.jira_projects);
+                    if (typeof setConnectorAuthMethodFromCredentials === 'function') {
+                        setConnectorAuthMethodFromCredentials('jira', credentials);
+                    }
+                    break;
+                case 'aws':
+                    if (credentials.auth_method === 'aws_assume_role' || credentials.aws_role_arn) {
+                        set('aws_auth_method', 'aws_assume_role');
+                        set('aws_role_arn', credentials.aws_role_arn);
+                        set('aws_account_id', credentials.aws_account_id);
+                        set('aws_external_id', credentials.aws_external_id || credentials.external_id);
+                    }
+                    set('aws_region', credentials.aws_region || 'us-east-1');
+                    break;
+                case 'openai':
+                    set('openai_org_id', credentials.openai_org_id);
+                    break;
+                case 'railway':
+                    set('railway_project_id', credentials.railway_project_id);
+                    set('railway_project_name', credentials.railway_project_name);
+                    break;
+                case 'vercel':
+                    set('vercel_project_id', credentials.vercel_project_id);
+                    set('vercel_team_id', credentials.vercel_team_id);
+                    break;
+                case 'azure':
+                    set('azure_tenant_id', credentials.azure_tenant_id);
+                    set('azure_client_id', credentials.azure_client_id);
+                    set('azure_subscription_id', credentials.azure_subscription_id);
+                    set('azure_resource_group', credentials.azure_resource_group);
+                    break;
+            }
+            const secrets = credentials._configured_secrets || [];
+            if (secrets.length) {
+                const note = secrets.length === 1
+                    ? 'Saved credential on file — re-enter only to change it'
+                    : 'Saved credentials on file — re-enter only to change them';
+                showMessage(`ℹ️ ${note}`, 'success');
+            }
+        }
+
+        async function loadConnectorCredentialsForAssignment(connectorType) {
+            const assignmentId = document.getElementById(`${connectorType}_assignment`)?.value;
+            clearConnectorFormFields(connectorType);
+            if (!assignmentId || !currentWorkspace) return;
+
+            try {
+                const response = await fetch(
+                    `/api/workspaces/${currentWorkspace}/assignments/${assignmentId}/credentials/${connectorType}`,
+                    { credentials: 'same-origin', headers: wsAuthHeaders() }
+                );
+                if (!response.ok) return;
+                const data = await response.json();
+                populateConnectorFormFromCredentials(connectorType, data.credentials || {});
+            } catch (error) {
+                console.warn('Could not load assignment credentials:', error);
+            }
+        }
+
+        function onConnectorAssignmentChanged(connectorType) {
+            clearMessages();
+            loadConnectorCredentialsForAssignment(connectorType);
+            if (connectorType === 'aws') {
+                loadAwsOnboardingHints().catch(() => {});
+            }
         }
 
         async function loadCtolenSchedule() {
@@ -1278,21 +1407,24 @@
             });
         }
 
-        function configureConnector(connectorType) {
+        async function configureConnector(connectorType) {
             document.getElementById('modalTitle').textContent = `Configure ${connectorType.toUpperCase()}`;
             
-            // Hide all forms
             document.querySelectorAll('.credential-form').forEach(form => {
                 form.classList.remove('active');
             });
             
-            // Show specific form
             document.getElementById(`${connectorType}-form`).classList.add('active');
-            
-            // Clear any previous messages
             clearMessages();
+            await loadConnectorOAuthUi(connectorType);
+            loadAwsRoleUi();
+            const assignmentId = document.getElementById(`${connectorType}_assignment`)?.value;
+            if (assignmentId) {
+                await loadConnectorCredentialsForAssignment(connectorType);
+            } else {
+                clearConnectorFormFields(connectorType);
+            }
             
-            // Show modal
             document.getElementById('credentialModal').classList.remove('hidden');
         }
 
@@ -1305,21 +1437,32 @@
             const credentials = getCredentialsFromForm(connectorType);
             if (!credentials) return;
 
+            const assignmentId = document.getElementById(`${connectorType}_assignment`)?.value;
             showMessage('Testing connection...', 'info');
 
             try {
-                const response = await fetch(`/api/workspaces/${currentWorkspace}/credentials/${connectorType}/test`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ credentials })
-                });
+                let response;
+                if (connectorType === 'aws' && credentials.auth_method === 'aws_assume_role' && assignmentId) {
+                    response = await fetch(`/api/workspaces/${currentWorkspace}/cloud-access/aws/validate`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', ...wsAuthHeaders() },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ credentials, assignment_id: assignmentId }),
+                    });
+                } else {
+                    response = await fetch(`/api/workspaces/${currentWorkspace}/credentials/${connectorType}/test`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', ...wsAuthHeaders() },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ credentials, assignment_id: assignmentId })
+                    });
+                }
 
                 const result = await response.json();
 
                 if (result.valid) {
-                    showMessage(`✅ Connection successful! Connected as: ${result.user || result.account}`, 'success');
+                    const who = result.user || result.account_login || result.account || result.message;
+                    showMessage(`✅ Connection successful!${who ? ` Connected as: ${who}` : ''}`, 'success');
                 } else {
                     showMessage(`❌ Connection failed: ${result.error}`, 'error');
                 }
@@ -1357,9 +1500,10 @@
 
                 if (result.success) {
                     showMessage('✅ Credentials saved successfully!', 'success');
+                    loadConnectorCredentialsForAssignment(connectorType);
                     setTimeout(() => {
                         closeCredentialModal();
-                        loadCredentialStatus(); // Refresh status
+                        loadCredentialStatus();
                     }, 2000);
                 } else {
                     showMessage(`❌ Save failed: ${result.error || result.details}`, 'error');
@@ -1372,19 +1516,32 @@
         function getCredentialsFromForm(connectorType) {
             switch (connectorType) {
                 case 'github':
-                    return {
-                        github_token: document.getElementById('github_token').value,
+                    const ghCreds = {
                         github_org: document.getElementById('github_org').value,
-                        github_repos: document.getElementById('github_repos').value
+                        github_repos: document.getElementById('github_repos').value,
                     };
+                    const ghToken = document.getElementById('github_token').value;
+                    if (ghToken) ghCreds.github_token = ghToken;
+                    return ghCreds;
                 case 'jira':
-                    return {
+                    const jiraCreds = {
                         jira_url: document.getElementById('jira_url').value,
                         jira_email: document.getElementById('jira_email').value,
-                        jira_token: document.getElementById('jira_token').value,
-                        jira_projects: document.getElementById('jira_projects').value
+                        jira_projects: document.getElementById('jira_projects').value,
                     };
+                    const jiraToken = document.getElementById('jira_token').value;
+                    if (jiraToken) jiraCreds.jira_token = jiraToken;
+                    return jiraCreds;
                 case 'aws':
+                    if (document.getElementById('aws_role_arn')?.value) {
+                        return {
+                            auth_method: 'aws_assume_role',
+                            aws_role_arn: document.getElementById('aws_role_arn').value,
+                            aws_account_id: document.getElementById('aws_account_id').value,
+                            aws_external_id: document.getElementById('aws_external_id').value,
+                            aws_region: document.getElementById('aws_region').value,
+                        };
+                    }
                     return {
                         aws_access_key: document.getElementById('aws_access_key').value,
                         aws_secret_key: document.getElementById('aws_secret_key').value,

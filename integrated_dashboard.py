@@ -16,7 +16,7 @@ from flask_cors import CORS
 # values (e.g. DATABASE_URL) and is layered on top so local runs need no external
 # `export` step. Skipped on Railway, where platform-provided env vars are authoritative.
 load_dotenv()
-if not os.getenv("RAILWAY_ENVIRONMENT"):
+if os.getenv("RAILWAY_ENVIRONMENT", "").lower() not in ("true", "1", "production"):
     load_dotenv(".env.local", override=True)
 
 # Setup centralized logging before anything else
@@ -105,7 +105,7 @@ register_database_admin_routes(app)
 
 
 # Debug routes — local only (disabled on Railway/production deploys)
-if not os.getenv("RAILWAY_ENVIRONMENT"):
+if os.getenv("RAILWAY_ENVIRONMENT", "").lower() not in ("true", "1", "production"):
 
     @app.route("/debug/auth")
     def debug_auth():

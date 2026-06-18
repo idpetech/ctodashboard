@@ -20,6 +20,7 @@ class EmbeddedAWSMetrics:
 
         # Initialize credentials (preserves existing behavior if no workspace context)
         self._init_credentials()
+        self._aws_session = None
 
         # Initialize AWS clients lazily
         self._ce_client = None
@@ -31,6 +32,12 @@ class EmbeddedAWSMetrics:
         """Initialize AWS credentials from Postgres; env fallback only when ALLOW_CONNECTOR_ENV_FALLBACK=true."""
         from services.auth.credential_service import allow_connector_env_fallback
 
+        self.auth_method = "aws_access_key"
+        self.access_key = None
+        self.secret_key = None
+        self.region = "us-east-1"
+        self._stored_aws = {}
+
         if self.workspace_id and self.assignment_id:
             try:
                 from services.auth.credential_service import CredentialService
@@ -38,9 +45,20 @@ class EmbeddedAWSMetrics:
                 aws_creds = CredentialService().get_aws_credentials(
                     self.workspace_id, self.assignment_id
                 )
+                self.auth_method = aws_creds.get("auth_method") or "aws_access_key"
+                self.region = aws_creds.get("region") or "us-east-1"
+                if self.auth_method == "aws_assume_role":
+                    self._stored_aws = CredentialService().get_workspace_credentials(
+                        self.workspace_id, self.assignment_id, "aws"
+                    )
+                    logger.info(
+                        "Loaded AWS cross-account role config for %s/%s",
+                        self.workspace_id,
+                        self.assignment_id,
+                    )
+                    return
                 self.access_key = aws_creds.get("access_key")
                 self.secret_key = aws_creds.get("secret_key")
-                self.region = aws_creds.get("region") or "us-east-1"
                 if self.access_key and self.secret_key:
                     logger.info(
                         "Loaded AWS credentials from Postgres for %s/%s",
@@ -64,22 +82,62 @@ class EmbeddedAWSMetrics:
             self.secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
             self.region = os.getenv("AWS_REGION", "us-east-1")
 
-    def _get_aws_client(self, service_name: str):
-        """Get AWS client for the specified service"""
-        try:
-            return boto3.client(
-                service_name,
-                aws_access_key_id=self.access_key,
-                aws_secret_access_key=self.secret_key,
-                region_name=self.region,
+    def _resolve_session(self):
+        """Obtain ephemeral AWS session via Cloud Access broker (never persisted)."""
+        if self._aws_session is not None:
+            return self._aws_session
+        if self.auth_method == "aws_assume_role" and self.workspace_id and self.assignment_id:
+            from services.cloud_access.resolver import get_aws_session
+
+            self._aws_session = get_aws_session(
+                self._stored_aws,
+                workspace_id=self.workspace_id,
+                assignment_id=self.assignment_id,
+                region=self.region,
             )
+            return self._aws_session
+        if self.access_key and self.secret_key:
+            import time
+
+            from services.cloud_access.session import CloudAccessSession
+
+            self._aws_session = CloudAccessSession(
+                provider="aws",
+                access_key_id=self.access_key,
+                secret_access_key=self.secret_key,
+                session_token=None,
+                region=self.region,
+                expires_at=time.time() + 86400,
+                auth_method="aws_access_key",
+            )
+        return self._aws_session
+
+    def _credentials_configured(self) -> bool:
+        if self.auth_method == "aws_assume_role":
+            return bool(self._stored_aws.get("aws_role_arn"))
+        return bool(self.access_key and self.secret_key)
+
+    def _get_aws_client(self, service_name: str):
+        """Get AWS client for the specified service via Cloud Access session."""
+        session = self._resolve_session()
+        if not session:
+            return None
+        try:
+            kwargs = {
+                "aws_access_key_id": session.access_key_id,
+                "aws_secret_access_key": session.secret_access_key,
+                "region_name": self.region,
+            }
+            if session.session_token:
+                kwargs["aws_session_token"] = session.session_token
+            return boto3.client(service_name, **kwargs)
         except Exception as e:
             logger.error("Error creating %s client: %s", service_name, e, exc_info=True)
             return None
 
     def get_comprehensive_aws_report(self) -> Dict:
         """Get comprehensive AWS report with detailed resource information for CTO decision-making"""
-        if not all([self.access_key, self.secret_key]):
+        if not self._credentials_configured():
             return {"error": "AWS credentials not configured"}
 
         try:
@@ -500,7 +558,7 @@ class EmbeddedAWSMetrics:
         Returns both the original simple format (for frontend compatibility)
         and enhanced detailed insights for CTO analysis.
         """
-        if not all([self.access_key, self.secret_key]):
+        if not self._credentials_configured():
             return {"error": "AWS credentials not configured"}
 
         try:

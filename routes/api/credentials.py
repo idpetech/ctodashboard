@@ -2,7 +2,63 @@
 
 from connectors.registry import ConnectorRegistry
 from routes.api.deps import get_workspace_service
+from services.cloud_access.aws_sts_broker import (
+    AWS_ASSUME_ROLE_AUTH,
+    aws_auth_method,
+    validate_assumed_role,
+)
+from services.cloud_access.flags import aws_access_keys_disabled
+from services.connectors.github_app_auth import validate_installation_token
+from services.connectors.jira_oauth import validate_oauth_connection
+from services.connectors.oauth_flags import manual_connector_tokens_disabled
+from services.connectors.token_resolver import should_use_github_oauth, should_use_jira_oauth
 from services.embedded.jira_metrics import test_jira_connection
+
+CONNECTOR_SECRET_FIELDS = {
+    "github": {"github_token", "token"},
+    "jira": {"jira_token", "token", "jira_refresh_token", "jira_access_token"},
+    "aws": {"aws_access_key", "aws_secret_key", "access_key", "secret_key"},
+    "openai": {"openai_api_key", "openai_admin_api_key", "api_key"},
+    "railway": {"railway_token", "token"},
+    "vercel": {"vercel_token", "token"},
+    "azure": {"azure_client_secret", "client_secret"},
+}
+
+
+def merge_connector_credentials(
+    existing: dict, incoming: dict, connector_type: str
+) -> dict:
+    """
+    Merge incoming credential fields into existing assignment credentials.
+    Empty secret fields mean 'keep existing' — prevents cross-assignment form bleed.
+    """
+    merged = dict(existing or {})
+    secrets = CONNECTOR_SECRET_FIELDS.get(connector_type, set())
+    for key, value in (incoming or {}).items():
+        if value is None:
+            continue
+        if key in secrets and str(value).strip() == "":
+            continue
+        merged[key] = value
+    return merged
+
+
+def credentials_for_client(stored: dict, connector_type: str) -> dict:
+    """Return credential fields safe to populate UI (secrets omitted, flags only)."""
+    if not stored:
+        return {}
+    secrets = CONNECTOR_SECRET_FIELDS.get(connector_type, set())
+    client = {}
+    configured_secrets = []
+    for key, value in stored.items():
+        if key in secrets:
+            if value:
+                configured_secrets.append(key)
+            continue
+        client[key] = value
+    if configured_secrets:
+        client["_configured_secrets"] = configured_secrets
+    return client
 
 
 def get_workspace_credential_status(workspace_id):
@@ -49,18 +105,68 @@ def get_workspace_credential_status(workspace_id):
 def basic_validate_credentials(connector_type, credentials):
     """Basic validation - just check required fields are present"""
     if connector_type == "github":
+        if should_use_github_oauth(credentials):
+            missing = []
+            if not credentials.get("github_installation_id"):
+                missing.append("github_installation_id")
+            if not (credentials.get("github_org") or credentials.get("org")):
+                missing.append("github_org")
+            if missing:
+                return {"valid": False, "error": f"Missing required fields: {', '.join(missing)}"}
+            return {"valid": True, "message": "GitHub App validation passed", "auth_method": "github_app"}
+
+        if manual_connector_tokens_disabled():
+            return {
+                "valid": False,
+                "error": "Manual GitHub tokens are disabled — use Connect GitHub (App installation)",
+            }
         required_fields = ["github_token"]
         missing = [field for field in required_fields if not credentials.get(field)]
         if missing:
             return {"valid": False, "error": f"Missing required fields: {', '.join(missing)}"}
 
     elif connector_type == "jira":
+        if should_use_jira_oauth(credentials):
+            missing = []
+            if not credentials.get("jira_refresh_token"):
+                missing.append("jira_refresh_token")
+            if not credentials.get("jira_cloud_id"):
+                missing.append("jira_cloud_id")
+            if not credentials.get("jira_url"):
+                missing.append("jira_url")
+            if missing:
+                return {"valid": False, "error": f"Missing required fields: {', '.join(missing)}"}
+            return {"valid": True, "message": "Jira OAuth validation passed", "auth_method": "jira_oauth"}
+
+        if manual_connector_tokens_disabled():
+            return {
+                "valid": False,
+                "error": "Manual Jira tokens are disabled — use Connect Jira (OAuth)",
+            }
         required_fields = ["jira_url", "jira_email", "jira_token"]
         missing = [field for field in required_fields if not credentials.get(field)]
         if missing:
             return {"valid": False, "error": f"Missing required fields: {', '.join(missing)}"}
 
     elif connector_type == "aws":
+        if aws_auth_method(credentials) == AWS_ASSUME_ROLE_AUTH:
+            missing = []
+            for field in ("aws_role_arn", "aws_account_id", "aws_external_id"):
+                if not credentials.get(field):
+                    missing.append(field)
+            if missing:
+                return {"valid": False, "error": f"Missing required fields: {', '.join(missing)}"}
+            return {
+                "valid": True,
+                "message": "AWS cross-account role fields present",
+                "auth_method": AWS_ASSUME_ROLE_AUTH,
+            }
+
+        if aws_access_keys_disabled():
+            return {
+                "valid": False,
+                "error": "AWS access keys are disabled — deploy the CTOLens CloudFormation stack and register the Role ARN",
+            }
         required_fields = ["aws_access_key", "aws_secret_key"]
         missing = [field for field in required_fields if not credentials.get(field)]
         if missing:
@@ -124,9 +230,24 @@ def validate_connector_credentials(connector_type, credentials):
 
 
 def _validate_github_credentials(credentials):
-    """Test GitHub credentials"""
+    """Test GitHub credentials (PAT or GitHub App installation)."""
+    if should_use_github_oauth(credentials):
+        installation_id = credentials.get("github_installation_id")
+        if not installation_id:
+            return {"valid": False, "error": "GitHub installation_id is required"}
+        result = validate_installation_token(str(installation_id))
+        if result.get("valid"):
+            result["auth_method"] = "github_app"
+            result["org"] = credentials.get("github_org") or result.get("account_login")
+        return result
+
     token = credentials.get("github_token")
     if not token:
+        if credentials.get("github_org") or credentials.get("github_repos"):
+            return {
+                "valid": False,
+                "error": "GitHub App not connected for this assignment — click Connect GitHub App first",
+            }
         return {"valid": False, "error": "GitHub token is required"}
 
     try:
@@ -163,7 +284,9 @@ def _validate_github_credentials(credentials):
 
 
 def _validate_jira_credentials(credentials):
-    """Test Jira credentials"""
+    """Test Jira credentials (API token or OAuth)."""
+    if should_use_jira_oauth(credentials):
+        return validate_oauth_connection(credentials)
     return test_jira_connection(
         credentials.get("jira_url"),
         credentials.get("jira_email"),
@@ -172,7 +295,14 @@ def _validate_jira_credentials(credentials):
 
 
 def _validate_aws_credentials(credentials):
-    """Test AWS credentials"""
+    """Test AWS credentials (access keys or cross-account AssumeRole)."""
+    if aws_auth_method(credentials) == AWS_ASSUME_ROLE_AUTH:
+        return validate_assumed_role(
+            workspace_id=credentials.get("_workspace_id") or "validation",
+            assignment_id=credentials.get("_assignment_id") or "validation",
+            stored=credentials,
+        )
+
     access_key = credentials.get("aws_access_key")
     secret_key = credentials.get("aws_secret_key")
     region = credentials.get("aws_region", "us-east-1")

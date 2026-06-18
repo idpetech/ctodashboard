@@ -4,12 +4,25 @@ Protects workspace endpoints with user authentication
 """
 
 from functools import wraps
+from urllib.parse import quote
 
-from flask import g, jsonify, redirect, request, session, url_for
+from flask import g, jsonify, redirect, request, session
 
 from config.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+
+def _web_login_redirect():
+    """Send unauthenticated browser clients to dashboard login, preserving OAuth return URLs."""
+    next_path = request.full_path or request.path
+    if next_path.endswith("?") and not request.query_string:
+        next_path = request.path
+    if next_path.startswith("/oauth/"):
+        session["auth_next"] = next_path
+    if next_path and next_path != "/dashboard":
+        return redirect(f"/dashboard?next={quote(next_path, safe='')}")
+    return redirect("/dashboard")
 
 
 def create_auth_decorators(user_service):
@@ -180,18 +193,29 @@ def create_auth_decorators(user_service):
                 auth_header = request.headers.get("Authorization")
                 if auth_header:
                     try:
-                        scheme, token = auth_header.split(" ")
+                        scheme, token = auth_header.split(" ", 1)
                         if scheme.lower() == "bearer":
                             verification = user_service.verify_token(token)
                             if verification.get("valid"):
                                 user = verification["user"]
+                                session["user_email"] = user["email"]
+                                session["auth_token"] = token
                     except (ValueError, KeyError) as e:
                         logger.warning("Token verification failed: %s", e)
-                        pass
+
+            # Option 3: HttpOnly backup cookie (OAuth return from external sites)
+            if not user:
+                token_cookie = request.cookies.get("auth_token_backup")
+                if token_cookie:
+                    verification = user_service.verify_token(token_cookie)
+                    if verification.get("valid"):
+                        user = verification["user"]
+                        session["user_email"] = user["email"]
+                        session["auth_token"] = token_cookie
 
             # If no valid authentication found, redirect to login
             if not user:
-                return redirect(url_for("index"))  # Redirect to dashboard/login page
+                return _web_login_redirect()
 
             # Store user info for the endpoint
             g.current_user = user
@@ -277,7 +301,7 @@ def create_auth_decorators(user_service):
 
             # If no authentication, redirect to login
             if not user:
-                return redirect(url_for("index"))
+                return _web_login_redirect()
 
             g.current_user = user
 
@@ -286,13 +310,13 @@ def create_auth_decorators(user_service):
 
             if not workspace_id:
                 # For web pages, we could redirect to a "select workspace" page
-                return redirect(url_for("index"))
+                return redirect("/dashboard")
 
             # Check workspace access
             user_email = user["email"]
             if not user_service.check_workspace_access(user_email, workspace_id):
                 # Redirect to dashboard with error message
-                return redirect(url_for("index") + "?error=workspace_access_denied")
+                return redirect("/dashboard?error=workspace_access_denied")
 
             g.current_workspace = workspace_id
 

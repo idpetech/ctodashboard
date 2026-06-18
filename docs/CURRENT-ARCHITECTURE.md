@@ -246,3 +246,7 @@ Act 4 (complete): Railway, Vercel, and Azure connectors behind `ENABLE_*_CONNECT
 - **Queries:** `services/analytics/queries.py` — platform summary + retention cohorts
 - **Plan:** [backlog/PRODUCT-ANALYTICS-PLAN.md](./backlog/PRODUCT-ANALYTICS-PLAN.md)
 
+## Connector setup guides (GitHub, Jira, AWS)
+
+Operator-facing setup for local, staging, and production: [connectors/README.md](./connectors/README.md)
+

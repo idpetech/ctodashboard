@@ -166,3 +166,36 @@ def test_railway_project_token_validation(mock_post):
     result = validate_railway_connection("project-token", project_id="proj-1")
     assert result["valid"] is True
     assert result["token_type"] == "project"
+
+
+def test_merge_connector_credentials_preserves_secrets_on_empty_incoming():
+    from routes.api.credentials import merge_connector_credentials
+
+    existing = {
+        "auth_method": "github_app",
+        "github_installation_id": "123",
+        "github_org": "org-a",
+        "github_token": "ghp_secret_a",
+    }
+    incoming = {
+        "github_org": "org-b",
+        "github_repos": "repo1",
+        "github_token": "",
+    }
+    merged = merge_connector_credentials(existing, incoming, "github")
+    assert merged["github_installation_id"] == "123"
+    assert merged["github_org"] == "org-b"
+    assert merged["github_repos"] == "repo1"
+    assert merged["github_token"] == "ghp_secret_a"
+
+
+def test_credentials_for_client_omits_secrets():
+    from routes.api.credentials import credentials_for_client
+
+    client = credentials_for_client(
+        {"github_org": "acme", "github_token": "ghp_x", "auth_method": "manual"},
+        "github",
+    )
+    assert "github_token" not in client
+    assert client["github_org"] == "acme"
+    assert "github_token" in client["_configured_secrets"]

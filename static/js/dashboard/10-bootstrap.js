@@ -31,6 +31,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (isAuthenticated) {
             monitor.start();
             updater.start(); // Start real-time updates
+            if (typeof handleOAuthReturnBanner === 'function') {
+                handleOAuthReturnBanner();
+            }
         }
     }, 2000); // Give auth time to complete
 });

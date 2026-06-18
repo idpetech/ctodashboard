@@ -7,7 +7,9 @@ from flask import jsonify, request
 
 from routes.api.credentials import (
     basic_validate_credentials,
+    credentials_for_client,
     get_workspace_credential_status,
+    merge_connector_credentials,
     validate_connector_credentials,
 )
 from routes.api.deps import (
@@ -26,6 +28,10 @@ from routes.api.deps import (
     jira_metrics,
     logger,
 )
+from services.cloud_access.aws_sts_broker import AWS_ASSUME_ROLE_AUTH, aws_auth_method
+from services.cloud_access.flags import aws_access_keys_disabled
+from services.connectors.oauth_flags import manual_connector_tokens_disabled
+from services.connectors.token_resolver import should_use_github_oauth, should_use_jira_oauth
 from services.embedded.jira_metrics import normalize_jira_base_url
 from services.trial_guard import require_trial_write_access
 
@@ -496,6 +502,30 @@ def register_workspaces_routes(app):
             return jsonify({"error": f"Failed to get credential status: {str(e)}"}), 500
 
     @app.route(
+        "/api/workspaces/<workspace_id>/assignments/<assignment_id>/credentials/<connector_type>",
+        methods=["GET"],
+    )
+    @get_require_workspace_access()
+    def get_assignment_connector_credentials(workspace_id, assignment_id, connector_type):
+        """Load connector credentials for one assignment (secrets omitted from response)."""
+        from services.security.db_credentials import secure_db
+
+        allowed = {"github", "jira", "aws", "openai", "railway", "vercel", "azure"}
+        if connector_type not in allowed:
+            return jsonify({"error": f"Unknown connector type: {connector_type}"}), 400
+
+        stored = secure_db.get_assignment_credentials(workspace_id, assignment_id, connector_type) or {}
+        return jsonify(
+            {
+                "workspace_id": workspace_id,
+                "assignment_id": assignment_id,
+                "connector_type": connector_type,
+                "configured": bool(stored),
+                "credentials": credentials_for_client(stored, connector_type),
+            }
+        )
+
+    @app.route(
         "/api/workspaces/<workspace_id>/credentials/<connector_type>", methods=["PUT", "DELETE"]
     )
     @get_require_workspace_access()
@@ -515,6 +545,15 @@ def register_workspaces_routes(app):
             if not assignment_id:
                 return jsonify({"error": "Assignment ID is required"}), 400
 
+            from services.security.db_credentials import secure_db
+
+            existing = (
+                secure_db.get_assignment_credentials(workspace_id, assignment_id, connector_type)
+                or {}
+            )
+            if connector_type in ("github", "jira", "aws", "openai", "railway", "vercel", "azure"):
+                credentials = merge_connector_credentials(existing, credentials, connector_type)
+
             if connector_type == "jira":
                 credentials = dict(credentials)
                 if credentials.get("jira_url"):
@@ -523,6 +562,34 @@ def register_workspaces_routes(app):
                     credentials["jira_email"] = credentials["jira_email"].strip()
                 if credentials.get("jira_token"):
                     credentials["jira_token"] = credentials["jira_token"].strip()
+
+            if manual_connector_tokens_disabled():
+                if connector_type == "github" and not should_use_github_oauth(credentials):
+                    if credentials.get("github_token"):
+                        return jsonify(
+                            {
+                                "error": "Manual GitHub tokens are disabled",
+                                "message": "Use Connect GitHub to install the GitHub App",
+                            }
+                        ), 403
+                if connector_type == "jira" and not should_use_jira_oauth(credentials):
+                    if credentials.get("jira_token"):
+                        return jsonify(
+                            {
+                                "error": "Manual Jira tokens are disabled",
+                                "message": "Use Connect Jira to authorize with Atlassian OAuth",
+                            }
+                        ), 403
+
+            if aws_access_keys_disabled():
+                if connector_type == "aws" and aws_auth_method(credentials) != AWS_ASSUME_ROLE_AUTH:
+                    if credentials.get("aws_access_key") or credentials.get("aws_secret_key"):
+                        return jsonify(
+                            {
+                                "error": "AWS access keys are disabled",
+                                "message": "Deploy the CTOLens CloudFormation stack and register the Role ARN",
+                            }
+                        ), 403
 
             # Basic validation - just check required fields are present
             validation_result = basic_validate_credentials(connector_type, credentials)
@@ -586,6 +653,31 @@ def register_workspaces_routes(app):
         credentials = data.get("credentials", {})
         if not credentials:
             return jsonify({"error": "Credentials are required"}), 400
+
+        assignment_id = (data.get("assignment_id") or "").strip()
+        if assignment_id and connector_type in (
+            "github",
+            "jira",
+            "aws",
+            "openai",
+            "railway",
+            "vercel",
+            "azure",
+        ):
+            from services.security.db_credentials import secure_db
+
+            existing = (
+                secure_db.get_assignment_credentials(workspace_id, assignment_id, connector_type)
+                or {}
+            )
+            credentials = merge_connector_credentials(existing, credentials, connector_type)
+
+        if connector_type == "aws" and aws_auth_method(credentials) == AWS_ASSUME_ROLE_AUTH:
+            credentials = {
+                **credentials,
+                "_workspace_id": workspace_id,
+                "_assignment_id": assignment_id or "validation",
+            }
 
         result = validate_connector_credentials(connector_type, credentials)
         return jsonify(result)

@@ -1,6 +1,6 @@
 """API route module — see routes.api.register_routes."""
 
-from flask import jsonify, request
+from flask import jsonify, make_response, request
 
 from routes.api.deps import (
     _track_product_event,
@@ -19,6 +19,35 @@ from services.stripe_billing_service import (
 )
 from services.trial_service import admin_trial_summary
 from services.user_access import resolve_account_state
+
+
+def _set_auth_backup_cookie(response, token: str):
+    """Persist auth for browser redirects (OAuth callbacks) when session is missing."""
+    if token:
+        response.set_cookie(
+            "auth_token_backup",
+            token,
+            httponly=True,
+            secure=request.is_secure,
+            samesite="Lax",
+            max_age=60 * 60 * 24 * 30,
+        )
+    return response
+
+
+def _clear_auth_backup_cookie(response):
+    response.delete_cookie("auth_token_backup")
+    return response
+
+
+def _pop_auth_next_payload():
+    """Return pending OAuth browser redirect stored during unauthenticated callback."""
+    from flask import session
+
+    auth_next = (session.pop("auth_next", None) or "").strip()
+    if auth_next.startswith("/") and not auth_next.startswith("//"):
+        return {"auth_next": auth_next}
+    return {}
 
 
 def register_auth_billing_routes(app):
@@ -62,15 +91,19 @@ def register_auth_billing_routes(app):
                 _track_product_event(
                     "user_login", metadata={"method": "register_auto_login"}, user_id=email
                 )
-                return jsonify(
-                    {
-                        "success": True,
-                        "message": "User registered and logged in successfully",
-                        "user": user,
-                        "token": token,
-                        "auto_logged_in": True,
-                    }
-                ), 201
+                resp = make_response(
+                    jsonify(
+                        {
+                            "success": True,
+                            "message": "User registered and logged in successfully",
+                            "user": user,
+                            "token": token,
+                            "auto_logged_in": True,
+                        }
+                    ),
+                    201,
+                )
+                return _set_auth_backup_cookie(resp, token)
 
             return jsonify(
                 {
@@ -108,7 +141,8 @@ def register_auth_billing_routes(app):
             session.permanent = True  # Keep session across browser restarts
             _track_product_event("user_login", metadata={"method": "password"}, user_id=email)
 
-            return jsonify(result), 200
+            resp = make_response(jsonify(result), 200)
+            return _set_auth_backup_cookie(resp, result.get("token"))
         else:
             return jsonify(result), 401
 
@@ -121,7 +155,8 @@ def register_auth_billing_routes(app):
 
         end_flask_session(session.get("user_email"))
         session.clear()
-        return jsonify({"success": True, "message": "Logged out successfully"}), 200
+        resp = make_response(jsonify({"success": True, "message": "Logged out successfully"}), 200)
+        return _clear_auth_backup_cookie(resp)
 
     @app.route("/api/auth/verify", methods=["GET"])
     def verify_token():
@@ -132,29 +167,42 @@ def register_auth_billing_routes(app):
         if "user_email" in session and "auth_token" in session:
             verification = get_user_service().verify_token(session["auth_token"])
             if verification.get("valid"):
-                return jsonify(
-                    {
-                        "valid": True,
-                        "user": verification["user"],
-                        "token": session["auth_token"],
-                    }
+                resp = make_response(
+                    jsonify(
+                        {
+                            "valid": True,
+                            "user": verification["user"],
+                            "token": session["auth_token"],
+                            **_pop_auth_next_payload(),
+                        }
+                    ),
+                    200,
                 )
+                return _set_auth_backup_cookie(resp, session["auth_token"])
 
         # Check Authorization header
         auth_header = request.headers.get("Authorization")
         if auth_header:
             try:
-                scheme, token = auth_header.split(" ")
+                scheme, token = auth_header.split(" ", 1)
                 if scheme.lower() == "bearer":
                     verification = get_user_service().verify_token(token)
                     if verification.get("valid"):
-                        return jsonify(
-                            {
-                                "valid": True,
-                                "user": verification["user"],
-                                "token": token,
-                            }
+                        session["user_email"] = verification["user"]["email"]
+                        session["auth_token"] = token
+                        session.permanent = True
+                        resp = make_response(
+                            jsonify(
+                                {
+                                    "valid": True,
+                                    "user": verification["user"],
+                                    "token": token,
+                                    **_pop_auth_next_payload(),
+                                }
+                            ),
+                            200,
                         )
+                        return _set_auth_backup_cookie(resp, token)
             except ValueError:
                 pass
 
