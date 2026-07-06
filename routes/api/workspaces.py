@@ -514,7 +514,9 @@ def register_workspaces_routes(app):
         if connector_type not in allowed:
             return jsonify({"error": f"Unknown connector type: {connector_type}"}), 400
 
-        stored = secure_db.get_assignment_credentials(workspace_id, assignment_id, connector_type) or {}
+        stored = (
+            secure_db.get_assignment_credentials(workspace_id, assignment_id, connector_type) or {}
+        )
         return jsonify(
             {
                 "workspace_id": workspace_id,

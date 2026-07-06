@@ -20,9 +20,7 @@ from services.workspace.db_access import resolve_workspace_db
 logger = get_logger(__name__)
 
 SETTINGS_KEY = "assignment_metrics_cache"
-CONNECTOR_KEYS = frozenset(
-    {"aws", "github", "jira", "openai", "railway", "vercel", "azure"}
-)
+CONNECTOR_KEYS = frozenset({"aws", "github", "jira", "openai", "railway", "vercel", "azure"})
 METADATA_KEYS = frozenset(
     {
         "source",

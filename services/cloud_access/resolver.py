@@ -15,7 +15,9 @@ from services.cloud_access.aws_sts_broker import (
 from services.cloud_access.session import CloudAccessSession
 
 
-def resolve_aws_config(stored: Dict[str, Any], *, workspace_id: str, assignment_id: str) -> Dict[str, Any]:
+def resolve_aws_config(
+    stored: Dict[str, Any], *, workspace_id: str, assignment_id: str
+) -> Dict[str, Any]:
     """Return AWS auth config from stored assignment credentials (no session tokens)."""
     method = aws_auth_method(stored)
     region = stored.get("aws_region") or "us-east-1"

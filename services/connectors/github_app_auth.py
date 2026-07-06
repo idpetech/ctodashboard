@@ -67,7 +67,9 @@ def get_installation(installation_id: str) -> Dict[str, Any]:
         raise GitHubAppConfigError(f"GitHub installation {installation_id} not found")
     if response.status_code >= 400:
         body = (response.text or "")[:200]
-        raise GitHubAppConfigError(f"GitHub installation lookup failed: {response.status_code} {body}")
+        raise GitHubAppConfigError(
+            f"GitHub installation lookup failed: {response.status_code} {body}"
+        )
     return response.json()
 
 

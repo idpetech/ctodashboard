@@ -108,12 +108,16 @@ def list_accessible_resources(access_token: str) -> List[Dict[str, Any]]:
     )
     if response.status_code >= 400:
         body = (response.text or "")[:200]
-        raise JiraOAuthConfigError(f"Jira accessible resources failed: {response.status_code} {body}")
+        raise JiraOAuthConfigError(
+            f"Jira accessible resources failed: {response.status_code} {body}"
+        )
     data = response.json()
     return data if isinstance(data, list) else []
 
 
-def pick_jira_resource(resources: List[Dict[str, Any]], preferred_url: Optional[str] = None) -> Dict[str, Any]:
+def pick_jira_resource(
+    resources: List[Dict[str, Any]], preferred_url: Optional[str] = None
+) -> Dict[str, Any]:
     if not resources:
         raise JiraOAuthConfigError("No accessible Jira sites returned for this account")
     if preferred_url:

@@ -39,7 +39,9 @@ def register_cloud_access_routes(app):
 
         ctolens_account = (os.getenv("CTOLENS_AWS_ACCOUNT_ID") or "").strip()
         if not ctolens_account:
-            return jsonify({"error": "CTOLENS_AWS_ACCOUNT_ID is not configured on this deployment"}), 503
+            return jsonify(
+                {"error": "CTOLENS_AWS_ACCOUNT_ID is not configured on this deployment"}
+            ), 503
 
         external_id = suggested_external_id(workspace_id, assignment_id)
         return jsonify(

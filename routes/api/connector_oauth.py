@@ -42,7 +42,9 @@ logger = logging.getLogger(__name__)
 
 
 def _app_base_url() -> str:
-    configured = (os.getenv("APP_BASE_URL") or os.getenv("PUBLIC_APP_URL") or "").strip().rstrip("/")
+    configured = (
+        (os.getenv("APP_BASE_URL") or os.getenv("PUBLIC_APP_URL") or "").strip().rstrip("/")
+    )
     if configured:
         return configured
     return request.url_root.rstrip("/")
@@ -177,9 +179,7 @@ def register_connector_oauth_routes(app):
             "github_account_type": (installation.get("account") or {}).get("type"),
         }
 
-        existing = (
-            secure_db.get_assignment_credentials(workspace_id, assignment_id, "github") or {}
-        )
+        existing = secure_db.get_assignment_credentials(workspace_id, assignment_id, "github") or {}
         if existing.get("github_repos"):
             credentials["github_repos"] = existing["github_repos"]
 
@@ -275,7 +275,9 @@ def register_connector_oauth_routes(app):
 
         error = request.args.get("error", "").strip()
         if error:
-            return redirect(jira_return(status="error", message=f"Jira authorization denied: {error}"))
+            return redirect(
+                jira_return(status="error", message=f"Jira authorization denied: {error}")
+            )
 
         code = request.args.get("code", "").strip()
         if not code:
@@ -337,9 +339,7 @@ def register_connector_oauth_routes(app):
             "jira_url": site_url,
         }
 
-        existing = (
-            secure_db.get_assignment_credentials(workspace_id, assignment_id, "jira") or {}
-        )
+        existing = secure_db.get_assignment_credentials(workspace_id, assignment_id, "jira") or {}
         if existing.get("jira_projects"):
             credentials["jira_projects"] = existing["jira_projects"]
 
@@ -376,7 +376,9 @@ def register_connector_oauth_routes(app):
             )
         )
 
-    @app.route("/api/workspaces/<workspace_id>/credentials/<connector_type>/oauth", methods=["DELETE"])
+    @app.route(
+        "/api/workspaces/<workspace_id>/credentials/<connector_type>/oauth", methods=["DELETE"]
+    )
     @get_require_workspace_access()
     def disconnect_connector_oauth(workspace_id, connector_type):
         """Clear OAuth connector credentials for an assignment."""

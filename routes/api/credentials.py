@@ -25,9 +25,7 @@ CONNECTOR_SECRET_FIELDS = {
 }
 
 
-def merge_connector_credentials(
-    existing: dict, incoming: dict, connector_type: str
-) -> dict:
+def merge_connector_credentials(existing: dict, incoming: dict, connector_type: str) -> dict:
     """
     Merge incoming credential fields into existing assignment credentials.
     Empty secret fields mean 'keep existing' — prevents cross-assignment form bleed.
@@ -113,7 +111,11 @@ def basic_validate_credentials(connector_type, credentials):
                 missing.append("github_org")
             if missing:
                 return {"valid": False, "error": f"Missing required fields: {', '.join(missing)}"}
-            return {"valid": True, "message": "GitHub App validation passed", "auth_method": "github_app"}
+            return {
+                "valid": True,
+                "message": "GitHub App validation passed",
+                "auth_method": "github_app",
+            }
 
         if manual_connector_tokens_disabled():
             return {
@@ -136,7 +138,11 @@ def basic_validate_credentials(connector_type, credentials):
                 missing.append("jira_url")
             if missing:
                 return {"valid": False, "error": f"Missing required fields: {', '.join(missing)}"}
-            return {"valid": True, "message": "Jira OAuth validation passed", "auth_method": "jira_oauth"}
+            return {
+                "valid": True,
+                "message": "Jira OAuth validation passed",
+                "auth_method": "jira_oauth",
+            }
 
         if manual_connector_tokens_disabled():
             return {
