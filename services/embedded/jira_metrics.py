@@ -180,6 +180,10 @@ class EmbeddedJiraMetrics:
 
     def _init_credentials(self):
         """Initialize Jira credentials with workspace support and env var fallback"""
+        self.auth_method = "manual"
+        self.cloud_id = None
+        self.api_base = None
+
         if self.workspace_id and self.assignment_id:
             try:
                 from services.auth.credential_service import CredentialService
@@ -188,6 +192,9 @@ class EmbeddedJiraMetrics:
                 credentials = credential_service.get_jira_credentials(
                     self.workspace_id, self.assignment_id
                 )
+                self.auth_method = credentials.get("auth_method") or "manual"
+                self.cloud_id = credentials.get("cloud_id")
+                self.api_base = credentials.get("api_base")
                 self.base_url = credentials.get("url") or os.getenv("JIRA_URL")
                 self.email = credentials.get("email") or os.getenv("JIRA_EMAIL")
                 self.token = credentials.get("token") or os.getenv("JIRA_TOKEN")
@@ -211,33 +218,42 @@ class EmbeddedJiraMetrics:
         if self.token:
             self.token = self.token.strip()
 
+    def _request_context(self):
+        """Return (base_url, auth, headers) for Jira REST calls."""
+        headers = {"Accept": "application/json"}
+        if self.auth_method == "jira_oauth" and self.api_base and self.token:
+            return self.api_base, None, {**headers, "Authorization": f"Bearer {self.token}"}
+        if not all([self.base_url, self.email, self.token]):
+            return None, None, headers
+        return self.base_url, (self.email, self.token), headers
+
     def get_project_metrics(self, project_key: str) -> dict:
         """Get Jira project metrics"""
-        if not all([self.base_url, self.email, self.token]):
+        base_url, auth, headers = self._request_context()
+        if not base_url or (auth is None and "Authorization" not in headers):
             return {"error": "Jira credentials not configured"}
 
         try:
-            auth = (self.email, self.token)
-            headers = {"Accept": "application/json"}
-
             # Get project info
-            project_url = f"{self.base_url}/rest/api/3/project/{project_key}"
+            project_url = f"{base_url}/rest/api/3/project/{project_key}"
             project_response = requests.get(project_url, auth=auth, headers=headers, timeout=10)
             project_data = project_response.json() if project_response.status_code == 200 else {}
 
             # Issues created in last 30 days
-            issues_created_30 = self._search_issues(project_key, auth, headers, days=30)
-            issues_7 = self._search_issues(project_key, auth, headers, days=7)
+            issues_created_30 = self._search_issues(project_key, auth, headers, base_url, days=30)
+            issues_7 = self._search_issues(project_key, auth, headers, base_url, days=7)
             issues_resolved_30 = self._count_jql(
                 project_key,
                 auth,
                 headers,
+                base_url,
                 jql_suffix="resolutiondate >= -30d",
             )
             open_backlog = self._count_jql(
                 project_key,
                 auth,
                 headers,
+                base_url,
                 jql_suffix="resolutiondate is EMPTY",
             )
 
@@ -256,8 +272,8 @@ class EmbeddedJiraMetrics:
         except Exception as e:
             return {"error": f"Jira API error: {str(e)}"}
 
-    def _count_jql(self, project_key: str, auth, headers, *, jql_suffix: str) -> int:
-        search_url = f"{self.base_url}/rest/api/3/search/jql"
+    def _count_jql(self, project_key: str, auth, headers, base_url, *, jql_suffix: str) -> int:
+        search_url = f"{base_url}/rest/api/3/search/jql"
         jql_query = f"project = '{project_key}' AND {jql_suffix}"
         search_payload = {
             "jql": jql_query,
@@ -276,8 +292,8 @@ class EmbeddedJiraMetrics:
             return 0
         return len(search_response.json().get("issues", []))
 
-    def _search_issues(self, project_key: str, auth, headers, *, days: int) -> int:
-        search_url = f"{self.base_url}/rest/api/3/search/jql"
+    def _search_issues(self, project_key: str, auth, headers, base_url, *, days: int) -> int:
+        search_url = f"{base_url}/rest/api/3/search/jql"
         jql_query = f"project = '{project_key}' AND created >= -{days}d"
         search_payload = {
             "jql": jql_query,

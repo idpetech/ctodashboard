@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import ssl
 import sys
 import urllib.error
 import urllib.request
@@ -65,6 +66,16 @@ def build_pipeline_result_from_files(artifact_dir: Path) -> Dict[str, Any]:
     }
 
 
+def _urlopen_ssl_context() -> ssl.SSLContext | None:
+    """Use certifi CA bundle on macOS when system Python certs are missing."""
+    try:
+        import certifi
+
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        return None
+
+
 def post_analysis_api(
     api_base: str,
     *,
@@ -87,15 +98,24 @@ def post_analysis_api(
         headers={"Content-Type": "application/json"},
         method="POST",
     )
+    ssl_context = _urlopen_ssl_context()
     try:
-        with urllib.request.urlopen(request, timeout=300) as response:
+        with urllib.request.urlopen(request, timeout=300, context=ssl_context) as response:
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
         raise SystemExit(f"HTTP {exc.code} from {url}: {detail}") from exc
     except urllib.error.URLError as exc:
+        reason = str(exc.reason)
+        hint = ""
+        if "CERTIFICATE_VERIFY_FAILED" in reason:
+            hint = (
+                "\nHint: macOS Python often lacks CA certs. "
+                "Run: /Applications/Python\\ 3.12/Install\\ Certificates.command "
+                "or use scripts/run_analysis.py (uses certifi)."
+            )
         raise SystemExit(
-            f"Could not reach {url}. Is Flask running? Set ENABLE_ANALYSIS_LAYER=true.\n{exc}"
+            f"Could not reach {url}. Is Flask running? Set ENABLE_ANALYSIS_LAYER=true.\n{exc}{hint}"
         ) from exc
 
 

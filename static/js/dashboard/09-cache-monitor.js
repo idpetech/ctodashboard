@@ -336,63 +336,52 @@ function cachedFetch(url, options, cacheKey, cacheTTL) {
 function configureConnector(connectorType) {
     document.getElementById('modalTitle').textContent = `Configure ${connectorType.toUpperCase()}`;
     
-    // Hide all forms
     document.querySelectorAll('.credential-form').forEach(form => {
         form.classList.remove('active');
     });
     
-    // Show specific form
     document.getElementById(`${connectorType}-form`).classList.add('active');
-    
-    // Clear any previous messages
     clearMessages();
     
-    // Populate assignment dropdown and then show modal
-    populateAssignmentDropdown(connectorType).then(() => {
-        // Load existing credentials if we have a pre-selected assignment
-        loadExistingCredentials(connectorType);
-        
-        // Show modal after dropdown and credentials are populated
+    populateAssignmentDropdown(connectorType).then(async () => {
+        if (typeof loadConnectorOAuthUi === 'function') {
+            await loadConnectorOAuthUi(connectorType);
+        }
+        await loadExistingCredentials(connectorType);
         document.getElementById('credentialModal').classList.remove('hidden');
     });
 }
 
 async function loadExistingCredentials(connectorType) {
-    try {
-        // Get the currently selected assignment (either pre-selected or from dropdown)
-        const assignmentId = selectedConnectorAssignmentId || selectedAssignmentId || document.getElementById(`${connectorType}_assignment`)?.value;
-        
-        if (!assignmentId) {
-            console.log('No assignment selected, skipping credential loading');
-            return;
+    if (connectorType === 'github' || connectorType === 'jira') {
+        if (typeof loadConnectorCredentialsForAssignment === 'function') {
+            return loadConnectorCredentialsForAssignment(connectorType);
         }
-        
-        console.log(`Loading existing ${connectorType} credentials for assignment:`, assignmentId);
-        
+    }
+    try {
+        const assignmentId = selectedConnectorAssignmentId || selectedAssignmentId || document.getElementById(`${connectorType}_assignment`)?.value;
+        if (!assignmentId) return;
+
         const workspaceId = currentWorkspace || 'default_workspace';
         const response = await authFetch(
-            `/api/workspaces/${workspaceId}/assignments/${assignmentId}/auth/${connectorType}`
+            `/api/workspaces/${workspaceId}/assignments/${assignmentId}/credentials/${connectorType}`
         );
-        
+
         if (response.ok) {
             const data = await response.json();
             const credentials = data.credentials || {};
-            
-            if (credentials && Object.keys(credentials).length > 0) {
-                console.log(`Found existing ${connectorType} credentials:`, credentials);
-                
-                // Pre-populate form fields based on connector type
-                if (connectorType === 'github') {
-                    populateGitHubForm(credentials);
-                } else if (connectorType === 'aws') {
-                    populateAWSForm(credentials);
-                } else if (connectorType === 'openai') {
-                    populateOpenAIForm(credentials);
-                } else if (connectorType === 'jira') {
-                    populateJiraForm(credentials);
-                }
-            } else {
-                console.log(`No stored ${connectorType} credentials for assignment:`, assignmentId);
+            if (connectorType === 'aws') populateAWSForm(credentials);
+            else if (connectorType === 'openai') populateOpenAIForm(credentials);
+            else if (connectorType === 'railway') {
+                if (credentials.railway_project_id) document.getElementById('railway_project_id').value = credentials.railway_project_id;
+                if (credentials.railway_project_name) document.getElementById('railway_project_name').value = credentials.railway_project_name;
+            } else if (connectorType === 'vercel') {
+                if (credentials.vercel_project_id) document.getElementById('vercel_project_id').value = credentials.vercel_project_id;
+                if (credentials.vercel_team_id) document.getElementById('vercel_team_id').value = credentials.vercel_team_id;
+            } else if (connectorType === 'azure') {
+                ['azure_tenant_id','azure_client_id','azure_subscription_id','azure_resource_group'].forEach((k) => {
+                    if (credentials[k]) document.getElementById(k).value = credentials[k];
+                });
             }
         }
     } catch (error) {
@@ -401,17 +390,12 @@ async function loadExistingCredentials(connectorType) {
 }
 
 function populateGitHubForm(credentials) {
-    // Pre-populate GitHub form fields
-    if (credentials.github_token) {
-        document.getElementById('github_token').value = credentials.github_token;
+    if (typeof populateConnectorFormFromCredentials === 'function') {
+        populateConnectorFormFromCredentials('github', credentials);
+        return;
     }
-    if (credentials.github_org) {
-        document.getElementById('github_org').value = credentials.github_org;
-    }
-    if (credentials.github_repos) {
-        document.getElementById('github_repos').value = credentials.github_repos;
-    }
-    console.log('GitHub form pre-populated with existing credentials');
+    if (credentials.github_org) document.getElementById('github_org').value = credentials.github_org;
+    if (credentials.github_repos) document.getElementById('github_repos').value = credentials.github_repos;
 }
 
 function populateAWSForm(credentials) {
@@ -443,19 +427,13 @@ function populateOpenAIForm(credentials) {
 }
 
 function populateJiraForm(credentials) {
-    if (credentials.jira_url) {
-        document.getElementById('jira_url').value = credentials.jira_url;
+    if (typeof populateConnectorFormFromCredentials === 'function') {
+        populateConnectorFormFromCredentials('jira', credentials);
+        return;
     }
-    if (credentials.jira_email) {
-        document.getElementById('jira_email').value = credentials.jira_email;
-    }
-    if (credentials.jira_token) {
-        document.getElementById('jira_token').value = credentials.jira_token;
-    }
-    if (credentials.jira_projects) {
-        document.getElementById('jira_projects').value = credentials.jira_projects;
-    }
-    console.log('Jira form pre-populated with existing credentials');
+    if (credentials.jira_url) document.getElementById('jira_url').value = credentials.jira_url;
+    if (credentials.jira_email) document.getElementById('jira_email').value = credentials.jira_email;
+    if (credentials.jira_projects) document.getElementById('jira_projects').value = credentials.jira_projects;
 }
 
 function closeCredentialModal() {
@@ -469,19 +447,21 @@ async function testCredentials(connectorType) {
     const credentials = getCredentialsFromForm(connectorType);
     if (!credentials) return;
 
+    const assignmentId = document.getElementById(`${connectorType}_assignment`)?.value;
     showMessage('Testing connection...', 'info');
 
     try {
         const workspaceId = currentWorkspace || 'default_workspace';
         const response = await authFetch(`/api/workspaces/${workspaceId}/credentials/${connectorType}/test`, {
             method: 'POST',
-            body: JSON.stringify({ credentials })
+            body: JSON.stringify({ credentials, assignment_id: assignmentId }),
         });
 
         const result = await response.json();
 
         if (result.valid) {
-            showMessage(`✅ Connection successful! Connected as: ${result.user || result.account}`, 'success');
+            const who = result.user || result.account_login || result.account || result.message;
+            showMessage(`✅ Connection successful!${who ? ` Connected as: ${who}` : ''}`, 'success');
         } else {
             showMessage(`❌ Connection failed: ${result.error}`, 'error');
         }
@@ -535,19 +515,25 @@ async function saveCredentials(event, connectorType) {
 
 function getCredentialsFromForm(connectorType) {
     switch (connectorType) {
-        case 'github':
-            return {
-                github_token: document.getElementById('github_token').value,
+        case 'github': {
+            const ghCreds = {
                 github_org: document.getElementById('github_org').value,
-                github_repos: document.getElementById('github_repos').value
+                github_repos: document.getElementById('github_repos').value,
             };
-        case 'jira':
-            return {
+            const ghToken = document.getElementById('github_token').value;
+            if (ghToken) ghCreds.github_token = ghToken;
+            return ghCreds;
+        }
+        case 'jira': {
+            const jiraCreds = {
                 jira_url: document.getElementById('jira_url').value,
                 jira_email: document.getElementById('jira_email').value,
-                jira_token: document.getElementById('jira_token').value,
-                jira_projects: document.getElementById('jira_projects').value
+                jira_projects: document.getElementById('jira_projects').value,
             };
+            const jiraToken = document.getElementById('jira_token').value;
+            if (jiraToken) jiraCreds.jira_token = jiraToken;
+            return jiraCreds;
+        }
         case 'aws':
             return {
                 aws_access_key: document.getElementById('aws_access_key').value,

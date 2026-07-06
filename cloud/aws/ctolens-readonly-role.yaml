@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  CTOLens read-only cross-account IAM role. Grants CTOLens temporary access via STS
+  AssumeRole with an external ID. No long-lived access keys are created or shared.
+
+Parameters:
+  CTOLensAccountId:
+    Type: String
+    Description: AWS account ID of the CTOLens platform (provided in CTOLens onboarding UI)
+    AllowedPattern: "[0-9]{12}"
+    ConstraintDescription: Must be a 12-digit AWS account ID
+
+  ExternalId:
+    Type: String
+    Description: External ID from CTOLens onboarding (tenant-scoped secret for AssumeRole)
+    MinLength: 8
+    MaxLength: 1224
+
+  RoleName:
+    Type: String
+    Default: CTOLensReadOnlyRole
+    Description: Name of the IAM role CTOLens will assume
+    AllowedPattern: "[A-Za-z0-9+=,.@_-]{1,64}"
+
+Resources:
+  CTOLensReadOnlyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref RoleName
+      Description: Read-only cross-account role for CTOLens architecture and operations insights
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${CTOLensAccountId}:root"
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Ref ExternalId
+      ManagedPolicyArns:
+        - !Ref CTOLensReadOnlyPolicy
+
+  CTOLensReadOnlyPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${RoleName}-Policy"
+      Description: Least-privilege read-only permissions for CTOLens assessments
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: CTOLensReadOnlyDiscovery
+            Effect: Allow
+            Action:
+              - ce:GetCostAndUsage
+              - ce:GetCostForecast
+              - ce:GetDimensionValues
+              - ce:GetTags
+              - cloudwatch:DescribeAlarms
+              - cloudwatch:GetMetricData
+              - cloudwatch:ListMetrics
+              - config:Describe*
+              - config:Get*
+              - config:List*
+              - ec2:Describe*
+              - elasticloadbalancing:Describe*
+              - events:Describe*
+              - events:List*
+              - iam:GetAccountSummary
+              - iam:GetRole
+              - iam:ListRoles
+              - iam:ListAttachedRolePolicies
+              - lambda:List*
+              - lambda:Get*
+              - logs:DescribeLogGroups
+              - rds:Describe*
+              - s3:ListAllMyBuckets
+              - s3:GetBucketLocation
+              - s3:GetBucketTagging
+              - s3:ListBucket
+              - sts:GetCallerIdentity
+              - tag:GetResources
+            Resource: "*"
+
+Outputs:
+  RoleArn:
+    Description: Register this Role ARN in CTOLens Workspace Settings
+    Value: !GetAtt CTOLensReadOnlyRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-RoleArn"
+
+  AwsAccountId:
+    Description: Your AWS account ID (register in CTOLens if not auto-detected)
+    Value: !Ref AWS::AccountId
+    Export:
+      Name: !Sub "${AWS::StackName}-AccountId"
+
+  ExternalId:
+    Description: External ID configured for this role (must match CTOLens)
+    Value: !Ref ExternalId

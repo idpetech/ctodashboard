@@ -246,3 +246,19 @@ Act 4 (complete): Railway, Vercel, and Azure connectors behind `ENABLE_*_CONNECT
 - **Queries:** `services/analytics/queries.py` — platform summary + retention cohorts
 - **Plan:** [backlog/PRODUCT-ANALYTICS-PLAN.md](./backlog/PRODUCT-ANALYTICS-PLAN.md)
 
+## Connector setup guides (GitHub, Jira, AWS)
+
+Operator-facing setup for local, staging, and production: [connectors/README.md](./connectors/README.md)
+
+
+---
+
+## Assignment metrics cache (Load All Metrics, feature-flagged)
+
+**Flag:** `ENABLE_ASSIGNMENT_METRICS_CACHE` (default `false`).
+
+- **Store:** `workspace.settings.assignment_metrics_cache[assignment_id]` — full connector payload + `fetched_at`, fingerprint, connector ok/fail lists
+- **Service:** `services/assignment_metrics_store.py`
+- **API:** `GET /api/all-metrics/<id>?source=stored|refresh=true`; `POST .../metrics/refresh` (workspace-scoped)
+- **UI:** Assignment tab — **Show last metrics** vs **Refresh live metrics** (mirrors CTOLens fast/live briefing)
+- **Flag off:** legacy behavior — every request live-fetches connectors (no persistence)

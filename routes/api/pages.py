@@ -14,6 +14,16 @@ from routes.api.deps import (
 def register_pages_routes(app):
     """Register pages routes."""
 
+    @app.context_processor
+    def inject_connector_capabilities():
+        from services.cloud_access.flags import cloud_access_capabilities
+        from services.connectors.oauth_flags import oauth_capabilities
+
+        return {
+            "oauth_caps": oauth_capabilities(),
+            "cloud_access_caps": cloud_access_capabilities(),
+        }
+
     @app.route("/r/<share_token>")
     def public_shared_report(share_token):
         """Public read-only executive report (no login)."""

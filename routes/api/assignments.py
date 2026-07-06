@@ -21,8 +21,30 @@ from services.assignment_metrics_config import (
 from services.assignment_metrics_config import (
     jira_metrics_config as build_jira_metrics_config,
 )
+from services.assignment_metrics_store import is_metrics_cache_enabled, resolve_assignment_metrics
 from services.embedded.jira_metrics import EmbeddedJiraMetrics
 from services.portfolio_service import build_portfolio_overview
+
+
+def _metrics_query_flags():
+    refresh = request.args.get("refresh", "").lower() == "true"
+    if request.args.get("fetch_live", "").lower() == "true":
+        refresh = True
+    source = (request.args.get("source") or "").strip().lower() or None
+    return refresh, source
+
+
+def _assignment_metrics_response(workspace_id: str, assignment_id: str, assignment: dict):
+    refresh, source = _metrics_query_flags()
+    body, status = resolve_assignment_metrics(
+        workspace_id,
+        assignment_id,
+        assignment,
+        collect_assignment_metrics,
+        refresh=refresh,
+        source=source,
+    )
+    return jsonify(body), status
 
 
 def register_assignments_routes(app):
@@ -414,7 +436,7 @@ def register_assignments_routes(app):
 
             workspace_id = result["workspace_id"]
             assignment = result["assignment"]
-            return jsonify(collect_assignment_metrics(workspace_id, assignment_id, assignment))
+            return _assignment_metrics_response(workspace_id, assignment_id, assignment)
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
@@ -426,7 +448,36 @@ def register_assignments_routes(app):
             assignment = get_workspace_service().get_assignment(workspace_id, assignment_id)
             if not assignment:
                 return jsonify({"error": "Assignment not found"}), 404
-            return jsonify(collect_assignment_metrics(workspace_id, assignment_id, assignment))
+            return _assignment_metrics_response(workspace_id, assignment_id, assignment)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.route(
+        "/api/workspaces/<workspace_id>/assignments/<assignment_id>/metrics/refresh",
+        methods=["POST"],
+    )
+    @get_require_auth()
+    def refresh_workspace_assignment_metrics(workspace_id, assignment_id):
+        """Live connector fetch; persists snapshot when metrics cache flag is on."""
+        if not is_metrics_cache_enabled():
+            return jsonify(
+                {
+                    "error": "metrics_cache_disabled",
+                    "message": "Assignment metrics cache is disabled. Use GET with live fetch.",
+                }
+            ), 403
+        try:
+            assignment = get_workspace_service().get_assignment(workspace_id, assignment_id)
+            if not assignment:
+                return jsonify({"error": "Assignment not found"}), 404
+            body, status = resolve_assignment_metrics(
+                workspace_id,
+                assignment_id,
+                assignment,
+                collect_assignment_metrics,
+                refresh=True,
+            )
+            return jsonify(body), status
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 

@@ -7,6 +7,12 @@ See docs/POSTGRES-SINGLE-SOURCE-PLAN.md
 import os
 from typing import Any, Dict, Optional
 
+from services.connectors.token_resolver import (
+    github_auth_method,
+    jira_auth_method,
+    resolve_github_token,
+    resolve_jira_credentials,
+)
 from services.security.db_credentials import secure_db
 
 
@@ -59,20 +65,32 @@ class CredentialService:
     def get_github_credentials(
         self, workspace_id: str, assignment_id: str
     ) -> Dict[str, Optional[str]]:
-        """Get GitHub credentials from workspace store with env var fallback for secrets"""
-        return {
-            "token": self.get_credential_with_fallback(
+        """Get GitHub credentials; resolves GitHub App installation tokens when configured."""
+        stored = self.get_workspace_credentials(workspace_id, assignment_id, "github")
+        token = resolve_github_token(stored)
+        if not token:
+            token = self.get_credential_with_fallback(
                 workspace_id, assignment_id, "github", "github_token", "GITHUB_TOKEN"
-            ),
-            "org": self.get_credential_with_fallback(
-                workspace_id, assignment_id, "github", "github_org", "GITHUB_ORG"
-            ),
+            )
+        org = stored.get("github_org") or stored.get("org")
+        if not org and allow_connector_env_fallback():
+            org = os.getenv("GITHUB_ORG")
+        return {
+            "token": token,
+            "org": org,
+            "auth_method": github_auth_method(stored),
+            "installation_id": stored.get("github_installation_id"),
         }
 
     def get_jira_credentials(
         self, workspace_id: str, assignment_id: str
     ) -> Dict[str, Optional[str]]:
-        """Get Jira credentials from workspace store with env var fallback for secrets"""
+        """Get Jira credentials; refreshes OAuth tokens when configured."""
+        stored = self.get_workspace_credentials(workspace_id, assignment_id, "jira")
+        resolved = resolve_jira_credentials(stored)
+        if resolved.get("auth_method") == "jira_oauth":
+            return resolved
+
         return {
             "token": self.get_credential_with_fallback(
                 workspace_id, assignment_id, "jira", "jira_token", "JIRA_TOKEN"
@@ -83,13 +101,27 @@ class CredentialService:
             "url": self.get_credential_with_fallback(
                 workspace_id, assignment_id, "jira", "jira_url", "JIRA_URL"
             ),
+            "auth_method": jira_auth_method(stored),
         }
 
     def get_aws_credentials(
         self, workspace_id: str, assignment_id: str
     ) -> Dict[str, Optional[str]]:
-        """Get AWS credentials from workspace store with env var fallback for secrets"""
+        """Get AWS connection config (role ARN or access keys). Session tokens are never stored."""
+        stored = self.get_workspace_credentials(workspace_id, assignment_id, "aws")
+        from services.cloud_access.aws_sts_broker import aws_auth_method, AWS_ASSUME_ROLE_AUTH
+
+        if aws_auth_method(stored) == AWS_ASSUME_ROLE_AUTH:
+            return {
+                "auth_method": AWS_ASSUME_ROLE_AUTH,
+                "role_arn": stored.get("aws_role_arn"),
+                "external_id": stored.get("aws_external_id") or stored.get("external_id"),
+                "account_id": stored.get("aws_account_id"),
+                "region": stored.get("aws_region") or "us-east-1",
+            }
+
         return {
+            "auth_method": "aws_access_key",
             "access_key": self.get_credential_with_fallback(
                 workspace_id, assignment_id, "aws", "aws_access_key", "AWS_ACCESS_KEY_ID"
             ),
@@ -98,7 +130,8 @@ class CredentialService:
             ),
             "region": self.get_credential_with_fallback(
                 workspace_id, assignment_id, "aws", "aws_region", "AWS_REGION"
-            ),
+            )
+            or "us-east-1",
         }
 
     def get_openai_credentials(

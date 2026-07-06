@@ -7,6 +7,8 @@ from routes.api.audit import register_audit_routes
 from routes.api.auth_billing import register_auth_billing_routes
 from routes.api.briefing import register_briefing_routes
 from routes.api.chatbot import register_chatbot_routes
+from routes.api.cloud_access import register_cloud_access_routes
+from routes.api.connector_oauth import register_connector_oauth_routes
 from routes.api.import_export import register_import_export_routes
 from routes.api.pages import register_pages_routes
 from routes.api.portfolios import register_portfolios_routes
@@ -32,3 +34,5 @@ def register_routes(app):
     register_analysis_routes(app)
     register_reporting_routes(app)
     register_repo_intelligence_routes(app)
+    register_connector_oauth_routes(app)
+    register_cloud_access_routes(app)

@@ -28,6 +28,13 @@ FEATURE_FLAGS = {
     "railway_connector": os.getenv("ENABLE_RAILWAY_CONNECTOR", "false").lower() == "true",
     "vercel_connector": os.getenv("ENABLE_VERCEL_CONNECTOR", "false").lower() == "true",
     "azure_connector": os.getenv("ENABLE_AZURE_CONNECTOR", "false").lower() == "true",
+    "github_app_connector": os.getenv("ENABLE_GITHUB_APP_CONNECTOR", "false").lower() == "true",
+    "jira_oauth_connector": os.getenv("ENABLE_JIRA_OAUTH_CONNECTOR", "false").lower() == "true",
+    "connector_oauth_ui": os.getenv("ENABLE_CONNECTOR_OAUTH_UI", "false").lower() == "true",
+    "aws_cross_account_role": os.getenv("ENABLE_AWS_CROSS_ACCOUNT_ROLE", "false").lower() == "true",
+    "aws_role_connector_ui": os.getenv("ENABLE_AWS_ROLE_CONNECTOR_UI", "false").lower() == "true",
+    "assignment_metrics_cache": os.getenv("ENABLE_ASSIGNMENT_METRICS_CACHE", "false").lower()
+    == "true",
 }
 
 

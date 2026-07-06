@@ -1,6 +1,11 @@
 """Build connector config for metrics from Postgres credentials + assignment metadata."""
 
 from services.auth.credential_service import CredentialService
+from services.cloud_access.aws_sts_broker import aws_credentials_ready
+from services.connectors.token_resolver import (
+    github_credentials_ready,
+    jira_credentials_ready,
+)
 
 
 def stored_connector_credentials(
@@ -16,17 +21,11 @@ def connector_credentials_ready(workspace_id: str, assignment_id: str, connector
     """True when this assignment has stored credentials for the connector (not platform env)."""
     stored = stored_connector_credentials(workspace_id, assignment_id, connector_type)
     if connector_type == "github":
-        token = stored.get("github_token") or stored.get("token")
-        org = stored.get("github_org") or stored.get("org")
-        return bool(token and org)
+        return github_credentials_ready(stored)
     if connector_type == "jira":
-        return bool(
-            (stored.get("jira_token") or stored.get("token"))
-            and (stored.get("jira_email") or stored.get("email"))
-            and (stored.get("jira_url") or stored.get("url"))
-        )
+        return jira_credentials_ready(stored)
     if connector_type == "aws":
-        return bool(stored.get("aws_access_key") and stored.get("aws_secret_key"))
+        return aws_credentials_ready(stored)
     if connector_type == "openai":
         return bool(stored.get("openai_api_key") or stored.get("api_key"))
     if connector_type == "railway":

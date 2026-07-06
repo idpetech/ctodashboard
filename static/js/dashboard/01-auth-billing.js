@@ -1,6 +1,31 @@
 /* CTO Lens dashboard module: 01-auth-billing.js */
 var signupPlanIntent = null;
 
+function getAuthNextFromUrl() {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const next = (params.get('next') || '').trim();
+        if (!next.startsWith('/') || next.startsWith('//')) return null;
+        return next;
+    } catch (e) {
+        return null;
+    }
+}
+
+function consumeAuthNextRedirect() {
+    const next = getAuthNextFromUrl();
+    if (!next) return false;
+    try {
+        const params = new URLSearchParams(window.location.search);
+        params.delete('next');
+        const query = params.toString();
+        window.history.replaceState({}, '', window.location.pathname + (query ? '?' + query : ''));
+    } catch (e) {}
+    window.location.href = next;
+    return true;
+}
+
+
 function getSignupPlanFromUrl() {
     try {
         const params = new URLSearchParams(window.location.search);
@@ -413,6 +438,10 @@ async function restoreSessionFromServer() {
     localStorage.setItem('auth_token', authToken);
     localStorage.setItem('current_user', JSON.stringify(currentUser));
     updateAdminUI();
+    if (data.auth_next) {
+        window.location.href = data.auth_next;
+        return true;
+    }
     return true;
 }
 
@@ -447,6 +476,10 @@ async function verifyAuthToken() {
                 localStorage.setItem('current_user', JSON.stringify(currentUser));
                 updateAdminUI();
                 await refreshCurrentUserFromServer();
+                if (data.auth_next) {
+                    window.location.href = data.auth_next;
+                    return;
+                }
             }
             await showDashboard();
         } else {
@@ -492,6 +525,9 @@ function hideAuthOverlay() {
 
 async function showDashboard() {
     hideAuthOverlay();
+    if (consumeAuthNextRedirect()) {
+        return;
+    }
     const plan = getSignupPlanFromUrl();
     if (plan === 'starter' || plan === 'professional') {
         signupPlanIntent = plan;

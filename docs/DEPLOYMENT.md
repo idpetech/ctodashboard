@@ -143,3 +143,8 @@ Content-Type: application/json
 Optional body: `{"workspace_id": "default_workspace"}` to refresh one workspace only.
 
 On failure the previous stored briefing is kept; run status and rolling log record the error.
+
+## Connector setup guides (GitHub, Jira, AWS)
+
+Operator-facing setup for local, staging, and production: [connectors/README.md](./connectors/README.md)
+
