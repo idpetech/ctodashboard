@@ -109,7 +109,7 @@ class CredentialService:
     ) -> Dict[str, Optional[str]]:
         """Get AWS connection config (role ARN or access keys). Session tokens are never stored."""
         stored = self.get_workspace_credentials(workspace_id, assignment_id, "aws")
-        from services.cloud_access.aws_sts_broker import aws_auth_method, AWS_ASSUME_ROLE_AUTH
+        from services.cloud_access.aws_sts_broker import AWS_ASSUME_ROLE_AUTH, aws_auth_method
 
         if aws_auth_method(stored) == AWS_ASSUME_ROLE_AUTH:
             return {
