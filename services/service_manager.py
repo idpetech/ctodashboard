@@ -33,6 +33,8 @@ FEATURE_FLAGS = {
     "connector_oauth_ui": os.getenv("ENABLE_CONNECTOR_OAUTH_UI", "false").lower() == "true",
     "aws_cross_account_role": os.getenv("ENABLE_AWS_CROSS_ACCOUNT_ROLE", "false").lower() == "true",
     "aws_role_connector_ui": os.getenv("ENABLE_AWS_ROLE_CONNECTOR_UI", "false").lower() == "true",
+    "assignment_metrics_cache": os.getenv("ENABLE_ASSIGNMENT_METRICS_CACHE", "false").lower()
+    == "true",
 }
 
 

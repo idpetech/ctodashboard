@@ -1243,13 +1243,24 @@ function generateAssignmentContent(assignment) {
         }
         
         html += '</div>';
-        html += '<button data-assignment-id="' + assignment.id + '" ';
-        html += 'onclick="loadRealMetrics(this.getAttribute(&quot;data-assignment-id&quot;))" ';
-        html += 'class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">';
+        html += '<div class="flex flex-wrap gap-2 items-center" id="metrics-actions-' + assignment.id + '">';
+        html += '<button type="button" data-assignment-id="' + assignment.id + '" ';
+        html += 'onclick="loadStoredMetrics(this.getAttribute(&quot;data-assignment-id&quot;))" ';
+        html += 'class="metrics-show-stored-btn hidden text-sm border border-blue-300 text-blue-700 px-3 py-2 rounded-lg hover:bg-blue-50">';
+        html += 'Show last metrics</button>';
+        html += '<button type="button" data-assignment-id="' + assignment.id + '" ';
+        html += 'onclick="loadRealMetrics(this.getAttribute(&quot;data-assignment-id&quot;), true)" ';
+        html += 'class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors text-sm">';
+        html += 'Refresh live metrics</button>';
+        html += '<button type="button" data-assignment-id="' + assignment.id + '" ';
+        html += 'onclick="loadRealMetrics(this.getAttribute(&quot;data-assignment-id&quot;), false)" ';
+        html += 'class="metrics-legacy-load-btn bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">';
         html += '🔄 Load All Metrics</button>';
+        html += '</div>';
         html += '</div>';
         // Metrics display area (full width, directly under the Load All Metrics button)
         html += '<div id="metrics-display-' + assignment.id + '" class="mt-4"></div>';
+        setTimeout(function() { prepareAssignmentMetricsPanel(assignment.id); }, 0);
     }
     
     // Tech Stack
@@ -1459,44 +1470,146 @@ async function loadBasicMetrics(assignmentId) {
     }
 }
 
-async function loadRealMetrics(assignmentId) {
-    const metricsDiv = document.getElementById('metrics-display-' + assignmentId);
-    const loadStarted = Date.now();
-    metricsDiv.innerHTML = '<div class="bg-blue-50 p-4 rounded"><div class="loading-spinner"></div><p class="mt-2 text-gray-700">Loading all metrics…</p><p class="text-sm text-gray-500">Calling GitHub, AWS, OpenAI, and other APIs in parallel. This often takes 30–90 seconds.</p></div>';
-    
+let _assignmentMetricsCacheOn;
+
+async function assignmentMetricsCacheEnabled() {
+    if (_assignmentMetricsCacheOn !== undefined) {
+        return _assignmentMetricsCacheOn;
+    }
     try {
-        const ws = currentWorkspace ? `?workspace_id=${encodeURIComponent(currentWorkspace)}` : '';
-        const metricsUrl = '/api/all-metrics/' + assignmentId + ws;
-        console.log('🏢 Loading full metrics:', metricsUrl);
-        
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 120000);
-        const response = await authFetch(metricsUrl, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-            if (response.status === 404) {
+        const resp = await fetch('/api/feature-flags');
+        const flags = await resp.json();
+        _assignmentMetricsCacheOn = !!(flags && flags.assignment_metrics_cache);
+    } catch (e) {
+        console.warn('Feature flags unavailable for metrics cache:', e);
+        _assignmentMetricsCacheOn = false;
+    }
+    return _assignmentMetricsCacheOn;
+}
+
+function syncMetricsActionButtons(assignmentId, cacheOn) {
+    const root = document.getElementById('metrics-actions-' + assignmentId);
+    if (!root) return;
+    root.querySelectorAll('.metrics-show-stored-btn').forEach(function(btn) {
+        btn.classList.toggle('hidden', !cacheOn);
+    });
+    root.querySelectorAll('.metrics-legacy-load-btn').forEach(function(btn) {
+        btn.classList.toggle('hidden', !!cacheOn);
+    });
+}
+
+async function prepareAssignmentMetricsPanel(assignmentId) {
+    const cacheOn = await assignmentMetricsCacheEnabled();
+    syncMetricsActionButtons(assignmentId, cacheOn);
+    if (cacheOn) {
+        await loadStoredMetrics(assignmentId, { silent: true });
+    }
+}
+
+function renderMetricsMetaBanner(data) {
+    if (!data || !data.fetched_at) return '';
+    let html = '<div class="text-xs text-gray-500 mb-3">';
+    html += (data.source === 'stored' ? 'Showing last refresh' : 'Live refresh');
+    html += ' · ' + new Date(data.fetched_at).toLocaleString();
+    if (data.duration_seconds) {
+        html += ' · ' + Number(data.duration_seconds).toFixed(1) + 's';
+    }
+    if (data.is_stale && data.stale_reason) {
+        html += '<div class="text-amber-700 mt-1">' + data.stale_reason + '</div>';
+    }
+    html += '</div>';
+    return html;
+}
+
+async function fetchAssignmentMetrics(assignmentId, query, options) {
+    const opts = options || {};
+    const metricsDiv = document.getElementById('metrics-display-' + assignmentId);
+    if (!metricsDiv) return null;
+
+    const params = new URLSearchParams();
+    if (currentWorkspace) {
+        params.set('workspace_id', currentWorkspace);
+    }
+    Object.keys(query || {}).forEach(function(key) {
+        if (query[key]) params.set(key, query[key]);
+    });
+    const qs = params.toString();
+    const metricsUrl = '/api/all-metrics/' + assignmentId + (qs ? '?' + qs : '');
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(function() { controller.abort(); }, query && query.refresh === 'true' ? 120000 : 30000);
+    const response = await authFetch(metricsUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+        const payload = await response.json().catch(function() { return {}; });
+        if (!opts.silent) {
+            if (response.status === 404 && payload.error === 'no_stored_metrics') {
+                metricsDiv.innerHTML = '<div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">' +
+                    (payload.message || 'No stored metrics yet. Click Refresh live metrics.') + '</div>';
+            } else if (response.status === 404) {
                 metricsDiv.innerHTML = '<div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">📋 No metrics available yet. Configure connectors in the assignment setup to start collecting metrics.</div>';
-                return;
+            } else {
+                throw new Error(payload.message || payload.error || ('HTTP ' + response.status));
             }
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        
-        const data = await response.json();
+        return null;
+    }
+
+    const data = await response.json();
+    if (data.error) {
+        if (!opts.silent) {
+            metricsDiv.innerHTML = '<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">Metrics Error: ' + data.error + '</div>';
+        }
+        return null;
+    }
+    return data;
+}
+
+async function loadStoredMetrics(assignmentId, options) {
+    const opts = options || {};
+    const metricsDiv = document.getElementById('metrics-display-' + assignmentId);
+    if (!metricsDiv) return;
+    if (!opts.silent) {
+        metricsDiv.innerHTML = '<div class="bg-blue-50 p-4 rounded"><div class="loading-spinner"></div><p class="mt-2 text-gray-700">Loading last metrics snapshot…</p></div>';
+    }
+    try {
+        const data = await fetchAssignmentMetrics(assignmentId, { source: 'stored' }, opts);
+        if (!data) return;
+        metricsDiv.innerHTML = renderMetricsMetaBanner(data);
+        displayAllMetrics(data, metricsDiv, true);
+    } catch (error) {
+        if (!opts.silent) {
+            metricsDiv.innerHTML = '<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">Failed to load stored metrics: ' + error.message + '</div>';
+        }
+    }
+}
+
+async function loadRealMetrics(assignmentId, refreshLive) {
+    const metricsDiv = document.getElementById('metrics-display-' + assignmentId);
+    const cacheOn = await assignmentMetricsCacheEnabled();
+    const doRefresh = refreshLive === true || (!cacheOn && refreshLive !== false);
+    const loadStarted = Date.now();
+
+    if (!doRefresh && cacheOn) {
+        return loadStoredMetrics(assignmentId);
+    }
+
+    metricsDiv.innerHTML = '<div class="bg-blue-50 p-4 rounded"><div class="loading-spinner"></div><p class="mt-2 text-gray-700">Refreshing live metrics…</p><p class="text-sm text-gray-500">Calling GitHub, AWS, OpenAI, and other APIs in parallel. This often takes 30–90 seconds.</p></div>';
+
+    try {
+        const query = { refresh: 'true' };
+        const data = await fetchAssignmentMetrics(assignmentId, query, {});
+        if (!data) return;
+
         console.log(
             `📊 Full metrics [${assignmentId}]:`,
             summarizeMetricsPayload(data),
             data
         );
-        
-        if (data.error) {
-            metricsDiv.innerHTML = '<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">Metrics Error: ' + data.error + '</div>';
-            return;
-        }
-        
         console.log(`📊 Full metrics loaded in ${((Date.now() - loadStarted) / 1000).toFixed(1)}s`);
-        displayAllMetrics(data, metricsDiv);
-        
+        metricsDiv.innerHTML = renderMetricsMetaBanner(data);
+        displayAllMetrics(data, metricsDiv, true);
     } catch (error) {
         const msg = error.name === 'AbortError'
             ? 'Metrics request timed out after 2 minutes. Try again or disable a slow connector (AWS is often the slowest).'
@@ -1558,7 +1671,8 @@ function renderGitHubRepoCard(repo) {
     return html;
 }
 
-function displayAllMetrics(metrics, container) {
+function displayAllMetrics(metrics, container, appendMode) {
+    const prefix = appendMode ? container.innerHTML : "";
     let html = '<div class="bg-gray-50 rounded-lg p-4">';
     html += '<h3 class="text-xl font-bold text-gray-800 mb-4">📊 All Metrics - ' + new Date().toLocaleString() + '</h3>';
     
@@ -2159,7 +2273,7 @@ function displayAllMetrics(metrics, container) {
     html += '</div>';
     
     html += '</div>';
-    container.innerHTML = html;
+    container.innerHTML = prefix + html;
 }
 
 function displayRealMetrics(metrics, container) {

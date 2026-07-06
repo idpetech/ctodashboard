@@ -251,17 +251,46 @@ def register_connector_oauth_routes(app):
         if not jira_oauth_connector_enabled():
             return jsonify({"error": "Jira OAuth connector is disabled"}), 403
 
+        state = request.args.get("state", "").strip()
+        ctx = {"workspace_id": "default_workspace", "assignment_id": "", "return_to": "dashboard"}
+        try:
+            if state:
+                ctx = parse_oauth_state(state, expected_connector="jira")
+        except OAuthStateError:
+            pass
+
+        workspace_id = ctx["workspace_id"]
+        assignment_id = ctx["assignment_id"]
+        return_to = ctx.get("return_to") or "dashboard"
+
+        def jira_return(*, status: str, message: str = "") -> str:
+            return _oauth_return_redirect(
+                workspace_id,
+                connector="jira",
+                status=status,
+                message=message,
+                assignment_id=assignment_id,
+                return_to=return_to,
+            )
+
         error = request.args.get("error", "").strip()
         if error:
-            return jsonify({"error": f"Jira authorization denied: {error}"}), 400
+            return redirect(jira_return(status="error", message=f"Jira authorization denied: {error}"))
 
         code = request.args.get("code", "").strip()
-        state = request.args.get("state", "").strip()
         if not code:
-            return jsonify({"error": "authorization code is required"}), 400
+            return redirect(
+                jira_return(
+                    status="error",
+                    message="Jira did not return an authorization code. Start again from Connect Jira in CTOLens.",
+                )
+            )
 
         try:
             ctx = parse_oauth_state(state, expected_connector="jira")
+            workspace_id = ctx["workspace_id"]
+            assignment_id = ctx["assignment_id"]
+            return_to = ctx.get("return_to") or "dashboard"
             redirect_uri = f"{_app_base_url()}/oauth/jira/callback"
             token_payload = exchange_code_for_tokens(code=code, redirect_uri=redirect_uri)
             access_token = token_payload.get("access_token")
@@ -276,13 +305,28 @@ def register_connector_oauth_routes(app):
             if not cloud_id or not site_url:
                 raise ValueError("Jira accessible resource missing id or url")
         except OAuthStateError as exc:
-            return jsonify({"error": str(exc)}), 400
+            return redirect(
+                _oauth_return_redirect(
+                    workspace_id,
+                    connector="jira",
+                    status="error",
+                    message=str(exc),
+                    assignment_id=assignment_id,
+                    return_to=return_to,
+                )
+            )
         except Exception as exc:
             logger.exception("Jira OAuth callback failed")
-            return jsonify({"error": f"Jira OAuth failed: {exc}"}), 400
-
-        workspace_id = ctx["workspace_id"]
-        assignment_id = ctx["assignment_id"]
+            return redirect(
+                _oauth_return_redirect(
+                    workspace_id,
+                    connector="jira",
+                    status="error",
+                    message=f"Jira OAuth failed: {exc}",
+                    assignment_id=assignment_id,
+                    return_to=return_to,
+                )
+            )
 
         credentials = {
             "auth_method": "jira_oauth",
@@ -304,23 +348,32 @@ def register_connector_oauth_routes(app):
         )
         if not result.get("success"):
             return redirect(
-                _settings_redirect(
+                _oauth_return_redirect(
                     workspace_id,
                     connector="jira",
                     status="error",
                     message=result.get("error", "Failed to save Jira OAuth credentials"),
+                    assignment_id=assignment_id,
+                    return_to=return_to,
                 )
             )
 
         validation = validate_oauth_connection(credentials)
         status = "success" if validation.get("valid") else "warning"
         message = (
-            f"Jira connected to {site_url}."
+            f"Jira connected to {site_url}. Add project keys to monitor."
             if validation.get("valid")
             else validation.get("error", "Connected but validation failed")
         )
         return redirect(
-            _settings_redirect(workspace_id, connector="jira", status=status, message=message)
+            _oauth_return_redirect(
+                workspace_id,
+                connector="jira",
+                status=status,
+                message=message,
+                assignment_id=assignment_id,
+                return_to=return_to,
+            )
         )
 
     @app.route("/api/workspaces/<workspace_id>/credentials/<connector_type>/oauth", methods=["DELETE"])
